@@ -1253,8 +1253,28 @@ def submit_q():
     os.unlink(cert_filename)
     return redirect("/")
 
-@app.route("/revoke/<int:cert_id>")
+
+@app.route("/revoke/<int:cert_id>", methods=["POST"])
 def revoke(cert_id):
+    secret = request.form.get("delete_secret", "").strip()
+    expected = str(app.config.get("DELETE_SECRET", "")).strip()
+    if secret != expected:
+        app.logger.warning(f"[REVOKE] Wrong delete secret for certificate ID {cert_id}")
+        return redirect("/certs")
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
+        conn.commit()
+        app.logger.info(f"[REVOKE] Certificate {cert_id} revoked.")
+    update_crl()
+    return redirect("/certs")
+
+
+
+
+
+#@app.route("/revoke/<int:cert_id>")
+
+def revokeY(cert_id):
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
         conn.commit()

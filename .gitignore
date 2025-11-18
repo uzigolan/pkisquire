@@ -6,3 +6,4 @@ logs/
 *.log
 *.code-workspace
 openscep/
+crl.pem

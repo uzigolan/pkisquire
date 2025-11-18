@@ -69,10 +69,14 @@
                 </a>
 
                 {% if not revoked %}
-                  <a href="/revoke/{{ id }}" class="btn btn-sm btn-danger">Revoke</a>
-                {% else %}
-                  <span class="badge badge-secondary align-self-center">Revoked</span>
-                {% endif %}
+                  <a href="javascript:void(0);"
+     class="btn btn-sm btn-danger"
+     onclick="handleRevoke({{ id }});">
+    Revoke
+  </a>
+{% else %}
+  <span class="badge badge-secondary align-self-center">Revoked</span>
+{% endif %}
 
                 <!-- Updated Delete link: no direct /delete URL, JS handles POST -->
                 <a href="javascript:void(0);"
@@ -156,6 +160,35 @@
       input.type = 'hidden';
       input.name = 'pfx_password';
       input.value = pwd;
+      form.appendChild(input);
+
+      document.body.appendChild(form);
+      form.submit();
+    }
+
+    function handleRevoke(certId) {
+      // 1) Confirm
+      var sure = confirm('Are you sure you want to revoke certificate ' + certId + '?');
+      if (!sure) {
+        return;
+      }
+
+      // 2) Ask for secret
+      var secret = prompt('Please enter the delete secret:');
+      if (secret === null) {
+        // user pressed cancel
+        return;
+      }
+
+      // 3) Create hidden form and POST it
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/revoke/' + certId;
+
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'delete_secret';
+      input.value = secret;
       form.appendChild(input);
 
       document.body.appendChild(form);
