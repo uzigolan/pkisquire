@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">X509 Certificate Templates</h1>
+  <form method="get" action="{{ url_for('profiles.template_form') }}" class="form-inline mb-3">
+    <div class="form-group mr-2">
+      <label for="template" class="mr-2">Choose a template:</label>
+      <select name="template" id="template" class="form-control">
+        {% for file in template_files %}
+          <option value="{{ file }}">{{ file }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Load Template</button>
+  </form>
+  <a href="{{ url_for('profiles.list_profiles') }}" class="btn btn-secondary">View Profile Files</a>
+{% endblock %}
+

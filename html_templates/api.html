@@ -1,0 +1,137 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Server APIs &amp; CLI Commands</h1>
+  <table class="table table-bordered table-hover small">
+    <thead class="thead-dark">
+      <tr>
+        <th>Type</th>
+        <th>Action</th>
+        <th>Endpoint URL / Command</th>
+        <th>Misc</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- CA General -->
+      <tr>
+        <td rowspan="5">CA General</td>
+        <td>Download CA Chain</td>
+        <td>
+          <pre>curl -k https://pikachu-ca.iot-rad.com:5443/downloads/chain</pre>
+        </td>
+        <td>Returns full CA chain file</td>
+      </tr>
+      <tr>
+        <td>Download CRL</td>
+        <td>
+          <pre>curl -k https://pikachu-ca.iot-rad.com:4443/downloads/crl</pre>
+        </td>
+        <td>Generates and downloads latest Certificate Revocation List</td>
+      </tr>
+      <tr>
+        <td>Certificate Status</td>
+        <td>
+          <pre>curl -k https://pikachu-ca.iot-rad.com:4443/status/0xc75f573d9cb2b581</pre>
+        </td>
+        <td>Returns status as valid, revoked, or not found in JSON</td>
+      </tr>
+      <tr>
+        <td>Expired Certificates</td>
+        <td>
+          <pre>curl -k https://pikachu-ca.iot-rad.com:5443/expired</pre>
+        </td>
+        <td>Returns list of certificate IDs that are expired</td>
+      </tr>
+      <tr>
+        <td>Download CSR</td>
+        <td>
+          <pre>curl -k https://pikachu-ca.iot-rad.com:5443/requests/1/download</pre>
+        </td>
+        <td>Serves saved CSR if available</td>
+      </tr>
+
+
+      <!-- SCEP -->
+      <tr>
+        <td rowspan="3">SCEP</td>
+        <td>SCEP CRL</td>
+        <td>
+          <pre>sscep getcrl \
+  -u http://pikachu-ca.iot-rad.com:8090/scep \
+  -c ca_rsa.crt \
+  -k local.key \
+  -l local.crt \
+  -w crl.pem</pre>
+        </td>
+        <td>Not Supported</td>
+      </tr>
+      <tr>
+        <td>SCEP Enrollment</td>
+        <td>
+          <pre>sscep enroll -d -v \
+  -u http://pikachu-ca.iot-rad.com:8090/scep \
+  -c rad_ca_sub_rsa.crt \
+  -k client1.key \
+  -r client1.csr \
+  -l client1.crt</pre>
+        </td>
+        <td>prerequisite RSA based Sub CA @Work</td>
+      </tr>
+      <tr>
+        <td>SCEP CA Certs</td>
+        <td>
+          <pre>sscep getca -u http://pikachu-ca.iot-rad.com:8090/scep -c cap.pem</pre>
+        </td>
+        <td>prerequisite RSA based Sub CA</td>
+      </tr>
+
+      <!-- EST -->
+      <tr>
+        <td rowspan="2">EST</td>
+        <td>EST Enrollment</td>
+        <td>
+          <pre>curl -k -X POST \
+  --data-binary @etx.csr.der \
+  https://pikachu-ca.iot-rad.com:4443/.well-known/est/simpleenroll \
+  -H "Content-Type: application/pkcs10" \
+  --output etx.crt.p7</pre>
+    <pre>estclient enroll \
+  -server pikachu-ca.iot-rad.com:4443 \
+  -insecure \
+  -csr etx.csr \
+  -out etx.crt</pre>
+        </td>
+        <td>Using curl accepts DER CSR and returns signed cert in PKCS#7</td>
+      </tr>
+      <tr>
+        <td>EST CA Certs</td>
+        <td>
+          <pre>curl -k \
+  https://pikachu-ca.iot-rad.com:4443/.well-known/est/cacerts \
+  --output chain.crt</pre>
+<pre>estclient cacerts \
+  -server pikachu-ca.iot-rad.com:4443 \
+  -insecure \
+  -out ca.pem</pre>
+        </td>
+        <td>Returns CA chain in PKCS#7 format</td>
+      </tr>
+
+      <!-- OCSP -->
+      <tr>
+        <td>OCSP</td>
+        <td>OCSP Responder</td>
+        <td>
+          <pre>openssl ocsp \
+  -reqout ocsp_request.der \
+  -issuer rad_ca_sub.crt \
+  -cert valid.crt \
+  -url https://pikachu-ca.iot-rad.com:4443/ocsp \
+  -resp_text \
+  -respout ocsp_response.der</pre>
+        </td>
+        <td>Returns OCSP status in DER format</td>
+      </tr>
+    </tbody>
+  </table>
+{% endblock %}
+

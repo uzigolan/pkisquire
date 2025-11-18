@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Key Details (ID: {{ key.id }})</h1>
+  <p><strong>Name:</strong> {{ key.name }}</p>
+  <p><strong>Type:</strong> {{ key.key_type }}</p>
+
+  {% if key.key_type == "RSA" %}
+    <p><strong>Size:</strong> {{ key.key_size }} bits</p>
+  {% elif key.key_type == "EC" %}
+    <p><strong>Curve:</strong> {{ key.curve_name }}</p>
+  {% elif key.key_type == "PQC" %}
+    <p><strong>Algorithm:</strong> {{ key.pqc_alg }}</p>
+  {% endif %}
+
+  <p><strong>Created At:</strong> {{ key.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+
+  <h2 class="mt-4">Public Key</h2>
+  <pre>{{ key.public_key }}</pre>
+
+  <h2 class="mt-4">Private Key</h2>
+  <pre>{{ key.private_key }}</pre>
+
+  <a href="{{ url_for('keys.list_keys') }}" class="btn btn-secondary mt-3">Back to Keys List</a>
+{% endblock %}
+

@@ -1,0 +1,19 @@
+[ v3_ext ]
+basicConstraints        = critical, CA:FALSE
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid,issuer
+subjectAltName          = @alt_names
+authorityInfoAccess     = @aia_section
+crlDistributionPoints   = @crl_section
+
+[ alt_names ]
+DNS.1 = {{ DNS_1 | default("pikachu-ca.rnd-rad.com") }}
+DNS.2 = {{ DNS_2 | default("*.pikachu-ca.rnd-rad.com") }}
+
+[ aia_section ]
+OCSP;URI.0 = https://{{ ca_domain | default("pikachu-ca.rnd-rad.com") }}/ocsp
+OCSP;URI.1 = https://{{ ca_domain | default("pikachu-ca.rnd-rad.com") }}/ocsp
+caIssuers;URI.0 = https://{{ ca_domain | default("pikachu-ca.rnd-rad.com") }}/ocsp
+
+[ crl_section ]
+URI.0 = https://{{ ca_domain | default("pikachu-ca.rnd-rad.com") }}/downloads/crl

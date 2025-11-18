@@ -1,0 +1,78 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="row mb-4">
+    <div class="col">
+      <h1 class="mb-3">Pikachu CA (R&D Only)</h1>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-9">
+      <!-- CSR Submission Section -->
+      <h2>Submit a CSR</h2>
+      <form method="POST" action="/submit" class="csr-form mb-4">
+        <div class="form-group">
+          <textarea id="csr_textarea" name="csr" rows="10" class="form-control" placeholder="Paste PEM-encoded CSR here..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-success">Sign CSR</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('csr_textarea').value = '';">Clear CSR</button>
+      </form>
+
+      <!-- Load Pending CSR Section -->
+      <div class="mb-4">
+        <h4>Load a Pending CSR Request</h4>
+        <div class="input-group">
+          <select id="csr_select" class="form-control">
+            {% for req in csr_requests %}
+              <option value="{{ req[2]|e }}">{{ req[1] }} (Created: {{ req[3] }})</option>
+            {% endfor %}
+          </select>
+          <div class="input-group-append">
+            <button type="button" class="btn btn-outline-secondary" onclick="loadCSR()">Load CSR into Form</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar Section -->
+    <div class="col-md-3">
+      <h2>Server Extension Configuration</h2>
+      <textarea id="server_ext_config" name="server_ext_config" rows="10" class="form-control mb-2" style="font-size: 12px;" readonly>{{ server_ext_config }}</textarea>
+      <a href="/server_ext" class="btn btn-primary btn-block mb-3">Manage Server Extensions</a>
+
+      <h2>Validity Period</h2>
+      <form method="POST" action="/update_validity">
+        <div class="form-group">
+          <input type="text" name="validity_days" id="validity_days" class="form-control" value="{{ validity_days|default('365') }}" placeholder="Enter validity (days)">
+        </div>
+        <button type="submit" class="btn btn-secondary btn-block">Update Validity</button>
+      </form>
+    </div>
+  </div>
+
+
+
+
+  <script>
+    function loadCSR() {
+      var select = document.getElementById('csr_select');
+      var csrText = select.value;
+      document.getElementById('csr_textarea').value = csrText;
+    }
+    function filterTable() {
+      var filterValue = document.getElementById('filterInput').value.toLowerCase();
+      var table = document.getElementById('certTable');
+      var rows = table.getElementsByTagName('tr');
+      for (var i = 1; i < rows.length; i++) {
+        var commonNameText = rows[i].cells[1].textContent.trim().toLowerCase();
+        var serialText = rows[i].cells[2].textContent.trim().toLowerCase();
+        if (commonNameText.indexOf(filterValue) > -1 || serialText.indexOf(filterValue) > -1) {
+          rows[i].style.display = "";
+        } else {
+          rows[i].style.display = "none";
+        }
+      }
+    }
+  </script>
+{% endblock %}
+

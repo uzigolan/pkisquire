@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<!-- one-line compact toolbar with refresh-rate control -->
+<div class="d-flex align-items-center mb-2" style="gap:.5rem; flex-wrap:wrap;">
+  <h1 class="h5 mb-0">Server Logs</h1>
+  <span class="text-muted">·</span>
+  <label for="lines" class="mb-0">Show last</label>
+  <input id="lines" type="number" value="600" min="10" max="5000"
+         class="form-control form-control-sm"
+         style="width:100px; padding-top:.1rem; padding-bottom:.1rem;">
+  <span class="mb-0">lines</span>
+  <span class="text-muted">·</span>
+  <label for="interval" class="mb-0">every</label>
+  <input id="interval" type="number" value="2" step="0.5" min="0.5" max="60"
+         class="form-control form-control-sm"
+         style="width:80px; padding-top:.1rem; padding-bottom:.1rem;">
+  <span class="mb-0">sec</span>
+  <button id="refresh" class="btn btn-primary btn-sm ml-1">Refresh</button>
+</div>
+
+<!-- Tall log frame -->
+<pre id="logbox" class="border rounded"
+     style="height:85vh; max-height:85vh; overflow:auto; white-space:pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.85rem; line-height: 1.15;"></pre>
+
+<script>
+const box = document.getElementById('logbox');
+const lines = document.getElementById('lines');
+const btn = document.getElementById('refresh');
+const intervalInput = document.getElementById('interval');
+let pollTimer = null;
+
+function fetchLogs() {
+  const n = Math.max(10, Math.min(5000, parseInt(lines.value || '600', 10)));
+  fetch(`/logs/last?n=${n}&_=${Date.now()}`, { cache: 'no-store' })
+    .then(r => r.text())
+    .then(t => {
+      const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 5;
+      box.textContent = t;
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    })
+    .catch(() => {});
+}
+
+function schedulePolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  let secs = parseFloat(intervalInput.value || '2');
+  if (Number.isNaN(secs)) secs = 2;
+  const ms = Math.max(500, Math.min(60000, Math.round(secs * 1000)));
+  localStorage.setItem('logs_poll_ms', String(ms));
+  pollTimer = setInterval(fetchLogs, ms);
+}
+
+// wire up
+btn.addEventListener('click', fetchLogs);
+intervalInput.addEventListener('change', schedulePolling);
+
+// initial: load saved interval (if exists), then start polling
+const savedMs = parseInt(localStorage.getItem('logs_poll_ms') || '2000', 10);
+if (!Number.isNaN(savedMs)) {
+  intervalInput.value = (savedMs / 1000).toString();
+}
+
+schedulePolling();
+fetchLogs();
+</script>
+{% endblock %}
+

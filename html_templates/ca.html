@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Certificate Authority Details</h1>
+
+  <div class="mb-4">
+    <a href="/downloads/chain"     class="btn btn-outline-secondary mr-2">Download CA Chain Cert</a>
+  </div>
+
+  <h2>Root CA Certificate</h2>
+
+  {% set cert_details = root_cert_details %}
+  {% set raw_cert = root_raw_cert %}
+  {% set cert_text = root_cert_text %}
+  {% include "_certificate_detail.html" %}
+  
+  <hr>
+  
+  <h2>Subordinate CA Certificate</h2>
+  {% set cert_details = sub_cert_details %}
+  {% set raw_cert = sub_raw_cert %}
+  {% set cert_text = sub_cert_text %}
+  {% include "_certificate_detail.html" %}
+  
+  <a href="/" class="btn btn-secondary mt-3">Back to Dashboard</a>
+{% endblock %}
+

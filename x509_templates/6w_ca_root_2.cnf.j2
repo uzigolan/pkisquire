@@ -1,0 +1,24 @@
+# CA Certificate Configuration Template for Root ECC Certificates
+[ req ]
+# Note: For ECC keys the “default_bits” option is not used.
+default_md         = sha256
+default_days       = 3650
+prompt             = no
+distinguished_name = dn
+x509_extensions    = v3_ca
+default_ec_curve   = prime256v1
+
+[ dn ]
+C  = {{ ca_country | default("FR") }}
+ST = {{ ca_state | default("Ile-de-France") }}
+L  = {{ ca_city | default("Paris") }}
+O  = {{ ca_organization | default("6WIND") }}
+OU = {{ ca_organizational_unit | default("CA Division") }}
+CN = {{ ca_common_name | default("6WIND Test ECDSA RCA") }}
+
+[ v3_ca ]
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = critical, CA:true, pathlen:0
+keyUsage               = critical, digitalSignature, keyCertSign, cRLSign
+

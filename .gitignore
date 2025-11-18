@@ -1,0 +1,8 @@
+*.pyc
+__pycache__/
+logs/
+*.db
+.env
+*.log
+*.code-workspace
+openscep/

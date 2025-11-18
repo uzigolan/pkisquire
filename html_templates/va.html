@@ -1,0 +1,55 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Verification Authority (VA)</h1>
+
+  <h2 class="d-flex align-items-center">
+    List of Revoked Certificates
+  </h2>
+
+  {% if revoked_certificates %}
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Subject</th>
+          <th>Serial</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cert in revoked_certificates %}
+        <tr>
+          <td>{{ cert[0] }}</td>
+          <td>
+            {% set parts = cert[1].split(',') %}
+            {% for part in parts %}
+              {% if "commonName=" in part %}
+                {{ part.split('=')[1].strip() }}
+              {% endif %}
+            {% endfor %}
+          </td>
+          <td>{{ cert[2] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No revoked certificates.</p>
+  {% endif %}
+  <a href="/downloads/crl" class="btn btn-outline-primary mr-3  mb-4">Download CRL</a>
+  <h2>Raw CRL Output (OpenSSL)</h2>
+  <div class="card mb-4">
+    <div class="card-body">
+      <pre>{{ raw_crl }}</pre>
+    </div>
+  </div>
+
+  <h2>Current CRL Content</h2>
+  <div class="card mb-4">
+    <div class="card-body">
+      <pre>{{ crl_content }}</pre>
+    </div>
+  </div>
+
+  <a href="/" class="btn btn-secondary">Back to Dashboard</a>
+{% endblock %}
+

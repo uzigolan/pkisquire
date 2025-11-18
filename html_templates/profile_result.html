@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">
+    {% if rendered_template is defined %}
+      Rendered Profile:
+    {% else %}
+      View Profile:
+    {% endif %}
+    {{ profile.filename }}
+  </h1>
+
+  <p><strong>Originating Template:</strong> {{ profile.template_name }}</p>
+  <p><strong>Profile Type:</strong> {{ profile.profile_type or "Default" }}</p>
+
+  <div class="card mb-4" style="max-width: 50%; margin: auto;">
+    <div class="card-body">
+      <h5 class="card-title">Profile Content</h5>
+      <pre>{{ rendered_template|default(file_content) }}</pre>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <a href="{{ url_for('profiles.edit_profile_file', filename=profile.filename) }}"
+       class="btn btn-sm btn-warning">Edit</a>
+    <a href="{{ url_for('profiles.list_templates') }}"
+       class="btn btn-sm btn-secondary">Back to Template List</a>
+    <a href="{{ url_for('profiles.list_profiles') }}"
+       class="btn btn-sm btn-primary">View All Profiles</a>
+  </div>
+{% endblock %}
+

@@ -1,0 +1,8 @@
+[ v3_ext ]
+authorityInfoAccess = {{ AIA | default("OCSP;URI:https://pikachu-ca.iot-rad.com:4443/ocsp") }}
+subjectAltName = @alt_names
+crlDistributionPoints = {{ CRL | default("URI:https://pikachu-ca.iot-rad.com:4443/downloads/crl") }}
+
+[ alt_names ]
+DNS.1 = pikachu-ca.iot-rad.com
+

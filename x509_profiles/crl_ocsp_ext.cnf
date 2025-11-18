@@ -1,0 +1,4 @@
+[ v3_ext ]
+authorityInfoAccess = OCSP;URI:https://pikachu-ca.iot-rad.com:4443/ocsp
+crlDistributionPoints = URI:https://pikachu-ca.iot-rad.com:4443/downloads/crl
+

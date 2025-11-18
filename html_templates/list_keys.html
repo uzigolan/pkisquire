@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">List of Keys</h1>
+  <table class="table table-bordered table-hover">
+    <thead class="thead-light">
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Size/Curve/Algorithm</th>
+        <th>Created At</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for key in keys %}
+      <tr>
+        <td>{{ key.id }}</td>
+        <td>{{ key.name }}</td>
+        <td>{{ key.key_type }}</td>
+        <td>
+          {% if key.key_type == "RSA" %}
+            {{ key.key_size }} bits
+          {% elif key.key_type == "EC" %}
+            {{ key.curve_name }}
+          {% elif key.key_type == "PQC" %}
+            {{ key.pqc_alg }}
+          {% else %}
+            N/A
+          {% endif %}
+        </td>
+        <td>{{ key.created_at_local.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>
+          <a href="{{ url_for('keys.view_key', key_id=key.id) }}" 
+             class="btn btn-sm btn-info">View</a>
+          <a href="{{ url_for('keys.download_key', key_id=key.id) }}" 
+             class="btn btn-sm btn-success">Download</a>
+          <form action="{{ url_for('keys.delete_key', key_id=key.id) }}" 
+                method="post" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-danger"
+                    onclick="return confirm('Are you sure?');">
+              Delete
+            </button>
+          </form>
+       </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <a href="{{ url_for('keys.generate_key') }}" class="btn btn-primary">Generate New Key</a>
+{% endblock %}
+
