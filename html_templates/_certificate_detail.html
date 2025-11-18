@@ -1,0 +1,28 @@
+<!-- _certificate_detail.html -->
+<div class="card mb-4">
+  <div class="card-body">
+    <!-- Certificate Summary (assumes cert_details is a dict) -->
+    <h4>Certificate Summary</h4>
+    <ul class="list-group mb-3">
+      {% for key, value in cert_details.items() if key != "Extensions" %}
+        {% if value is mapping %}
+          <li class="list-group-item">
+            <strong>{{ key }}:</strong>
+            <ul>
+              {% for subkey, subvalue in value.items() %}
+                <li><strong>{{ subkey }}:</strong> {{ subvalue }}</li>
+              {% endfor %}
+            </ul>
+          </li>
+        {% else %}
+          <li class="list-group-item"><strong>{{ key }}:</strong> {{ value }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+    <h4>Detailed Certificate Text</h4>
+    <pre>{{ cert_text }}</pre>
+    <h4>Raw Certificate (PEM Format)</h4>
+    <pre>{{ raw_cert }}</pre>
+  </div>
+</div>
+

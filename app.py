@@ -1,0 +1,2009 @@
+import os
+import sqlite3
+import logging
+import subprocess
+import tempfile
+import io
+import zipfile
+import configparser
+import secrets
+import configparser
+import tempfile
+import base64
+
+import binascii
+import re
+import ssl
+
+from pathlib import Path
+from datetime import datetime,timezone
+
+from threading import Thread
+
+from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session
+from flask_sqlalchemy import SQLAlchemy
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509 import CertificateBuilder, load_pem_x509_certificate, random_serial_number
+from cryptography.x509.ocsp import OCSPResponseBuilder, OCSPCertStatus, load_der_ocsp_request,OCSPResponderEncoding,OCSPResponseStatus
+from cryptography.hazmat.primitives.asymmetric import rsa, ec
+from cryptography.hazmat.primitives import serialization 
+from markupsafe import escape
+from asn1crypto import x509 as asn1_x509
+
+# Load shared extensions and blueprints
+from extensions import db           # Shared SQLAlchemy instance
+from x509_profiles import x509_profiles_bp, Profile, X509_PROFILE_DIR
+from x509_keys import x509_keys_bp, Key
+from x509_requests import x509_requests_bp
+from scep import scep_app
+
+#from flask import render_template, current_app as app
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.asymmetric import rsa, ec
+
+
+
+
+app = Flask(__name__, template_folder="html_templates")
+
+# Define base paths and certificate configuration
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+# —— load config.ini ——
+CONFIG_PATH = os.path.join(basedir, "config.ini")
+_cfg = configparser.ConfigParser()
+_cfg.read(CONFIG_PATH)
+
+# — General Flask —
+app.config["SECRET_KEY"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
+app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
+
+
+ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
+if ca_mode not in ("EC", "RSA"):
+    ca_mode = "EC"
+
+app.config["SUBCA_KEY_PATH"]   = _cfg.get("CA", f"SUBCA_KEY_PATH_{ca_mode}")
+app.config["SUBCA_CERT_PATH"]  = _cfg.get("CA", f"SUBCA_CERT_PATH_{ca_mode}")
+app.config["CHAIN_FILE_PATH"]  = _cfg.get("CA", f"CHAIN_FILE_PATH_{ca_mode}")
+app.config["ROOT_CERT_PATH"]   = _cfg.get("CA", "ROOT_CERT_PATH")
+app.config["CA_MODE"]          = ca_mode
+
+# —— SCEP section —— 
+app.config["SCEP_ENABLED"]   = _cfg.getboolean("SCEP", "enabled", fallback=True)
+app.config["SCEP_SERIAL_PATH"] = _cfg.get("SCEP", "serial_file", fallback=None)
+app.config["SCEPY_DUMP_DIR"]   = _cfg.get("SCEP", "dump_dir", fallback=None)
+HTTP_SCEP_PORT                = _cfg.getint("SCEP", "http_port", fallback=9090)
+
+# —— HTTPS section —— 
+SSL_CERT_PATH = _cfg.get("HTTPS", "ssl_cert")
+SSL_KEY_PATH  = _cfg.get("HTTPS", "ssl_key")
+HTTPS_PORT    = _cfg.getint("HTTPS", "port", fallback=5443)
+
+# —— Trusted HTTPS section ——
+TRUSTED_SSL_CERT_PATH = _cfg.get("TRUSTED_HTTPS", "trusted_ssl_cert")
+TRUSTED_SSL_KEY_PATH  = _cfg.get("TRUSTED_HTTPS", "trusted_ssl_key")
+TRUSTED_HTTPS_PORT    = _cfg.getint("TRUSTED_HTTPS", "trusted_port", fallback=5443)
+
+
+
+# —— Other paths —— 
+app.config["CRL_PATH"]         = os.path.join(basedir, _cfg.get("PATHS", "crl_path"))
+app.config["SERVER_EXT_PATH"]  = os.path.join(basedir, _cfg.get("PATHS", "server_ext_cfg"))
+app.config["VALIDITY_CONF"]    = os.path.join(basedir, _cfg.get("PATHS", "validity_conf"))
+app.config["DB_PATH"]          = os.path.join(basedir, _cfg.get("PATHS", "db_path"))
+
+
+
+# Flask and SQLAlchemy configuration
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + app.config["DB_PATH"]
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SECRET_KEY"] = "marketing"  # Replace with a secure unique secret in production
+db.init_app(app)
+
+# ---------- Logging Setup ----------
+import sys
+import os
+import logging
+from logging import Formatter
+from logging.handlers import RotatingFileHandler
+
+# Put logs in ./logs/server.log (create dir if needed)
+basedir = os.path.abspath(os.path.dirname(__file__))
+LOG_DIR = os.path.join(basedir, "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "server.log")
+app.config["LOG_FILE"] = LOG_FILE  # expose to routes
+
+# One rotating file handler (no stdout handler to avoid confusion)
+file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
+file_handler.setLevel(logging.DEBUG)
+formatter = Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+file_handler.setFormatter(formatter)
+
+# Apply to Flask app logger
+app.logger.handlers.clear()
+app.logger.setLevel(logging.DEBUG)
+app.logger.addHandler(file_handler)
+app.logger.propagate = False
+
+# Also capture Werkzeug (request logs) into the same file
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.handlers.clear()
+werkzeug_logger.setLevel(logging.INFO)
+werkzeug_logger.addHandler(file_handler)
+werkzeug_logger.propagate = False
+
+app.logger.info("Logging initialized. Writing to %s", LOG_FILE)
+
+
+# ---------- Database Initialization ----------
+
+VERSION_FILE = Path(__file__).parent / "version.txt"
+
+try:
+    APP_VERSION = VERSION_FILE.read_text().strip()
+except FileNotFoundError:
+    APP_VERSION = "unknown"
+
+@app.context_processor
+def inject_app_version():
+    # makes `version` available in all templates
+    return dict(version=APP_VERSION)
+
+
+
+with app.app_context():
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS certificates (
+                            id INTEGER PRIMARY KEY,
+                            subject TEXT,
+                            serial TEXT,
+                            cert_pem TEXT,
+                            revoked INTEGER DEFAULT 0
+                        )''')
+    db.create_all()
+
+# ---------- Register Blueprints ----------
+app.register_blueprint(x509_profiles_bp)
+app.register_blueprint(x509_keys_bp)
+app.register_blueprint(x509_requests_bp)
+app.register_blueprint(scep_app)
+# ---------- Helper Functions ----------
+
+
+
+
+
+OID_TO_NAME = {
+    # Dilithium2
+    "1.3.6.1.4.1.2.267.7.4.4": "mldsa44",
+    # Dilithium3
+    "1.3.6.1.4.1.2.267.7.6.5": "mldsa65",
+    # Dilithium5
+    "1.3.6.1.4.1.2.267.7.8.7": "mldsa87",
+    # you can add more mappings here
+}
+
+import re
+
+def certificate_to_dict(cert):
+    def oid_name(oid):
+        return getattr(oid, "_name", None) or oid.dotted_string
+
+    # 1) Try the native API first
+    try:
+        pub = cert.public_key()
+        from cryptography.hazmat.primitives.asymmetric import rsa, ec
+        if isinstance(pub, rsa.RSAPublicKey):
+            algo, params = "RSA", f"{pub.key_size} bits"
+        elif isinstance(pub, ec.EllipticCurvePublicKey):
+            algo, params = "EC", pub.curve.name
+        else:
+            raise ValueError("unknown key class")
+    except Exception:
+        # 2) Try ASN.1 fallback
+        try:
+            der = cert.public_bytes(Encoding.DER)
+            asn1c = asn1_x509.Certificate.load(der)
+            spki = asn1c["tbs_certificate"]["subject_public_key_info"]
+            oid = spki["algorithm"]["algorithm"].dotted
+            algo, params = OID_TO_NAME.get(oid, oid), ""
+        except Exception:
+            # 3) Last resort: call openssl -text
+            pem = cert.public_bytes(Encoding.PEM).decode("ascii")
+            with tempfile.NamedTemporaryFile("w+", delete=False, suffix=".pem") as tmp:
+                tmp.write(pem)
+                path = tmp.name
+
+            proc = subprocess.run(
+                ["openssl", "x509", "-in", path, "-noout", "-text"],
+                capture_output=True, text=True
+            )
+            # clean up immediately
+            try: subprocess.run(["rm", "-f", path])
+            except: pass
+
+            algo = params = ""
+            for line in proc.stdout.splitlines():
+                line = line.strip()
+                if line.startswith("Public Key Algorithm:"):
+                    algo = line.split(":", 1)[1].strip()
+                m = re.match(r"Public-Key:\s*\((\d+ bit)\)", line)
+                if m:
+                    params = m.group(1)
+                elif line.startswith("ASN1 OID:"):
+                    params = line.split(":", 1)[1].strip()
+
+    # build the rest of the dict
+    details = {
+        "Public Key Algorithm": algo,
+        "Public Key Parameters": params,
+        "Subject":    { oid_name(a.oid): a.value for a in cert.subject },
+        "Issuer":     { oid_name(a.oid): a.value for a in cert.issuer },
+        "Serial Number":    hex(cert.serial_number),
+        "Version":          str(cert.version.name),
+        "Not Valid Before": cert.not_valid_before_utc.strftime("%Y-%m-%d %H:%MZ"),
+        "Not Valid After":  cert.not_valid_after_utc.strftime("%Y-%m-%d %H:%MZ"),
+        "Signature Algorithm": oid_name(cert.signature_algorithm_oid),
+        "Extensions":       {}
+    }
+    for ext in cert.extensions:
+        name = oid_name(ext.oid)
+        details["Extensions"][name] = str(ext.value)
+    return details
+
+
+def certificate_to_dictY(cert):
+    def get_oid_name(oid):
+        return getattr(oid, "_name", None) or oid.dotted_string
+
+    cert_details = {
+        "Subject": {get_oid_name(attr.oid): attr.value for attr in cert.subject},
+        "Issuer": {get_oid_name(attr.oid): attr.value for attr in cert.issuer},
+        "Serial Number": hex(cert.serial_number),
+        "Version": str(cert.version.name),
+        "Not Valid Before": cert.not_valid_before_utc.strftime("%Y-%m-%d %H:%M:%SZ"),
+        "Not Valid After": cert.not_valid_after_utc.strftime("%Y-%m-%d %H:%M:%SZ"),
+        "Signature Algorithm": get_oid_name(cert.signature_algorithm_oid),
+        "Extensions": {}
+    }
+    for ext in cert.extensions:
+        ext_name = get_oid_name(ext.oid)
+        cert_details["Extensions"][ext_name] = str(ext.value)
+    
+    # Add Public Key Information: algorithm, key size (for RSA) or curve (for EC)
+    public_key = cert.public_key()
+    if isinstance(public_key, rsa.RSAPublicKey):
+        cert_details["Public Key Algorithm"] = "RSA"
+        cert_details["Key Size"] = f"{public_key.key_size} bits"
+    elif isinstance(public_key, ec.EllipticCurvePublicKey):
+        cert_details["Public Key Algorithm"] = "EC"
+        cert_details["Curve"] = public_key.curve.name
+    else:
+        cert_details["Public Key Algorithm"] = type(public_key).__name__
+    
+    return cert_details
+
+
+def certificate_to_dictX(cert):
+    def get_oid_name(oid):
+        return getattr(oid, "_name", None) or oid.dotted_string
+
+    cert_details = {
+        "Subject": {get_oid_name(attr.oid): attr.value for attr in cert.subject},
+        "Issuer": {get_oid_name(attr.oid): attr.value for attr in cert.issuer},
+        "Serial Number": hex(cert.serial_number),
+        "Version": str(cert.version.name),
+        "Not Valid Before": cert.not_valid_before.strftime("%Y-%m-%d %H:%M:%SZ"),
+        "Not Valid After": cert.not_valid_after.strftime("%Y-%m-%d %H:%M:%SZ"),
+        "Signature Algorithm": get_oid_name(cert.signature_algorithm_oid),
+        "Extensions": {}
+    }
+    for ext in cert.extensions:
+        ext_name = get_oid_name(ext.oid)
+        cert_details["Extensions"][ext_name] = str(ext.value)
+    return cert_details
+
+
+def get_certificate_text(pem: str) -> str:
+    # so that OpenSSL can actually understand Dilithium OIDs
+    with tempfile.NamedTemporaryFile("w+", suffix=".pem", delete=False) as f:
+        f.write(pem)
+        f.flush()
+        cmd = [
+            "openssl", "x509",
+            "-provider", "oqsprovider",   # <-- make sure oqsprovider is loaded
+            "-in", f.name,
+            "-noout", "-text"
+        ]
+        p = subprocess.run(cmd, capture_output=True, text=True)
+        return p.stdout or p.stderr
+
+
+
+def get_certificate_textY(cert_pem):
+    try:
+        proc = subprocess.Popen(
+            ["openssl", "x509", "-noout", "-text"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        stdout, stderr = proc.communicate(input=cert_pem.encode("utf-8"))
+        if proc.returncode != 0:
+            return f"Error: {stderr.decode('utf-8')}"
+        return stdout.decode("utf-8")
+    except Exception as e:
+        app.logger.error(f"Failed to run openssl: {str(e)}")
+        return f"Failed to run openssl: {str(e)}"
+
+# ---------- Main Routes ----------
+@app.context_processor
+def inject_ca_mode():
+    # so every template gets a 'ca_mode' variable
+    return {"ca_mode": app.config["CA_MODE"]}
+
+
+OID_TO_NAME = {
+    "2.16.840.1.101.3.4.3.17":  "PQC/mldsa44",
+    "1.3.6.1.4.1.2.267.7.4.4":   "PQC/mldsa65",
+    "1.3.6.1.4.1.2.267.7.6.5":   "PQC/mldsa87",
+}
+
+
+def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
+    """Run `openssl x509 -text` on the cert and return Key column like “RSA/4096”,
+    “EC/prime256v1” or “PQC/mldsa44”."""
+    # dump to temp file
+    with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as t:
+        t.write(pem_bytes)
+        t.flush()
+        path = t.name
+
+    try:
+        proc = subprocess.run(
+            ["openssl", "x509", "-in", path, "-noout", "-text"],
+            capture_output=True, text=True
+        )
+        text = proc.stdout or proc.stderr
+    finally:
+        os.remove(path)
+
+    algo = None
+    bits = None
+    oid_val = None
+
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("Public Key Algorithm:"):
+            algo = line.split(":", 1)[1].strip()
+        m = re.search(r"\((\d+)\s+bit\)", line)
+        if m:
+            bits = m.group(1)
+        if line.startswith("ASN1 OID:"):
+            oid_val = line.split(":", 1)[1].strip()
+
+    # 1) PQC case: if OpenSSL directly printed “mldsaXX”
+    if algo and algo.lower().startswith("mldsa"):
+        return f"PQC/{algo}"
+
+    # 2) RSA
+    if algo and algo.upper().startswith("RSA"):
+        return f"RSA/{bits}" if bits else "RSA"
+
+    # 3) EC (ECDSA)
+    if algo and ("EC" in algo.upper() or "ECDSA" in algo.upper()):
+        # prefer curve name if it showed up as an OID, else bits
+        curve = oid_val if oid_val in OID_TO_NAME.keys() or algo.startswith("id-ec") else None
+        if curve:
+            # map e.g. id-ecPublicKey oid to actual curve name?
+            # you can extend OID → name map for EC curves if needed
+            return f"EC/{curve}"
+        return f"EC/{bits or algo}"
+
+    # 4) fallback by OID lookup (for any other PQC schemes you map via OID_TO_NAME)
+    if oid_val:
+        name = OID_TO_NAME.get(oid_val)
+        if name:
+            return f"PQC/{name}"
+        return f"PQC/{oid_val}"
+
+    # 5) ultimate fallback
+    return algo or "Unknown"
+
+
+
+@app.route("/config", methods=["GET", "POST"])
+def view_config():
+    # If already authenticated in THIS session → allow
+    if session.get("config_access_granted") is True:
+        pass  # proceed to show config
+
+    # If POST: verify secret
+    elif request.method == "POST":
+        secret = request.form.get("config_secret", "").strip()
+        if secret == app.config.get("DELETE_SECRET"):
+            session["config_access_granted"] = True
+        else:
+            flash("Incorrect secret.", "error")
+            return redirect("/certs")
+
+    # If GET and not authenticated → block
+    else:
+        return redirect("/certs")
+
+    # Show config as before
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            cfg = f.read()
+    except FileNotFoundError:
+        cfg = "# config.ini not found"
+
+    return render_template("config.html", config_text=cfg)
+
+
+
+
+
+
+# ---------- Log reading (polling) ----------
+from flask import Response, request
+
+def _read_last_lines(path: str, n: int = 300, chunk_size: int = 8192) -> str:
+    """
+    Efficient-ish tail: read from the end in chunks until we have N lines.
+    Returns UTF-8 text.
+    """
+    if not os.path.exists(path):
+        return "(log file not found)\n"
+
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            end = f.tell()
+            if end == 0:
+                return ""  # empty file
+
+            buffer = b""
+            lines = []
+            pos = end
+
+            while pos > 0 and len(lines) <= n:
+                read_size = min(chunk_size, pos)
+                pos -= read_size
+                f.seek(pos)
+                chunk = f.read(read_size)
+                buffer = chunk + buffer
+                lines = buffer.splitlines()
+
+            # Take last n lines
+            out = b"\n".join(lines[-n:])
+            return out.decode("utf-8", errors="replace")
+    except Exception as e:
+        return f"(failed to read log: {e})\n"
+
+@app.route("/logs/last")
+def logs_last():
+    """
+    Poll this endpoint to get the last N lines of the server log.
+    Example: GET /logs/last?n=500
+    """
+    n = request.args.get("n", default=300, type=int)
+    n = max(1, min(n, 5000))  # safety clamp
+    text = _read_last_lines(app.config.get("LOG_FILE"), n=n)
+    resp = Response(text, mimetype="text/plain; charset=utf-8")
+    # avoid caches so polling always fetches fresh data
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/logs")
+def view_logs_page():
+    return render_template("logs.html")
+
+
+
+@app.route("/")
+@app.route("/certs")
+def index():
+    try:
+        # 1) Fetch raw rows
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            rows = conn.execute(
+                "SELECT id, subject, serial, revoked, cert_pem FROM certificates"
+            ).fetchall()
+
+        certs = []
+        now = datetime.now(timezone.utc)
+        #now = datetime.now().astimezone()
+        for id_, subject, serial, revoked, cert_pem in rows:
+            # load X.509 object
+            cert = x509.load_pem_x509_certificate(
+                cert_pem.encode(), default_backend()
+            )
+
+            # issue date, omit seconds
+            #issue_date = cert.not_valid_before_utc.strftime("%Y-%m-%d %H:%M")
+            issue_date = cert.not_valid_before_utc.astimezone().strftime("%Y-%m-%d %H:%M")
+
+            # expired if not_valid_after_utc is before now
+            expired = cert.not_valid_after_utc < now
+
+            # extract key description by calling OpenSSL
+            keycol = extract_keycol_with_openssl(
+                cert.public_bytes(Encoding.PEM).decode("utf-8").encode("utf-8")
+            )
+
+            certs.append((id_, subject, serial, keycol, issue_date, revoked, expired))
+
+
+        return render_template(
+            "list_certificates.html",
+            certs=certs
+        )
+
+    except Exception as e:
+        app.logger.error(f"Failed to load index: {e}")
+        return f"Error: {e}", 500
+
+@app.route("/sign")
+def sign():
+    try:
+        # 1) Fetch raw rows
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            csr_requests = conn.execute(
+                "SELECT id, name, csr_pem, created_at FROM csrs"
+            ).fetchall()
+
+
+        # validity setting
+        try:
+            with open(app.config["VALIDITY_CONF"], "r") as f:
+                validity_days = f.read().strip()
+        except FileNotFoundError:
+            validity_days = "365"
+
+        # server extension config
+        try:
+            with open(app.config["SERVER_EXT_PATH"], "r") as f:
+                server_ext_config = f.read()
+        except FileNotFoundError:
+            server_ext_config = ""
+
+        return render_template(
+            "sign.html",
+            csr_requests=csr_requests,
+            server_ext_config=server_ext_config,
+            validity_days=validity_days
+        )
+
+    except Exception as e:
+        app.logger.error(f"Failed to load index: {e}")
+        return f"Error: {e}", 500
+
+
+
+
+@app.route('/load_profile', methods=['GET'])
+def load_profile():
+    filename = request.args.get('filename')
+    if not filename:
+        return "Filename not provided", 400
+
+    absolute_path = os.path.join(app.root_path, X509_PROFILE_DIR, filename)
+    #app.logger.debug(f"Looking for profile configuration at: {absolute_path}")
+
+    if not os.path.exists(absolute_path):
+        return "File not found", 404
+    with open(absolute_path, "r") as f:
+        content = f.read()
+    return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
+# ---------- Inspect Endpoint ----------
+
+# Available types and their openssl subcommands
+DER_TYPES = [
+    ("Certificate Signing Request",   ["req",   "-noout", "-text"]),
+    ("X.509 Certificate",             ["x509",  "-noout", "-text"]),
+    ("Certificate Revocation List",    ["crl",   "-noout", "-text"]),
+    ("PKCS#7 / CMS",                   ["pkcs7", "-print_certs", "-noout", "-text"]),
+    ("PKCS#12 / PFX",                  ["pkcs12","-info", "-nodes", "-in"]),
+    ("OCSP Request",                   ["ocsp",  "-reqin"]),
+    ("OCSP Response",                  ["ocsp",  "-respin"]),
+    ("Private Key",                    []),  # special case using openssl pkey
+    ("Public Key",                     []),  # openssl pkey -pubin
+]
+
+
+@app.route("/inspect", methods=["GET", "POST"])
+def inspect():
+    result = None
+
+    if request.method == "POST":
+        data = request.form.get("inspect_data", "").strip()
+
+        if not data:
+            result = "No data provided."
+
+        else:
+            is_pem = data.startswith("-----BEGIN ")
+
+            # ─── Non‑PEM: auto‑detect by trying every DER_TYPE ───
+            if not is_pem:
+                # Decode Base64 → DER bytes
+                try:
+                    der_bytes = base64.b64decode(data)
+                except Exception:
+                    result = "Failed to base64-decode input."
+                    return render_template("inspect.html", result=result)
+
+                # Write DER to temp file
+                fd, path = tempfile.mkstemp(suffix=".der")
+                os.close(fd)
+                with open(path, "wb") as f:
+                    f.write(der_bytes)
+
+                detected = None
+                detected_cmd = None
+                detected_out = None
+                failures = []
+
+                for label, subcmd in DER_TYPES:
+                    # Build the command, injecting -noout on generic DER
+                    if label == "Private Key":
+                        cmd = ["openssl", "pkey", "-inform DER", "-in", path, "-noout", "-text"]
+
+                    elif label == "Public Key":
+                        cmd = ["openssl", "pkey", "-pubin", "-in", path, "-noout", "-text"]
+
+                    elif label == "OCSP Request":
+                        cmd = ["openssl", "ocsp", "-reqin", path, "-text", "-noverify"]
+
+                    elif label == "OCSP Response":
+                        cmd = ["openssl", "ocsp", "-respin", path, "-text", "-noverify"]
+
+                    elif label == "PKCS#12 / PFX":
+                        cmd = ["openssl"] + subcmd + [path]
+
+                    else:
+                        # Generic DER handler: add -noout after -inform DER
+                        cmd = ["openssl", subcmd[0], "-inform", "DER", "-noout", "-in", path] + subcmd[1:]
+
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    out = proc.stdout.strip() or proc.stderr.strip()
+
+                    if proc.returncode == 0:
+                        detected = label
+                        detected_cmd = cmd
+                        detected_out = out
+                        break
+                    else:
+                        failures.append((label, cmd, proc.returncode, out))
+
+                os.remove(path)
+
+                if detected:
+                    header = f"Detected as: {detected}"
+                    cmd_line = f"$ {' '.join(detected_cmd)}"
+                    result = "\n".join([header, cmd_line, detected_out])
+                else:
+                    # None succeeded: show all failures
+                    lines = ["None of the DER options succeeded. Debug info:"]
+                    for lbl, cmd, code, out in failures:
+                        lines.append(f"--- {lbl} (exit {code}) ---")
+                        lines.append(f"$ {' '.join(cmd)}")
+                        lines.append(out or "(no output)")
+                        lines.append("")
+                    result = "\n".join(lines)
+
+            # ─── PEM: use your existing “chosen” dispatch logic ───
+            else:
+                # 1) Write to temp .pem
+                fd, path = tempfile.mkstemp(suffix=".pem")
+                os.close(fd)
+                with open(path, "wb") as f:
+                    f.write(data.encode())
+
+                # 2) Auto-detect PEM header to set `chosen`
+                hdr = data.splitlines()[0].strip()
+                if hdr.startswith("-----BEGIN PRIVATE KEY") \
+                   or hdr.startswith("-----BEGIN RSA PRIVATE KEY") \
+                   or hdr.startswith("-----BEGIN EC PRIVATE KEY"):
+                    chosen = "Private Key"
+                elif hdr.startswith("-----BEGIN PUBLIC KEY"):
+                    chosen = "Public Key"
+                elif hdr.startswith("-----BEGIN OCSP REQUEST"):
+                    chosen = "OCSP Request"
+                elif hdr.startswith("-----BEGIN OCSP RESPONSE"):
+                    chosen = "OCSP Response"
+                elif hdr.startswith("-----BEGIN CERTIFICATE REQUEST"):
+                    chosen = "Certificate Signing Request"
+                elif hdr.startswith("-----BEGIN CERTIFICATE"):
+                    chosen = "X.509 Certificate"
+                elif hdr.startswith("-----BEGIN X509 CRL") or hdr.startswith("-----BEGIN CRL"):
+                    chosen = "Certificate Revocation List"
+                elif hdr.startswith("-----BEGIN PKCS7") or hdr.startswith("-----BEGIN CMS"):
+                    chosen = "PKCS#7 / CMS"
+                elif hdr.startswith("-----BEGIN PKCS12") or path.lower().endswith((".p12", ".pfx")):
+                    chosen = "PKCS#12 / PFX"
+                else:
+                    chosen = "X.509 Certificate"
+
+                # 3) Find the command template
+                subcmd = next(cmd for (lbl, cmd) in DER_TYPES if lbl == chosen)
+
+                # 4) Dispatch *exactly* as you had it, but add -noout on non‑PEM OCSP
+                if chosen == "Private Key":
+                    cmd = ["openssl", "pkey", "-in", path, "-noout", "-text"]
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    out, err = proc.stdout, proc.stderr
+
+                elif chosen == "Public Key":
+                    cmd = ["openssl", "pkey", "-pubin", "-in", path, "-noout", "-text"]
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    out, err = proc.stdout, proc.stderr
+
+                elif chosen == "OCSP Response":
+                    # both PEM & DER now use -noout
+                    cmd = ["openssl", "ocsp", "-respin", path, "-noout", "-text", "-noverify"]
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    out, err = proc.stdout, proc.stderr
+
+                elif chosen == "OCSP Request":
+                    cmd = ["openssl", "ocsp", "-reqin", path, "-noout", "-text", "-noverify"]
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    out, err = proc.stdout, proc.stderr
+
+                elif chosen == "PKCS#12 / PFX":
+                    cmd = ["openssl", *subcmd, path]
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    out, err = proc.stdout, proc.stderr
+
+                else:
+                    # generic PEM handler
+                    cmd = ["openssl", *subcmd, "-in", path]
+                    proc = subprocess.run(cmd, capture_output=True, text=True)
+                    out, err = proc.stdout, proc.stderr
+
+                os.remove(path)
+
+                header = f"Detected: {chosen}"
+                cmd_line = f"$ {' '.join(cmd)}"
+                body = out.strip() or err.strip()
+                result = "\n".join([header, cmd_line, body])
+
+    return render_template("inspect.html",
+                           result=result,
+                           der_types=[lbl for lbl, _ in DER_TYPES])
+
+
+
+def inspectM():
+    result = None
+    der_mode = False
+    pending_data = ""
+
+    if request.method == "POST":
+        data = request.form.get("inspect_data", "").strip()
+        chosen = request.form.get("der_type")
+
+        if not data:
+            result = "No data provided."
+        else:
+            is_pem = data.startswith("-----BEGIN ")
+            if not is_pem and not chosen:
+                der_mode = True
+                pending_data = data
+            else:
+                fd, path = tempfile.mkstemp(suffix=(".pem" if is_pem else ".der"))
+                try:
+                    with os.fdopen(fd, "wb") as f:
+                        if is_pem:
+                            f.write(data.encode())
+                        else:
+                            f.write(base64.b64decode(data))
+
+                    # Auto-detect PEM header
+                    if is_pem:
+                        hdr = data.splitlines()[0].strip()
+                        if hdr.startswith("-----BEGIN PRIVATE KEY") or hdr.startswith("-----BEGIN RSA PRIVATE KEY") or hdr.startswith("-----BEGIN EC PRIVATE KEY"):
+                            chosen = "Private Key"
+                        elif hdr.startswith("-----BEGIN PUBLIC KEY"):
+                            chosen = "Public Key"
+                        elif hdr.startswith("-----BEGIN OCSP REQUEST"):
+                            chosen = "OCSP Request"
+                        elif hdr.startswith("-----BEGIN OCSP RESPONSE"):
+                            chosen = "OCSP Response"
+                        elif hdr.startswith("-----BEGIN CERTIFICATE REQUEST"):
+                            chosen = "Certificate Signing Request"
+                        elif hdr.startswith("-----BEGIN CERTIFICATE"):
+                            chosen = "X.509 Certificate"
+                        elif hdr.startswith("-----BEGIN X509 CRL") or hdr.startswith("-----BEGIN CRL"):
+                            chosen = "Certificate Revocation List"
+                        elif hdr.startswith("-----BEGIN PKCS7") or hdr.startswith("-----BEGIN CMS"):
+                            chosen = "PKCS#7 / CMS"
+                        elif hdr.startswith("-----BEGIN PKCS12") or path.lower().endswith((".p12", ".pfx")):
+                            chosen = "PKCS#12 / PFX"
+                        else:
+                            chosen = "X.509 Certificate"
+
+                    # Find command template
+                    subcmd = next(cmd for (lbl, cmd) in DER_TYPES if lbl == chosen)
+
+                    # Dispatch
+                    if chosen == "Private Key":
+                        cmd = ["openssl", "pkey", "-in", path, "-noout", "-text"]
+                        proc = subprocess.run(cmd, capture_output=True, text=True)
+                        out, err = proc.stdout, proc.stderr
+
+                    elif chosen == "Public Key":
+                        cmd = ["openssl", "pkey", "-pubin", "-in", path, "-noout", "-text"]
+                        proc = subprocess.run(cmd, capture_output=True, text=True)
+                        out, err = proc.stdout, proc.stderr
+
+
+                    elif chosen == "OCSP Response":
+                        if is_pem:
+                            cmd = ["openssl", "ocsp", "-respin", path, "-noout", "-text", "-noverify"]
+                            proc = subprocess.run(cmd, capture_output=True, text=True)
+                            out, err = proc.stdout, proc.stderr
+                        else:
+                            der = base64.b64decode(data)
+                            cmd = ["openssl", "ocsp", "-respin", "-", "-text", "-noverify"]
+                            proc = subprocess.run(cmd, input=der, capture_output=True)
+                            out = proc.stdout.decode("utf-8", errors="ignore")
+                            err = proc.stderr.decode("utf-8", errors="ignore")
+
+                    elif chosen == "OCSP Request":
+                        if is_pem:
+                            cmd = ["openssl", "ocsp", "-reqin", path, "-noout", "-text", "-noverify"]
+                            proc = subprocess.run(cmd, capture_output=True, text=True)
+                            out, err = proc.stdout, proc.stderr
+                        else:
+                            der = base64.b64decode(data)
+                            cmd = ["openssl", "ocsp", "-reqin", "-", "-text", "-noverify"]
+                            proc = subprocess.run(cmd, input=der, capture_output=True)
+                            out = proc.stdout.decode("utf-8", errors="ignore")
+                            err = proc.stderr.decode("utf-8", errors="ignore")
+
+                    elif chosen == "PKCS#12 / PFX":
+                        cmd = ["openssl", *subcmd, path]
+                        proc = subprocess.run(cmd, capture_output=True, text=True)
+                        out, err = proc.stdout, proc.stderr
+
+                    else:
+                        if is_pem:
+                            cmd = ["openssl", *subcmd, "-in", path]
+                        else:
+                            cmd = ["openssl", subcmd[0], "-inform", "DER", "-in", path] + subcmd[1:]
+                        proc = subprocess.run(cmd, capture_output=True, text=True)
+                        out, err = proc.stdout, proc.stderr
+
+                    header = f"Detected: {chosen}"
+                    cmd_line = f"$ {' '.join(cmd)}"
+                    body = out.strip() or err.strip()
+                    result = "\n".join([header, cmd_line, body])
+
+                except Exception as e:
+                    result = f"Failed to inspect: {e}"
+                finally:
+                    try: os.remove(path)
+                    except OSError:
+                        pass
+
+    return render_template(
+        "inspect.html",
+        result=result,
+        der_mode=der_mode,
+        pending_data=pending_data,
+        der_types=[lbl for lbl, _ in DER_TYPES]
+    )
+
+
+# ---------- APIs Endpoint ----------
+
+@app.route("/api")
+def api_doc():
+    return render_template("api.html")
+
+
+# ---------- Validity Endpoint ----------
+
+@app.route("/update_validity", methods=["POST"])
+def update_validity():
+    new_validity = request.form.get("validity_days", "365").strip()
+    try:
+        with open(app.config["VALIDITY_CONF"], "w") as f:
+            f.write(new_validity)
+        flash("Validity period updated to " + new_validity + " days", "success")
+    except Exception as e:
+        flash("Error updating validity period: " + str(e), "error")
+    return redirect("/")
+
+
+# ---------- VA enpoint ----------
+
+@app.route("/va")
+def va_page():
+    try:
+        # Read the CRL content from the file defined by CRL_PATH.
+        with open(app.config["CRL_PATH"], "rb") as f:
+            crl_data = f.read().decode("utf-8")
+        
+        # Run the OpenSSL command to get the raw CRL details.
+        proc = subprocess.Popen(
+            ["openssl", "crl", "-noout", "-text", "-in", app.config["CRL_PATH"] ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = proc.communicate()
+        if proc.returncode != 0:
+            raw_crl_output = "Error: " + stderr.decode("utf-8")
+        else:
+            raw_crl_output = stdout.decode("utf-8")
+        
+        # Query the database for all revoked certificates (revoked flag = 1)
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            revoked = conn.execute("SELECT id, subject, serial FROM certificates WHERE revoked = 1").fetchall()
+        
+        return render_template("va.html", 
+                               crl_content=crl_data, 
+                               raw_crl=raw_crl_output, 
+                               revoked_certificates=revoked)
+    except Exception as e:
+        app.logger.error(f"Error in /va endpoint: {str(e)}")
+        return f"Error loading VA data: {str(e)}", 500
+
+
+# ---------- CA enpoint ----------
+
+
+@app.route("/ca")
+def ca_page():
+    try:
+        # Load the Root CA certificate
+        with open(app.config["ROOT_CERT_PATH"], "r") as f:
+            root_cert_pem = f.read()
+        root_cert = x509.load_pem_x509_certificate(root_cert_pem.encode(), default_backend())
+        root_cert_details = certificate_to_dict(root_cert)
+        root_raw_cert = root_cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        root_cert_text = get_certificate_text(root_cert_pem)
+        
+        # Load the Subordinate CA certificate
+        with open(app.config["SUBCA_CERT_PATH"], "r") as f:
+            sub_cert_pem = f.read()
+        sub_cert = x509.load_pem_x509_certificate(sub_cert_pem.encode(), default_backend())
+        sub_cert_details = certificate_to_dict(sub_cert)
+        sub_raw_cert = sub_cert.public_bytes(serialization.Encoding.PEM).decode("utf-8")
+        sub_cert_text = get_certificate_text(sub_cert_pem)
+        
+        return render_template("ca.html", 
+                               root_cert_details=root_cert_details, root_raw_cert=root_raw_cert, root_cert_text=root_cert_text,
+                               sub_cert_details=sub_cert_details, sub_raw_cert=sub_raw_cert, sub_cert_text=sub_cert_text)
+    except Exception as e:
+        app.logger.error(f"Error loading CA certificates: {str(e)}")
+        return f"Error loading CA certificates: {str(e)}", 500
+
+
+
+@app.route("/server_ext", methods=["GET", "POST"])
+def server_ext():
+    try:
+        with open(app.config["SERVER_EXT_PATH"], "r") as f:
+            manual_config = f.read()
+    except FileNotFoundError:
+        manual_config = ""
+    if request.method == "POST":
+        new_config = request.form.get("server_ext_config")
+        with open(app.config["SERVER_EXT_PATH"], "w") as f:
+            f.write(new_config)
+        flash("Server extension configuration updated.", "success")
+        return redirect(url_for("server_ext"))
+    profiles = Profile.query.order_by(Profile.id.desc()).all()
+    return render_template("server_ext.html", server_ext_config=manual_config, profiles=profiles)
+
+@app.route("/view_root")
+def view_root():
+    try:
+        with open(app.config["ROOT_CERT_PATH"], "r") as f:
+            cert_pem = f.read()
+        cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+        cert_details = certificate_to_dict(cert)
+        raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
+        cert_text = get_certificate_text(raw_cert)
+        return render_template("view.html", cert_details=cert_details, raw_cert=raw_cert, cert_text=cert_text)
+    except Exception as e:
+        app.logger.error(f"Failed to view root certificate: {str(e)}")
+        return f"Failed to view root certificate: {str(e)}", 500
+
+@app.route("/view_sub")
+def view_sub():
+    try:
+        with open(app.config["SUBCA_CERT_PATH"], "r") as f:
+            cert_pem = f.read()
+        cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+        cert_details = certificate_to_dict(cert)
+        raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
+        cert_text = get_certificate_text(raw_cert)
+        return render_template("view.html", cert_details=cert_details, raw_cert=raw_cert, cert_text=cert_text)
+    except Exception as e:
+        app.logger.error(f"Failed to view subordinate certificate: {str(e)}")
+        return f"Failed to view subordinate certificate: {str(e)}", 500
+
+@app.route("/view/<int:cert_id>")
+def view_certificate(cert_id):
+    app.logger.debug(f"view_certificate called with cert_id={cert_id}")
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            # turn on row‐factory just for nicer logging
+            conn.row_factory = sqlite3.Row
+            cur = conn.execute(
+                "SELECT id, subject, serial, revoked, cert_pem FROM certificates WHERE id = ?",
+                (cert_id,)
+            )
+            row = cur.fetchone()
+            app.logger.debug(f"DB row for id={cert_id}: {row!r}")
+
+        if not row:
+            # now you’ll see in your logs exactly which IDs exist (or don’t)
+            return f"Certificate not found (tried id={cert_id})", 404
+
+        # at this point row["cert_pem"] is guaranteed non‐None
+        cert_pem = row["cert_pem"]
+        app.logger.debug("Loaded PEM, length=%d", len(cert_pem))
+        cert = x509.load_pem_x509_certificate(cert_pem.encode("utf-8"), default_backend())
+
+        cert_details = certificate_to_dict(cert)
+
+        raw_cert = cert.public_bytes(
+            encoding=serialization.Encoding.PEM
+        ).decode("utf-8")
+
+        cert_text = get_certificate_text(raw_cert)
+        return render_template(
+            "view.html",
+            cert_details=cert_details,
+            raw_cert=raw_cert,
+            cert_text=cert_text
+        )
+
+    except Exception as e:
+        app.logger.exception("Failed to view certificate")
+        return f"Failed to view certificate: {e}", 500
+
+
+
+@app.route("/status/<serial>")
+def cert_status(serial):
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            row = conn.execute("SELECT revoked FROM certificates WHERE serial = ?", (serial,)).fetchone()
+            if row:
+                return {"serial": serial, "status": "revoked" if row[0] else "valid"}
+        return {"serial": serial, "status": "not found"}, 404
+    except Exception as e:
+        app.logger.error(f"Failed to check certificate status: {str(e)}")
+        return f"Status check failed: {str(e)}", 500
+
+@app.route("/expired")
+def expired_certs():
+    try:
+        expired = []
+        now = datetime.datetime.utcnow()
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            rows = conn.execute("SELECT id, cert_pem FROM certificates").fetchall()
+            for row in rows:
+                cert = x509.load_pem_x509_certificate(row[1].encode())
+                if cert.not_valid_after < now:
+                    expired.append(row[0])
+        return {"expired_cert_ids": expired}
+    except Exception as e:
+        app.logger.error(f"Failed to retrieve expired certificates: {str(e)}")
+        return f"Expired certs check failed: {str(e)}", 500
+
+
+
+@app.route("/delete/<int:cert_id>", methods=["POST"])
+def delete_certificate(cert_id):
+    # Get the secret from the form and normalize it a bit
+    secret = request.form.get("delete_secret", "").strip()
+    expected = str(app.config.get("DELETE_SECRET", "")).strip()
+
+#    app.logger.info(f"[DELETE] Request to delete cert {cert_id}, "
+#                    f"provided_secret_len={len(secret)} given {secret} expected {expected}")
+
+    # Secret mismatch → log and go back to /certs
+    if secret != expected:
+        app.logger.warning(f"[DELETE] Wrong delete secret for certificate ID {cert_id}")
+        return redirect("/certs")
+
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            cur = conn.execute("DELETE FROM certificates WHERE id = ?", (cert_id,))
+            conn.commit()
+            app.logger.info(f"[DELETE] Rows deleted for cert {cert_id}: {cur.rowcount}")
+    except Exception as e:
+        app.logger.error(f"[DELETE] Failed to delete certificate ID {cert_id}: {str(e)}")
+
+    # Always back to /certs (success or failure)
+    return redirect("/certs")
+
+
+
+
+@app.route("/submit", methods=["POST"])
+def submit():
+    csr_pem = request.form["csr"]
+    ext_block = request.form.get("ext_block", "v3_ext")
+    try:
+        csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
+        subject_str = ", ".join([f"{attr.oid._name}={attr.value}" for attr in csr_obj.subject])
+    except Exception as e:
+        subject_str = "Unknown Subject"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
+        csr_file.write(csr_pem.encode())
+        csr_filename = csr_file.name
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
+        cert_filename = cert_file.name
+
+    custom_serial = secrets.randbits(64)
+    # Format it as a hexadecimal string (with the 0x prefix)
+    custom_serial_str = hex(custom_serial)
+
+
+    # Read the validity period from the validity.conf file
+    try:
+        with open(app.config["VALIDITY_CONF"], "r") as f:
+            validity_days = f.read().strip()
+    except FileNotFoundError:
+        validity_days = "365"  # fallback if not set
+
+    try:
+        cmd = [
+            "openssl", "x509", "-req",
+            "-in", csr_filename,
+            "-CA", app.config["SUBCA_CERT_PATH"],
+            "-CAkey", app.config["SUBCA_KEY_PATH"],
+            "-set_serial", custom_serial_str, 
+            "-CAcreateserial",
+            "-days", validity_days,
+            "-out", cert_filename,
+            "-extfile", app.config["SERVER_EXT_PATH"],
+            "-extensions", ext_block
+        ]
+        #app.logger.debug("Running OpenSSL command: %s", " ".join(cmd))
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        os.unlink(csr_filename)
+        os.unlink(cert_filename)
+        error_msg = f"Error during OpenSSL signing: {e.stderr}"
+        app.logger.error(error_msg)
+        flash(error_msg, "error")
+        return redirect("/")
+    with open(cert_filename, "r") as f:
+        cert_pem = f.read()
+    cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+    actual_serial = hex(cert_obj.serial_number)
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute("INSERT INTO certificates (subject, serial, cert_pem) VALUES (?, ?, ?)",
+                     (subject_str, actual_serial, cert_pem))
+    os.unlink(csr_filename)
+    os.unlink(cert_filename)
+    return redirect("/")
+
+@app.route("/submit_q", methods=["POST"])
+def submit_q():
+    csr_pem = request.form["csr"]
+    ext_block = request.form.get("ext_block", "v3_ext")
+    try:
+        csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
+        subject_str = ", ".join([f"{attr.oid._name}={attr.value}" for attr in csr_obj.subject])
+    except Exception as e:
+        subject_str = "Unknown Subject"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
+        csr_file.write(csr_pem.encode())
+        csr_filename = csr_file.name
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
+        cert_filename = cert_file.name
+
+    custom_serial = secrets.randbits(64)
+    # Format it as a hexadecimal string (with the 0x prefix)
+    custom_serial_str = hex(custom_serial)
+
+
+    # Read the validity period from the validity.conf file
+    try:
+        with open(app.config["VALIDITY_CONF"], "r") as f:
+            validity_days = f.read().strip()
+    except FileNotFoundError:
+        validity_days = "365"  # fallback if not set
+
+    try:
+        cmd = [
+            "openssl", "x509", "-req",
+            "-in", csr_filename,
+            "-CA", app.config["SUBCA_CERT_PATH"],
+            "-signkey", app.config["SUBCA_KEY_PATH"],
+            "-set_serial", custom_serial_str,
+            "-CAcreateserial",
+            "-days", validity_days,
+            "-out", cert_filename,
+            "-extfile", app.config["SERVER_EXT_PATH"],
+            "-extensions", ext_block
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        os.unlink(csr_filename)
+        os.unlink(cert_filename)
+        app.logger.error("Error during OpenSSL signing: %s", e.stderr)
+        return "Error signing CSR", 500
+    with open(cert_filename, "r") as f:
+        cert_pem = f.read()
+    full_chain_pem = cert_pem
+    if os.path.exists(app.config["CHAIN_FILE_PATH"]):
+        with open(app.config["CHAIN_FILE_PATH"], "r") as f:
+            full_chain_pem += f.read()
+    serial_hex = hex(x509.random_serial_number())
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute("INSERT INTO certificates (subject, serial, cert_pem) VALUES (?, ?, ?)",
+                     (subject_str, serial_hex, full_chain_pem))
+    os.unlink(csr_filename)
+    os.unlink(cert_filename)
+    return redirect("/")
+
+@app.route("/revoke/<int:cert_id>")
+def revoke(cert_id):
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
+        conn.commit()
+    # Immediately update the CRL file.
+    update_crl()
+    return redirect("/")
+
+def revokeX(cert_id):
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
+    return redirect("/")
+
+
+
+# ---------- ZIP Download Endpoint ----------
+@app.route("/downloads/all_zip")
+def download_all_zip():
+    mem_zip = io.BytesIO()
+    with zipfile.ZipFile(mem_zip, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            rows = conn.execute("SELECT id, cert_pem FROM certificates").fetchall()
+            for row in rows:
+                filename = f"cert_{row[0]}.pem"
+                zf.writestr(filename, row[1])
+    mem_zip.seek(0)
+    return send_file(mem_zip, as_attachment=True, download_name="all_certificates.zip", mimetype="application/zip")
+
+def update_crl():
+    import datetime
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    # Load the CA certificate and key.
+    with open(app.config["SUBCA_CERT_PATH"], "rb") as f:
+        ca_cert = x509.load_pem_x509_certificate(f.read())
+    with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
+        ca_key = serialization.load_pem_private_key(f.read(), password=None)
+    
+    now = datetime.datetime.utcnow()
+    builder = x509.CertificateRevocationListBuilder()
+    builder = builder.issuer_name(ca_cert.subject)
+    builder = builder.last_update(now)
+    builder = builder.next_update(now + datetime.timedelta(days=7))
+    
+    # Get revoked certificates from the DB.
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        rows = conn.execute("SELECT serial FROM certificates WHERE revoked = 1").fetchall()
+        for row in rows:
+            serial = int(row[0], 16)
+            revoked_cert = (
+                x509.RevokedCertificateBuilder()
+                .serial_number(serial)
+                .revocation_date(now)
+                .build()
+            )
+            builder = builder.add_revoked_certificate(revoked_cert)
+    
+    crl_obj = builder.sign(private_key=ca_key, algorithm=hashes.SHA256())
+    with open(app.config["CRL_PATH"], "wb") as f:
+        f.write(crl_obj.public_bytes(serialization.Encoding.PEM))
+    return crl_obj
+
+
+
+
+@app.route("/downloads/crl")
+def crl():
+    return send_file(app.config["CRL_PATH"], as_attachment=True)
+
+
+@app.route("/downloads/<int:cert_id>")
+def download(cert_id):
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        row = conn.execute("SELECT cert_pem FROM certificates WHERE id = ?", (cert_id,)).fetchone()
+    if row:
+        cert_pem = row[0]
+        try:
+            cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            common_name = None
+            for attribute in cert.subject:
+                if attribute.oid == x509.NameOID.COMMON_NAME:
+                    common_name = attribute.value
+                    break
+            filename = f"{common_name.replace(' ', '')}.pem" if common_name else f"cert_{cert_id}.pem"
+        except Exception as e:
+            filename = f"cert_{cert_id}.pem"
+        response = make_response(cert_pem)
+        response.headers.set("Content-Type", "application/x-pem-file")
+        response.headers.set("Content-Disposition", "attachment", filename=filename)
+        return response
+    return "Certificate not found", 404
+
+@app.route("/downloads/chain")
+def download_chain():
+    return send_file(app.config["CHAIN_FILE_PATH"], as_attachment=True, download_name="chain.cert.pem")
+
+# ---------- SCEP Endpoint ----------
+
+# using scep blueprint instead 
+
+
+
+# ---------- OCSPV Endpoint ----------
+
+
+from cryptography.x509.ocsp import (
+    load_der_ocsp_request,
+    OCSPResponseBuilder,
+    OCSPResponderEncoding,
+    OCSPCertStatus,
+    OCSPResponseStatus,
+)
+from cryptography.x509.oid import ExtensionOID
+
+
+@app.route("/ocspv", methods=["POST", "GET"])
+def ocspv():
+    app.logger.debug("OCSP endpoint called.")
+    try:
+        # 1) Fetch raw request
+        if request.method == "GET":
+            b64_req = request.args.get("ocsp")
+            if not b64_req:
+                raise ValueError("No OCSP request found in query param")
+            request_data = base64.b64decode(b64_req)
+        else:
+            request_data = request.data
+            if not request_data:
+                raise ValueError("Empty OCSP request body")
+
+        # 2) First parse with cryptography (never breaks on version field)
+        ocsp_req = load_der_ocsp_request(request_data)
+        requests_serials = [ocsp_req.serial_number]
+
+        # 2b) Try to extract *additional* requests with asn1crypto
+        try:
+            asn1_req = asn1_ocsp.OCSPRequest.load(request_data)
+            req_list = asn1_req['tbs_request']['request_list']
+
+            if len(req_list) > 1:
+                requests_serials = []
+                for single in req_list:
+                    sn = single['req_cert']['serial_number'].native
+                    requests_serials.append(sn)
+        except Exception:
+            pass  # ignore, we already have the first request
+
+        # 3) Load CA
+        with open(app.config["SUBCA_CERT_PATH"], "rb") as f:
+            ca_cert = x509.load_pem_x509_certificate(f.read(), default_backend())
+        with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
+            private_key = serialization.load_pem_private_key(f.read(), password=None)
+
+        now = dt.datetime.utcnow()
+        next_update = now + dt.timedelta(days=7)
+        builder = OCSPResponseBuilder()
+
+        # 4) Process each serial number
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            for sn in requests_serials:
+                row = conn.execute(
+                    "SELECT cert_pem, revoked FROM certificates WHERE serial = ?",
+                    (hex(sn),),
+                ).fetchone()
+
+                if not row:
+                    ocsp_resp = OCSPResponseBuilder.build_unsuccessful(
+                        OCSPResponseStatus.UNAUTHORIZED
+                    )
+                    return make_response(
+                        ocsp_resp.public_bytes(serialization.Encoding.DER),
+                        200,
+                        {"Content-Type": "application/ocsp-response"},
+                    )
+
+                cert_pem, revoked_flag = row
+                target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+                revoked = (revoked_flag == 1)
+
+                builder = builder.add_response(
+                    cert=target_cert,
+                    issuer=ca_cert,
+                    algorithm=hashes.SHA1(),
+                    cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
+                    this_update=now,
+                    next_update=next_update,
+                    revocation_time=now if revoked else None,
+                    revocation_reason=x509.ReasonFlags.unspecified if revoked else None,
+                )
+
+        # 5) Responder ID
+        builder = builder.responder_id(OCSPResponderEncoding.HASH, ca_cert)
+
+        # 6) Copy nonce (cryptography API works)
+        try:
+            for ext in ocsp_req.extensions:
+                if ext.oid == ExtensionOID.OCSP_NONCE:
+                    builder = builder.add_extension(ext, critical=False)
+                    break
+        except Exception:
+            pass
+
+        # 7) Sign
+        ocsp_response = builder.sign(private_key, hashes.SHA256())
+
+        return make_response(
+            ocsp_response.public_bytes(serialization.Encoding.DER),
+            200,
+            {"Content-Type": "application/ocsp-response"},
+        )
+
+    except Exception as e:
+        app.logger.error(f"OCSP request processing failed: {str(e)}")
+        return f"OCSP request processing failed: {str(e)}", 400
+
+
+
+
+# ---------- OCSP Endpoint ----------
+
+
+
+
+from asn1crypto import ocsp as asn1_ocsp
+import datetime as dt
+
+
+@app.route("/ocsp", methods=["POST", "GET"])
+def ocsp():
+    app.logger.debug("OCSP endpoint called.")
+    try:
+        # 1) Get DER OCSP request (POST body) or base64 (?ocsp=...) for GET
+        if request.method == "GET":
+            b64_req = request.args.get("ocsp")
+            if not b64_req:
+                raise ValueError("No OCSP request found in query param")
+            request_data = base64.b64decode(b64_req)
+        else:
+            request_data = request.data
+            if not request_data:
+                raise ValueError("Empty OCSP request body")
+
+        # 2) Parse with asn1crypto so we can see ALL requests
+        asn1_req = asn1_ocsp.OCSPRequest.load(request_data)
+        tbs_req = asn1_req["tbs_request"]
+        req_list = tbs_req["request_list"]
+
+        # 3) Load issuer (CA) and key once
+        with open(app.config["SUBCA_CERT_PATH"], "rb") as f:
+            ca_cert = x509.load_pem_x509_certificate(f.read(), default_backend())
+
+        with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
+            private_key = serialization.load_pem_private_key(f.read(), password=None)
+
+        now = dt.datetime.utcnow()
+        next_update = now + dt.timedelta(days=7)
+
+        builder = OCSPResponseBuilder()
+
+        # 4) Add a SingleResponse for each request in the OCSPRequest
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            for single_req in req_list:
+                req_cert = single_req["req_cert"]
+                serial_number = req_cert["serial_number"].native  # int
+
+                row = conn.execute(
+                    "SELECT cert_pem, revoked FROM certificates WHERE serial = ?",
+                    (hex(serial_number),),
+                ).fetchone()
+
+                if not row:
+                    #raise ValueError(f"Certificate with serial {hex(serial_number)} not found")
+                    # build an unsuccessful OCSP response and return it
+                    ocsp_resp = OCSPResponseBuilder.build_unsuccessful(
+                        OCSPResponseStatus.UNAUTHORIZED
+                    )
+                    return make_response(
+                        ocsp_resp.public_bytes(serialization.Encoding.DER),
+                        200,
+                        {"Content-Type": "application/ocsp-response"},
+                    )
+
+                cert_pem, revoked_flag = row
+                target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+                revoked = (revoked_flag == 1)
+
+                builder = builder.add_response(
+                    cert=target_cert,
+                    issuer=ca_cert,
+                    algorithm=hashes.SHA1(),  # match client CertID hash if you later extract it
+                    cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
+                    this_update=now,
+                    next_update=next_update,
+                    revocation_time=now if revoked else None,
+                    revocation_reason=x509.ReasonFlags.unspecified if revoked else None,
+                )
+
+        # 5) Responder ID
+        builder = builder.responder_id(OCSPResponderEncoding.HASH, ca_cert)
+
+        # 6) (Optional) copy nonce from request, if present
+        req_exts = tbs_req["request_extensions"]
+        if req_exts is not None:
+            for ext in req_exts:
+                if ext["extn_id"].native == "ocsp_nonce":
+                    # ext["extn_value"].parsed gives you the raw nonce bytes
+                    nonce_bytes = ext["extn_value"].native
+                    builder = builder.add_extension(
+                        x509.UnrecognizedExtension(
+                            x509.ObjectIdentifier("1.3.6.1.5.5.7.48.1.2"),
+                            nonce_bytes,
+                        ),
+                        critical=False,
+                    )
+
+        # 7) Sign once
+        ocsp_response = builder.sign(private_key=private_key, algorithm=hashes.SHA256())
+
+        return make_response(
+            ocsp_response.public_bytes(serialization.Encoding.DER),
+            200,
+            {"Content-Type": "application/ocsp-response"},
+        )
+
+    except Exception as e:
+        app.logger.error(f"OCSP request processing failed: {str(e)}")
+        return f"OCSP request processing failed: {str(e)}", 400
+
+
+
+# ---------- OCSPX Endpoint ----------
+
+
+
+@app.route("/ocspX", methods=["POST", "GET"])
+def ocspX():
+
+    import datetime
+    app.logger.debug("OCSP endpoint called.")
+    try:
+        # Load the OCSP request data
+        request_data = request.data
+        ocsp_request = load_der_ocsp_request(request_data)
+        cert_serial = ocsp_request.serial_number
+
+        # Retrieve the certificate details from your database
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            row = conn.execute("SELECT cert_pem, revoked FROM certificates WHERE serial = ?", (hex(cert_serial),)).fetchone()
+            if not row:
+                raise ValueError("Certificate not found")
+            cert_pem, revoked_flag = row
+            target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            revoked = (revoked_flag == 1)
+
+        now = datetime.datetime.utcnow()
+        next_update = now + datetime.timedelta(days=7)
+
+        # Load the CA certificate to use as the issuer for OCSP responses
+        with open(app.config["SUBCA_CERT_PATH"], "rb") as f:
+            ca_cert = x509.load_pem_x509_certificate(f.read(), default_backend())
+
+        # Build the OCSP response using the CA certificate as issuer
+        builder = OCSPResponseBuilder().add_response(
+            cert=target_cert,
+            issuer=ca_cert,  # Use the CA certificate as the issuer
+            algorithm=hashes.SHA1(),
+            cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
+            this_update=now,
+            next_update=next_update,
+            revocation_time=now if revoked else None,
+            revocation_reason=x509.ReasonFlags.unspecified if revoked else None
+        )
+        builder = builder.responder_id(OCSPResponderEncoding.HASH, ca_cert)
+
+        # Load the CA private key to sign the OCSP response
+        with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
+            private_key = serialization.load_pem_private_key(f.read(), password=None)
+        ocsp_response = builder.sign(private_key=private_key, algorithm=hashes.SHA256())
+        
+        return make_response(
+            ocsp_response.public_bytes(serialization.Encoding.DER),
+            200,
+            {"Content-Type": "application/ocsp-response"}
+        )
+    except Exception as e:
+        app.logger.error(f"OCSP request processing failed: {str(e)}")
+        return f"OCSP request processing failed: {str(e)}", 400
+
+
+# ---------- EST Endpoints ----------
+
+@app.route("/.well-known/est/cacerts", methods=["GET"])
+def est_cacerts():
+    # 1) Generate a DER-encoded degenerate PKCS#7 containing the full chain
+    #    into a temporary file.
+    with tempfile.NamedTemporaryFile(suffix=".p7", delete=False) as tmp:
+        p7_path = tmp.name
+
+    subprocess.run([
+        "openssl", "crl2pkcs7",
+        "-nocrl",
+        "-certfile", app.config["CHAIN_FILE_PATH"],     # full chain PEM
+        "-outform", "DER",
+        "-out", p7_path
+    ], check=True)
+
+    # 2) Read and Base64-encode it
+    der = open(p7_path, "rb").read()
+    b64 = base64.encodebytes(der).decode("ascii")
+
+    # 3) Return as S/MIME with the required headers
+    headers = {
+        "Content-Type": "application/pkcs7-mime; smime-type=certs",
+        "Content-Transfer-Encoding": "base64",
+        "Content-Disposition": 'attachment; filename="cacerts.p7"'
+    }
+    return Response(b64, headers=headers, status=200)
+
+
+
+def normalize_to_der(raw: bytes) -> bytes:
+    # 1) PEM-wrapped CSR? Strip headers & decode.
+    if raw.strip().startswith(b"-----BEGIN CERTIFICATE REQUEST-----"):
+        text = raw.decode("ascii")
+        b64 = "".join(
+            line for line in text.splitlines()
+            if not line.startswith("-----")
+        )
+        return base64.b64decode(b64)
+
+    # 2) Bare base64 (no headers) — try to decode if it's all base64 chars.
+    try:
+        s = raw.decode("ascii")
+        if re.fullmatch(r"[A-Za-z0-9+/=\s]+", s):
+            return base64.b64decode(s)
+    except (UnicodeDecodeError, binascii.Error):
+        pass
+
+    # 3) Otherwise assume it’s already DER
+    return raw
+
+
+
+@app.route("/.well-known/est/simpleenroll", methods=["POST"])
+def est_enroll():
+    raw = request.get_data()
+    ext_block = request.form.get("ext_block", "v3_ext")
+
+    # 1) Normalize CSR to DER
+    try:
+        der_csr = normalize_to_der(raw)
+    except binascii.Error:
+        return "Invalid CSR encoding", 400
+
+    # 2) Write CSR DER to temp file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
+        csr_file.write(der_csr)
+        csr_der_filename = csr_file.name
+
+    # 3) Prepare temp file for the issued cert
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
+        cert_filename = cert_file.name
+
+    # 4) Generate serial & read validity
+    custom_serial_str = hex(secrets.randbits(64))
+    try:
+        with open(app.config["VALIDITY_CONF"], "r") as f:
+            validity_days = f.read().strip()
+    except FileNotFoundError:
+        validity_days = "365"
+
+    # 5) Sign CSR with OpenSSL
+    cmd = [
+        "openssl", "x509", "-req",
+        "-inform", "DER",
+        "-in", csr_der_filename,
+        "-CA", app.config["SUBCA_CERT_PATH"],
+        "-CAkey", app.config["SUBCA_KEY_PATH"],
+        "-set_serial", custom_serial_str,
+        "-days", validity_days,
+        "-out", cert_filename,
+        "-extfile", app.config["SERVER_EXT_PATH"],
+        "-extensions", ext_block
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+    # 6) Read the issued cert (PEM)
+    with open(cert_filename, "r") as f:
+        cert_pem = f.read()
+
+    # 7) Record in the database
+    cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+    subject_str = ", ".join(f"{attr.oid._name}={attr.value}" for attr in cert_obj.subject)
+    actual_serial = hex(cert_obj.serial_number)
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute(
+            "INSERT INTO certificates (subject, serial, cert_pem) VALUES (?, ?, ?)",
+            (subject_str, actual_serial, cert_pem)
+        )
+
+    # 8) Write the signed cert to a file (for pkcs7 conversion)
+    with open("est_signed_cert.pem", "wb") as f:
+        f.write(cert_pem.encode())
+
+    # 9) Build a PKCS#7 container **with only the issued certificate** (no chain)
+    subprocess.run([
+        "openssl", "crl2pkcs7",
+        "-nocrl",
+        "-certfile", "est_signed_cert.pem",
+        "-outform", "DER",
+        "-out", "est_cert_chain.p7"
+    ], check=True)
+
+    # 10) Read, base64-encode, and return via make_response
+    pkcs7_der = open("est_cert_chain.p7", "rb").read()
+    b64 = base64.encodebytes(pkcs7_der)
+    resp = make_response(b64, 200)
+    resp.headers["Content-Type"]              = "application/pkcs7-mime; smime-type=signed-data"
+    resp.headers["Content-Transfer-Encoding"] = "base64"
+    resp.headers["Content-Disposition"]       = 'attachment; filename="enroll.p7"'
+    return resp
+
+
+
+# ---------- PFX Helpers ----------
+
+
+def find_key_for_certificate(cert_pem: str):
+    """
+    Try to find a Key row whose public key matches this certificate's public key,
+    using OpenSSL CLI. Returns a Key object or None.
+    """
+    # Write cert to temp file
+    with tempfile.NamedTemporaryFile("w+", suffix=".pem", delete=False) as cert_f:
+        cert_f.write(cert_pem)
+        cert_f.flush()
+        cert_path = cert_f.name
+
+    try:
+        # Extract public key from certificate
+        proc = subprocess.run(
+            ["openssl", "x509", "-in", cert_path, "-pubkey", "-noout"],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            app.logger.error(f"Failed to extract pubkey from cert: {proc.stderr}")
+            return None
+        cert_pubkey_pem = proc.stdout.strip()
+    finally:
+        try:
+            os.remove(cert_path)
+        except OSError:
+            pass
+
+    # Compare with each stored key's public key
+    for key_obj in Key.query.all():
+        with tempfile.NamedTemporaryFile("w+", suffix=".pem", delete=False) as key_f:
+            key_f.write(key_obj.private_key)
+            key_f.flush()
+            key_path = key_f.name
+
+        try:
+            pub_proc = subprocess.run(
+                ["openssl", "pkey", "-in", key_path, "-pubout"],
+                capture_output=True,
+                text=True,
+            )
+            if pub_proc.returncode != 0:
+                app.logger.warning(f"Failed to extract pubkey for key {key_obj.id}: {pub_proc.stderr}")
+                continue
+
+            key_pub_pem = pub_proc.stdout.strip()
+            if key_pub_pem == cert_pubkey_pem:
+                app.logger.info(f"Matched certificate to key id={key_obj.id}")
+                return key_obj
+
+        finally:
+            try:
+                os.remove(key_path)
+            except OSError:
+                pass
+
+    app.logger.warning("No matching key found for certificate")
+    return None
+
+
+
+
+def build_pfx_openssl(cert_pem: str, key_pem: str, chain_path: str, password: str) -> bytes:
+    """
+    Build a PKCS#12 (.pfx) file using OpenSSL CLI:
+      -inkey: user private key
+      -in:   user certificate
+      -certfile: CA chain (if provided)
+    """
+    cert_file = tempfile.NamedTemporaryFile("w+", suffix=".pem", delete=False)
+    key_file  = tempfile.NamedTemporaryFile("w+", suffix=".pem", delete=False)
+    pfx_file  = tempfile.NamedTemporaryFile("wb", suffix=".pfx", delete=False)
+
+    cert_path = cert_file.name
+    key_path  = key_file.name
+    pfx_path  = pfx_file.name
+
+    cert_file.write(cert_pem)
+    cert_file.flush()
+    key_file.write(key_pem)
+    key_file.flush()
+    cert_file.close()
+    key_file.close()
+    pfx_file.close()
+
+    cmd = [
+        "openssl", "pkcs12", "-export",
+        "-inkey", key_path,
+        "-in", cert_path,
+        "-out", pfx_path,
+        "-passout", f"pass:{password}",
+    ]
+
+    if chain_path and os.path.exists(chain_path):
+        cmd.extend(["-certfile", chain_path])
+
+    app.logger.debug("Running PFX command: %s", " ".join(cmd))
+
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(f"OpenSSL pkcs12 failed: {proc.stderr}")
+
+        with open(pfx_path, "rb") as f:
+            pfx_bytes = f.read()
+        return pfx_bytes
+    finally:
+        for p in (cert_path, key_path, pfx_path):
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+
+@app.route("/downloads/pfx/<int:cert_id>", methods=["POST"])
+def download_pfx(cert_id):
+    password = request.form.get("pfx_password", "").strip()
+    if not password:
+        flash("PFX password is required.", "error")
+        return redirect("/certs")
+
+    # 1) Fetch cert from DB
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        row = conn.execute(
+            "SELECT cert_pem FROM certificates WHERE id = ?",
+            (cert_id,)
+        ).fetchone()
+
+    if not row:
+        flash("Certificate not found.", "error")
+        return redirect("/certs")
+
+    cert_pem = row[0]
+
+    # 2) Find matching key
+    key_obj = find_key_for_certificate(cert_pem)
+    if not key_obj:
+        flash("Could not find matching private key for this certificate.", "error")
+        return redirect("/certs")
+
+    # 3) Build PFX via OpenSSL
+    try:
+        chain_path = app.config.get("SUBCA_CERT_PATH")
+        pfx_bytes = build_pfx_openssl(
+            cert_pem=cert_pem,
+            key_pem=key_obj.private_key,
+            chain_path=chain_path,
+            password=password,
+        )
+    except Exception as e:
+        app.logger.error(f"Failed to build PFX for cert {cert_id}: {e}")
+        flash("Failed to build PFX file.", "error")
+        return redirect("/certs")
+
+    # 4) Derive CN-based filename (same logic as PEM download)
+    try:
+        cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+        common_name = None
+        for attribute in cert.subject:
+            if attribute.oid == x509.NameOID.COMMON_NAME:
+                common_name = attribute.value
+                break
+        filename = f"{common_name.replace(' ', '')}.pfx" if common_name else f"cert_{cert_id}.pfx"
+    except Exception:
+        filename = f"cert_{cert_id}.pfx"
+
+    buf = io.BytesIO(pfx_bytes)
+    buf.seek(0)
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/x-pkcs12",
+    )
+
+
+
+
+
+# ---------- Run Servers ----------
+from werkzeug.serving import run_simple
+
+def run_http_scep_only():
+    http_app = Flask("http_scep")
+
+    http_app.config.update(app.config)
+
+    # --- attach the same logger handlers & level as your main 'app' ---
+    http_app.logger.handlers.clear()
+    for h in app.logger.handlers:
+      http_app.logger.addHandler(h)
+    http_app.logger.setLevel(app.logger.level)
+    # --- end logging patch ---
+
+    http_app.register_blueprint(scep_app)
+
+    run_simple("0.0.0.0", HTTP_SCEP_PORT, http_app, use_reloader=False, use_debugger=True)
+
+from threading import Thread
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+
+def run_http_general():
+    app.run(host="0.0.0.0", port=80,use_reloader=False, use_debugger=True)
+
+def run_https():
+    app.run(host="0.0.0.0", port=HTTPS_PORT, ssl_context=(SSL_CERT_PATH, SSL_KEY_PATH), use_reloader=False, use_debugger=True)
+
+def run_trusted_https():
+    context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certfile=TRUSTED_SSL_CERT_PATH, keyfile=TRUSTED_SSL_KEY_PATH)
+    context.load_verify_locations(cafile=app.config["CHAIN_FILE_PATH"])
+    context.verify_mode = ssl.CERT_REQUIRED  # Force client cert verification
+    app.run(host="0.0.0.0", port=TRUSTED_HTTPS_PORT, ssl_context=context, use_reloader=False, use_debugger=True)
+
+
+
+
+if __name__ == "__main__":
+    Thread(target=run_https).start()
+    Thread(target=run_trusted_https).start()
+    Thread(target=run_http_scep_only).start()
+    Thread(target=run_http_general, daemon=True).start()
+
+
+

@@ -1,0 +1,7 @@
+[ v3_ext ]
+authorityInfoAccess = {{ AIA | default("OCSP;URI:https://openxpki.iot-rad.com:4443/ocsp") }}
+subjectAltName = @alt_names
+
+[ alt_names ]
+DNS.1 = {{ Alt | default("openxpki.iot-rad.com") }}
+

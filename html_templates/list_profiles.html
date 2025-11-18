@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Profile Files</h1>
+  {% if profiles %}
+  <table class="table table-hover">
+    <thead class="thead-dark">
+      <tr>
+        <th>Profile File Name</th>
+        <th>Originating Template</th>
+        <th>Profile Type</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for profile in profiles %}
+      <tr>
+        <td>{{ profile.filename }}</td>
+        <td>{{ profile.template_name }}</td>
+        <td>{{ profile.profile_type }}</td>
+        <td>
+          <a href="{{ url_for('profiles.view_profile', filename=profile.filename) }}"
+             class="btn btn-sm btn-info">View</a>
+          <a href="{{ url_for('profiles.edit_profile_file', filename=profile.filename) }}"
+             class="btn btn-sm btn-secondary ml-1">Edit</a>
+          <form action="{{ url_for('profiles.delete_profile', filename=profile.filename) }}"
+                method="post" style="display:inline;">
+            <button type="submit"
+                    class="btn btn-sm btn-danger ml-1"
+                    onclick="return confirm('Delete this profile?');">
+              Delete
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p>No profiles available.</p>
+  {% endif %}
+  <a href="{{ url_for('profiles.list_templates') }}"
+     class="btn btn-secondary mt-3">Back to Template List</a>
+{% endblock %}
+

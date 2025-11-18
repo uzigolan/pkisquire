@@ -1,0 +1,22 @@
+# CA Certificate Configuration Template for Subordinate (Intermediate) ECC Certificates
+[ req ]
+default_bits       = 2048
+default_md         = sha256
+prompt             = no
+distinguished_name = dn
+req_extensions     = v3_intermediate
+
+[ dn ]
+C  = {{ sub_ca_country | default("FR") }}
+ST = {{ sub_ca_state | default("Ile-de-France") }}
+L  = {{ sub_ca_city | default("Paris") }}
+O  = {{ sub_ca_organization | default("6WIND") }}
+OU = {{ sub_ca_organizational_unit | default("Sub CA Division") }}
+CN = {{ sub_ca_common_name | default("6WIND Test ECDSA ICA") }}
+
+[ v3_intermediate ]
+subjectKeyIdentifier   = hash
+#authorityKeyIdentifier = keyid,issuer
+basicConstraints       = critical, CA:true, pathlen:0
+keyUsage               = keyCertSign, cRLSign
+

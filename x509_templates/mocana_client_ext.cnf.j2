@@ -1,0 +1,13 @@
+[ v3_ext ]
+basicConstraints = critical, CA:FALSE
+keyUsage         = critical, digitalSignature
+extendedKeyUsage = clientAuth
+authorityInfoAccess     = @aia_section
+crlDistributionPoints   = @crl_section
+
+[ aia_section ]
+OCSP;URI.0 = http://pikachu-ca.safe-room/ocsp
+caIssuers;URI.0 = https://bitbucket.safe-room/ocsp
+
+[ crl_section ]
+URI.0 = https://pikachu-ca.safe-room/downloads/crl

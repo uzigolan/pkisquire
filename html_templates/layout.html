@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Pikachu CA (R&D Only)</title>
+
+  <title>{% block title %}Pikachu CA R&D Only!{% endblock %}</title>
+
+  <!-- FAVICONS -->
+  <link rel="icon"
+          type="image/png"
+          sizes="32x32"
+          href="{{ url_for('static', filename='favicon-32x32.png') }}">
+  <link rel="icon"
+          type="image/png"
+          sizes="16x16"
+          href="{{ url_for('static', filename='favicon-16x16.png') }}">
+
+  {% block head %}{% endblock %}
+
+
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <!-- Bootstrap CSS (via CDN) -->
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    pre { background-color: #f8f9fa; padding: 1em; border: 1px solid #ddd; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <a class="navbar-brand" href="/">
+    <img
+      src="{{ url_for('static', filename='favicon-32x32.png') }}"
+      width="24" height="24"
+      class="d-inline-block align-middle mr-2"
+      alt="CA logo"
+    >
+    Pikachu CA
+    </a>
+
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/certs">Certs</a></li>
+        <li class="nav-item"><a class="nav-link" href="/sign">RA(sign)</a></li>
+        <li class="nav-item"><a class="nav-link" href="/requests">CSRs</a></li>
+        <li class="nav-item"><a class="nav-link" href="/keys">Keys</a></li>
+        <li class="nav-item"><a class="nav-link" href="/profiles">Profiles</a></li>
+        <li class="nav-item"><a class="nav-link" href="/x509_templates">Templates</a></li>
+        <li class="nav-item"><a class="nav-link" href="/va">VA(crl)</a></li>
+        <li class="nav-item"><a class="nav-link" href="/server_ext">Server Ext</a></li>
+        <li class="nav-item"><a class="nav-link" href="/ca">CA ({{ ca_mode }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="/api">APIs</a></li>
+        <li class="nav-item"><a class="nav-link" href="/inspect">Inspect</a></li>
+        <li class="nav-item">
+          <a class="nav-link" href="javascript:void(0);" onclick="openConfig();">Config</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="https://chatgpt.com/g/g-685321c0890c81919b8ba960251c95ae-pikachu-ca" target="_blank">ChatPikachu</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('static', filename='help.pdf') }}" target="_blank">Help</a>
+        </li>
+        <li class="nav-item"><a class="nav-link" href="/logs">Logs</a></li>
+      </ul>
+    </ul>
+    <!-- New version badge to the right -->
+    <span class="navbar-text text-muted ml-3">
+      v{{ version }}
+    </span>
+    </div>
+  </nav>
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- Bootstrap JS and dependencies -->
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  function openConfig() {
+    var secret = prompt("Enter secret to access configuration:");
+    if (secret === null || secret.trim() === "") {
+        return;
+    }
+
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/config";
+
+    var input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "config_secret";
+    input.value = secret;
+
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
+  </script>
+
+
+</body>
+</html>
+

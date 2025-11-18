@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="row mb-4">
+    <div class="col">
+      <h1 class="mb-3">Pikachu CA (R&D Only)</h1>
+    </div>
+  </div>
+
+  <!-- Issued Certificates Full Width Section -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <h2>Issued Certificates</h2>
+      <div class="form-group">
+        <input
+          type="text"
+          id="filterInput"
+          class="form-control mb-3"
+          onkeyup="filterTable()"
+          placeholder="Filter by Common Name, Serial, Key or Date">
+      </div>
+      <table id="certTable" class="table table-striped">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Common Name</th>
+            <th>Serial</th>
+            <th>Key</th>
+            <th>Date (UTC)</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {# Now unpack in the same order you built the tuple: #}
+          {% for id, subject, serial, keycol, date, revoked, expired in certs %}
+          <tr>
+            <td>{{ id }}</td>
+            <td>
+              {% set parts = subject.split(',') %}
+              {% for part in parts %}
+                {% if "commonName=" in part %}
+                  {{ part.split('=')[1].strip() }}
+                {% endif %}
+              {% endfor %}
+            </td>
+            <td>{{ serial }}</td>
+            <td>{{ keycol }}</td>
+            <td>{{ date }}</td>
+            <td>
+              {% if revoked %}
+                <span>Revoked</span>
+              {% elif expired %}
+                <span style="color: orange;">Expired</span>
+              {% else %}
+                <span style="color: green;">Valid</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="btn-group" role="group">
+                <a href="/view/{{ id }}"      class="btn btn-sm btn-info">View</a>
+                <a href="/downloads/{{ id }}" class="btn btn-sm btn-warning">Download</a>
+                {% if not revoked %}
+                  <a href="/revoke/{{ id }}" class="btn btn-sm btn-danger">Revoke</a>
+                {% else %}
+                  <span class="badge badge-secondary align-self-center">Revoked</span>
+                {% endif %}
+
+                <!-- Updated Delete link: no direct /delete URL, JS handles POST -->
+                <a href="javascript:void(0);"
+                   class="btn btn-sm btn-outline-danger"
+                   onclick="handleDelete({{ id }});">
+                  Delete
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    function filterTable() {
+      var filterValue = document.getElementById('filterInput').value.toLowerCase();
+      var table = document.getElementById('certTable');
+      var rows = table.getElementsByTagName('tr');
+      for (var i = 1; i < rows.length; i++) {
+        var commonNameText = rows[i].cells[1].textContent.trim().toLowerCase();
+        var serialText = rows[i].cells[2].textContent.trim().toLowerCase();
+        var keyText = rows[i].cells[3].textContent.trim().toLowerCase();
+        var dateText = rows[i].cells[4].textContent.trim().toLowerCase();
+
+        if (commonNameText.indexOf(filterValue) > -1 ||
+            serialText.indexOf(filterValue) > -1 ||
+            keyText.indexOf(filterValue) > -1 ||
+            dateText.indexOf(filterValue) > -1) {
+          rows[i].style.display = "";
+        } else {
+          rows[i].style.display = "none";
+        }
+      }
+    }
+
+    function handleDelete(certId) {
+      // 1) Confirm
+      var sure = confirm('Are you sure you want to delete certificate ' + certId + '?');
+      if (!sure) {
+        return;
+      }
+
+      // 2) Ask for secret
+      var secret = prompt('Please enter the delete secret:');
+      if (secret === null) {
+        // user pressed cancel
+        return;
+      }
+
+      // 3) Create hidden form and POST it
+      var form = document.createElement('form');
+      form.method = 'POST';
+      form.action = '/delete/' + certId;
+
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'delete_secret';
+      input.value = secret;
+      form.appendChild(input);
+
+      document.body.appendChild(form);
+      form.submit();
+    }
+  </script>
+
+{% endblock %}
+

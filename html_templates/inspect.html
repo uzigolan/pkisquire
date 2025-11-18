@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Inspect Data</h1>
+  <form method="post">
+    <div class="form-group">
+      <label for="inspect_data">Paste PEM block or Base64‑encoded DER:</label>
+      <textarea id="inspect_data"
+                name="inspect_data"
+                class="form-control"
+                rows="10">{{ request.form.get('inspect_data', pending_data) }}</textarea>
+    </div>
+
+    {% if der_mode %}
+      <div class="form-group">
+        <label for="der_type">I’ve pasted Base64‑DER. What kind of data is this?</label>
+        <select id="der_type"
+                name="der_type"
+                class="form-control">
+          {% for option in der_types %}
+            <option value="{{ option }}"{% if request.form.get('der_type') == option %} selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
+
+    <div class="form-group">
+      <button type="submit" class="btn btn-primary">Inspect</button>
+      <button type="button" class="btn btn-secondary ml-2" onclick="document.getElementById('inspect_data').value='';">Clear</button>
+    </div>
+  </form>
+
+  {% if result %}
+    <h2 class="mt-4">Result</h2>
+    <div class="card">
+      <div class="card-body p-2">
+        <pre class="mb-0">{{ result }}</pre>
+      </div>
+    </div>
+  {% endif %}
+  <p><strong>Supported types:</strong> {{ der_types|join(', ') }}</p>
+{% endblock %}
+

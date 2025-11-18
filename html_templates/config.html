@@ -1,0 +1,16 @@
+{# html_templates/config.html #}
+{% extends "layout.html" %}
+{% block content %}
+  <div class="row mb-4">
+    <div class="col">
+      <h1 class="mb-3">System Configuration</h1>
+      <div class="card">
+        <div class="card-body">
+          <pre style="max-height: 160vh; overflow: auto;">{{ config_text }}</pre>
+        </div>
+      </div>
+      <a href="{{ url_for('index') }}" class="btn btn-secondary mt-3">← Back to Dashboard</a>
+    </div>
+  </div>
+{% endblock %}
+

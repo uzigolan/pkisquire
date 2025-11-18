@@ -1,0 +1,24 @@
+# ==== Server certificate v3 extensions ====
+# Usage:
+# openssl x509 -req -in server.csr \
+#   -CA {{ issuing_ca_cert | default("subCA.pem") }} \
+#   -CAkey {{ issuing_ca_key  | default("subCA.key") }} \
+#   -CAcreateserial -out server.crt -days {{ days | default(825) }} -sha256 \
+#   -extfile server_ext.cnf -extensions v3_ext
+
+[ v3_ext ]
+basicConstraints = critical, CA:FALSE
+# For modern TLS (ECDHE), digitalSignature is sufficient for RSA or ECDSA leafs.
+keyUsage         = critical, digitalSignature
+extendedKeyUsage = serverAuth
+
+authorityInfoAccess = \
+    OCSP;URI=http://pikachu-ca.rnd-rad.com/ocsp, \
+    caIssuers;URI=http://pikachu-ca.rnd-rad.com/certs/{{ ca_issuers_file | default("RADSubTestECDSA.crt") }}
+
+crlDistributionPoints = URI=http://pikachu-ca.rnd-rad.com/downloads/crl
+
+# Optional if CA doesn't auto-set:
+# subjectKeyIdentifier   = hash
+# authorityKeyIdentifier = keyid,issuer
+

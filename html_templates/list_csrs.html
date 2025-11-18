@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">List of Certificate signing request (CSR)</h1>
+  <table class="table table-bordered">
+    <thead class="thead-light">
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Key</th>
+        <th>Profile</th>
+        <th>Created At</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for csr in csrs %}
+      <tr>
+        <td>{{ csr.id }}</td>
+        <td>{{ csr.name }}</td>
+        <td>{{ key_dict[csr.key_id].name if csr.key_id in key_dict else "N/A" }}</td>
+        <td>{{ profile_dict[csr.profile_id].filename if csr.profile_id in profile_dict else "N/A" }}</td>
+        <td>{{ csr.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>
+          <a href="{{ url_for('requests.download_csr', csr_id=csr.id) }}"
+             class="btn btn-sm btn-secondary">Download</a>
+          <a href="{{ url_for('requests.view_csr', csr_id=csr.id) }}"
+             class="btn btn-sm btn-info">View</a>
+          <form action="{{ url_for('requests.delete_csr', csr_id=csr.id) }}"
+                method="post" style="display:inline;">
+            <button type="submit"
+                    class="btn btn-sm btn-danger"
+                    onclick="return confirm('Are you sure you want to delete this CSR?');">
+              Delete
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <a href="{{ url_for('requests.generate_csr') }}" class="btn btn-primary">Generate New CSR</a>
+{% endblock %}
+

@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Generate a New CSR</h1>
+  <form method="POST" class="mb-4">
+    <div class="form-group">
+      <label for="csr_name">CSR Name:</label>
+      <input type="text" name="csr_name" id="csr_name" class="form-control" required>
+    </div>
+    <div class="form-group">
+      <label for="key_id">Select Key:</label>
+      <select name="key_id" id="key_id" class="form-control" required>
+        {% for key in keys %}
+          <option value="{{ key.id }}">{{ key.name }} ({{ key.key_type }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="profile_id">Select Profile:</label>
+      <select name="profile_id" id="profile_id" class="form-control" required>
+        {% for profile in profiles %}
+          <option value="{{ profile.id }}">{{ profile.filename }} - {{ profile.template_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Generate CSR</button>
+  </form>
+  <a href="{{ url_for('requests.list_csrs') }}" class="btn btn-link">Back to CSR List</a>
+{% endblock %}
+

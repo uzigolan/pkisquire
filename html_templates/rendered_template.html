@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Rendered Template ({{ template_name }})</h1>
+  <div class="card">
+    <div class="card-body">
+      <pre>{{ rendered_template }}</pre>
+    </div>
+  </div>
+  <a href="{{ url_for('profiles.list_templates') }}" class="btn btn-secondary mt-3">Back to Template List</a>
+{% endblock %}
+

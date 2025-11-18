@@ -1,0 +1,20 @@
+# CA Certificate Configuration Template for Root ECC Certificates
+[ req ]
+default_bits       = 4096
+default_md         = sha256
+prompt             = no
+distinguished_name = dn
+x509_extensions    = v3_ca
+
+[ dn ]
+C  = IL
+ST = tell aviv
+L  = Tel-Aviv
+O  = RAD
+OU = RND
+CN = bitbucket.safe-room
+
+[ v3_ca ]
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints       = critical, CA:true, pathlen:0

@@ -1,0 +1,15 @@
+[ v3_ext ]
+basicConstraints        = critical, CA:FALSE
+subjectKeyIdentifier    = hash
+authorityKeyIdentifier  = keyid,issuer
+
+authorityInfoAccess     = @aia_section
+crlDistributionPoints   = @crl_section
+
+[ aia_section ]
+OCSP;URI.0 = https://pikachu-ca.rnd-rad.com/ocsp
+OCSP;URI.1 = https://pikachu-ca.rnd-rad.com/ocsp
+caIssuers;URI.0 = https://pikachu-ca.rnd-rad.com/ocsp
+
+[ crl_section ]
+URI.0 = https://pikachu-ca.rnd-rad.com/downloads/crl

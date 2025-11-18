@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Generate a New Key</h1>
+  <form method="post" class="mb-4">
+    <div class="form-group">
+      <label for="key_name">Key Name:</label>
+      <input type="text" name="key_name" id="key_name" class="form-control" required>
+    </div>
+
+    <div class="form-group">
+      <label for="key_type">Key Type:</label>
+      <select name="key_type" id="key_type" class="form-control" required>
+        <option value="RSA">RSA</option>
+        <option value="EC">EC</option>
+        <option value="PQC">PQC (post‑quantum)</option>
+      </select>
+    </div>
+
+    <div id="rsa-options" class="form-group">
+      <label for="key_size">Key Size (for RSA):</label>
+      <select name="key_size" id="key_size" class="form-control">
+        <option value="2048">2048</option>
+        <option value="3072">3072</option>
+        <option value="4096">4096</option>
+      </select>
+    </div>
+
+    <div id="ec-options" class="form-group" style="display:none;">
+      <label for="curve">Curve (for EC):</label>
+      <select name="curve" id="curve" class="form-control">
+        <option value="prime256v1">prime256v1 (secp256r1)</option>
+        <option value="secp384r1">secp384r1</option>
+        <option value="secp521r1">secp521r1</option>
+        <option value="secp256k1">secp256k1</option>
+      </select>
+    </div>
+
+    <div id="pqc-options" class="form-group" style="display:none;">
+      <label for="pqc_alg">PQC Algorithm:</label>
+      <select name="pqc_alg" id="pqc_alg" class="form-control">
+        <option value="mldsa44">mldsa44 (Dilithium2 / NIST L1)</option>
+        <option value="mldsa65">mldsa65 (Dilithium3 / NIST L3)</option>
+        <option value="mldsa87">mldsa87 (Dilithium5 / NIST L5)</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Generate Key</button>
+  </form>
+
+  <script>
+    const keyType = document.getElementById('key_type');
+    keyType.addEventListener('change', () => {
+      document.getElementById('rsa-options').style.display = keyType.value === 'RSA' ? 'block' : 'none';
+      document.getElementById('ec-options').style.display  = keyType.value === 'EC'  ? 'block' : 'none';
+      document.getElementById('pqc-options').style.display = keyType.value === 'PQC' ? 'block' : 'none';
+    });
+  </script>
+{% endblock %}
+

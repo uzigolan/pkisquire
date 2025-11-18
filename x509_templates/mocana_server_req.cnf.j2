@@ -1,0 +1,23 @@
+# ==== Server CSR (no req extensions) ====
+# RSA:
+#   openssl genrsa -out server.key {{ rsa_bits | default(2048) }}
+#   openssl req -new -key server.key -out server.csr -config server_req.cnf
+# ECDSA:
+#   openssl ecparam -name {{ ec_curve | default("prime256v1") }} -genkey -noout -out server.key
+#   openssl req -new -key server.key -out server.csr -config server_req.cnf
+
+[ req ]
+prompt             = no
+distinguished_name = dn
+default_md         = sha256
+default_bits       = {{ rsa_bits | default(2048) }}
+default_ec_curve   = {{ ec_curve  | default("prime256v1") }}
+
+[ dn ]
+C  = {{ country               | default("IL") }}
+ST = {{ state                 | default("IL") }}
+L  = {{ locality              | default("TLV") }}
+O  = {{ organization          | default("RAD") }}
+OU = {{ organizational_unit   | default("RND") }}
+CN = {{ common_name           | default("ABIGAIL-N-Pikachu-1") }}
+

@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Edit Profile: {{ filename }}</h1>
+
+  <form method="post">
+    <div class="form-group">
+      <label for="file_content">Profile Content</label>
+      <textarea id="file_content"
+                name="file_content"
+                class="form-control"
+                rows="20">{{ file_content }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Save</button>
+    <a href="{{ url_for('profiles.view_profile', filename=filename) }}" class="btn btn-secondary">Cancel</a>
+  </form>
+{% endblock %}
+

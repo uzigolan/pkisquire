@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h2 class="mb-4">Fill in Variables for Template: {{ template_name }}</h2>
+  <form method="post">
+    {% for var in variables %}
+      <div class="form-group">
+        <label for="{{ var }}">{{ var }}:</label>
+        <input type="text" name="{{ var }}" id="{{ var }}" class="form-control" style="max-width: 50%;" value="{{ variables_values[var]|default('') }}" placeholder="Enter {{ var }}">
+      </div>
+    {% endfor %}
+    <div class="form-group">
+      <label for="rendered_filename">Profile File Name:</label>
+      <input type="text" name="rendered_filename" id="rendered_filename" class="form-control" style="max-width: 50%;" value="{{ default_rendered_name }}">
+    </div>
+    <div class="form-group">
+      <label for="profile_type">Profile Type:</label>
+      <input list="profile_types" name="profile_type" id="profile_type" class="form-control" style="max-width: 50%;">
+      <datalist id="profile_types">
+        {% for type in existing_types %}
+          <option value="{{ type }}">
+        {% endfor %}
+      </datalist>
+    </div>
+    <button type="submit" class="btn btn-primary">Render Profile</button>
+  </form>
+  <a href="{{ url_for('profiles.list_templates') }}" class="btn btn-secondary mt-3">Back to Template List</a>
+{% endblock %}
+

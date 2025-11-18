@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block content %}
+  <h1 class="mb-4">Manage Server Extension Configuration</h1>
+  <form method="POST" action="{{ url_for('server_ext') }}" class="mb-4">
+    <div class="form-group">
+      <textarea id="server_ext_config" name="server_ext_config" rows="10" class="form-control" placeholder="Edit server extension configuration...">{{ server_ext_config }}</textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Save Configuration</button>
+  </form>
+
+  <h2>Load Configuration from a Saved Profile</h2>
+  <div class="form-inline mb-4">
+    <select id="profile_select" class="form-control mr-2">
+      {% for profile in profiles %}
+        <option value="{{ profile.filename }}">{{ profile.filename }} - {{ profile.template_name }}</option>
+      {% endfor %}
+    </select>
+    <button type="button" class="btn btn-outline-secondary" onclick="loadProfile()">Load Profile Configuration</button>
+  </div>
+
+  <script>
+    function loadProfile(){
+      var select = document.getElementById('profile_select');
+      var selectedFilename = select.options[select.selectedIndex].value;
+      var xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function(){
+          if(xhr.readyState === XMLHttpRequest.DONE){
+              if(xhr.status === 200){
+                  document.getElementById('server_ext_config').value = xhr.responseText;
+              } else {
+                  alert("Error loading profile configuration: " + xhr.statusText);
+              }
+          }
+      };
+      xhr.open("GET", "/load_profile?filename=" + encodeURIComponent(selectedFilename), true);
+      xhr.send();
+    }
+  </script>
+  <a href="/" class="btn btn-secondary">← Back to Home</a>
+{% endblock %}
+
