@@ -16,35 +16,35 @@
         <td rowspan="5">CA General</td>
         <td>Download CA Chain</td>
         <td>
-          <pre>curl -k https://pikachu-ca.iot-rad.com:5443/downloads/chain</pre>
+          <pre>curl -k https://pikachu-ca.iot-rad.com/downloads/chain</pre>
         </td>
         <td>Returns full CA chain file</td>
       </tr>
       <tr>
         <td>Download CRL</td>
         <td>
-          <pre>curl -k https://pikachu-ca.iot-rad.com:4443/downloads/crl</pre>
+          <pre>curl -k https://pikachu-ca.iot-rad.com/downloads/crl</pre>
         </td>
         <td>Generates and downloads latest Certificate Revocation List</td>
       </tr>
       <tr>
         <td>Certificate Status</td>
         <td>
-          <pre>curl -k https://pikachu-ca.iot-rad.com:4443/status/0xc75f573d9cb2b581</pre>
+          <pre>curl -k https://pikachu-ca.iot-rad.com/status/0xc75f573d9cb2b581</pre>
         </td>
         <td>Returns status as valid, revoked, or not found in JSON</td>
       </tr>
       <tr>
         <td>Expired Certificates</td>
         <td>
-          <pre>curl -k https://pikachu-ca.iot-rad.com:5443/expired</pre>
+          <pre>curl -k https://pikachu-ca.iot-rad.com/expired</pre>
         </td>
         <td>Returns list of certificate IDs that are expired</td>
       </tr>
       <tr>
         <td>Download CSR</td>
         <td>
-          <pre>curl -k https://pikachu-ca.iot-rad.com:5443/requests/1/download</pre>
+          <pre>curl -k https://pikachu-ca.iot-rad.com/requests/1/download</pre>
         </td>
         <td>Serves saved CSR if available</td>
       </tr>
@@ -91,11 +91,11 @@
         <td>
           <pre>curl -k -X POST \
   --data-binary @etx.csr.der \
-  https://pikachu-ca.iot-rad.com:4443/.well-known/est/simpleenroll \
+  https://pikachu-ca.iot-rad.com/.well-known/est/simpleenroll \
   -H "Content-Type: application/pkcs10" \
   --output etx.crt.p7</pre>
     <pre>estclient enroll \
-  -server pikachu-ca.iot-rad.com:4443 \
+  -server pikachu-ca.iot-rad.com \
   -insecure \
   -csr etx.csr \
   -out etx.crt</pre>
@@ -106,10 +106,10 @@
         <td>EST CA Certs</td>
         <td>
           <pre>curl -k \
-  https://pikachu-ca.iot-rad.com:4443/.well-known/est/cacerts \
+  https://pikachu-ca.iot-rad.com/.well-known/est/cacerts \
   --output chain.crt</pre>
 <pre>estclient cacerts \
-  -server pikachu-ca.iot-rad.com:4443 \
+  -server pikachu-ca.iot-rad.com \
   -insecure \
   -out ca.pem</pre>
         </td>
@@ -125,7 +125,7 @@
   -reqout ocsp_request.der \
   -issuer rad_ca_sub.crt \
   -cert valid.crt \
-  -url https://pikachu-ca.iot-rad.com:4443/ocsp \
+  -url http://pikachu-ca.iot-rad.com/ocsp \
   -resp_text \
   -respout ocsp_response.der</pre>
         </td>

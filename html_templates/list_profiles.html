@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">Profile Files</h1>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Profile Files</h2>
+    <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-success">Generate New Profile</a>
+  </div>
   {% if profiles %}
   <table class="table table-hover">
     <thead class="thead-dark">
@@ -15,7 +18,13 @@
       {% for profile in profiles %}
       <tr>
         <td>{{ profile.filename }}</td>
-        <td>{{ profile.template_name }}</td>
+        <td>
+          {% if profile.template_name %}
+            {{ profile.template_name }}
+          {% else %}
+            manually
+          {% endif %}
+        </td>
         <td>{{ profile.profile_type }}</td>
         <td>
           <a href="{{ url_for('profiles.view_profile', filename=profile.filename) }}"

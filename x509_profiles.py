@@ -285,3 +285,62 @@ def delete_profile(filename):
         db.session.commit()
     return redirect(url_for("profiles.list_profiles"))
 
+#
+# 7) NEW PROFILE
+#
+import re
+
+def is_valid_profile_filename(filename):
+    # Must end with .cnf and be a valid Linux filename (no /, \0, etc.)
+    return (
+        filename.endswith('.cnf') and
+        re.match(r'^[\w\-.]+\.cnf$', filename) is not None
+    )
+
+@x509_profiles_bp.route("/profiles/new", methods=["GET", "POST"])
+def new_profile_file():
+    # Get all existing profile types for the dropdown
+    existing_types = [pt for (pt,) in db.session.query(Profile.profile_type).distinct().all() if pt]
+
+    if request.method == "POST":
+        filename = request.form.get("filename", "").strip()
+        profile_type = request.form.get("profile_type", "").strip()
+        new_content = request.form.get("file_content", "")
+        if not is_valid_profile_filename(filename):
+            flash("Profile File Name must be a valid Linux filename ending with .cnf", "error")
+            return render_template("edit_profile.html",
+                                   filename="",
+                                   profile_type=profile_type,
+                                   file_content=new_content,
+                                   profile=None,
+                                   existing_types=existing_types)
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".cnf")
+        tmp.write(new_content.encode("utf-8"))
+        tmp.flush(); tmp.close()
+        ok, err = _validate_cnf(tmp.name)
+        os.unlink(tmp.name)
+        if not ok:
+            flash(f"Syntax error in profile:\n{err}", "error")
+            return redirect(url_for("profiles.new_profile_file"))
+
+        try:
+            outpath = os.path.join(X509_PROFILE_DIR, filename)
+            with open(outpath, "w") as f:
+                f.write(new_content)
+            prof = Profile(filename=filename, template_name="", profile_type=profile_type)
+            db.session.add(prof)
+            db.session.commit()
+            flash(f"Profile {filename} created.", "success")
+            return redirect(url_for("profiles.view_profile", filename=filename))
+        except Exception as e:
+            flash(f"Failed to save: {e}", "error")
+            return redirect(url_for("profiles.new_profile_file"))
+
+    # GET: render the same form as edit, but blank, and pass existing_types
+    return render_template("edit_profile.html",
+                           filename="",
+                           profile_type="",
+                           file_content="",
+                           profile=None,
+                           existing_types=existing_types)
+
