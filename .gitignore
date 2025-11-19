@@ -7,3 +7,13 @@ logs/
 *.code-workspace
 openscep/
 crl.pem
+pki-https/*
+!pki-https/
+pki-misc/*
+!pki-misc/
+pki-subca/*
+!pki-subca/
+pki-root/*
+!pki-root/
+db/*
+!db/

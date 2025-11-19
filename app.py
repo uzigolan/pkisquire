@@ -60,6 +60,7 @@ _cfg.read(CONFIG_PATH)
 # — General Flask —
 app.config["SECRET_KEY"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
+HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
 
 
 ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
@@ -2004,7 +2005,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 
 def run_http_general():
-    app.run(host="0.0.0.0", port=80,use_reloader=False, use_debugger=True)
+    app.run(host="0.0.0.0", port=HTTP_DEFAULT_PORT,use_reloader=False, use_debugger=True)
 
 def run_https():
     app.run(host="0.0.0.0", port=HTTPS_PORT, ssl_context=(SSL_CERT_PATH, SSL_KEY_PATH), use_reloader=False, use_debugger=True)

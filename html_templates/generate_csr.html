@@ -18,7 +18,9 @@
       <label for="profile_id">Select Profile:</label>
       <select name="profile_id" id="profile_id" class="form-control" required>
         {% for profile in profiles %}
-          <option value="{{ profile.id }}">{{ profile.filename }} - {{ profile.template_name }}</option>
+          <option value="{{ profile.id }}">
+            {{ profile.filename }}{% if profile.template_name %} - {{ profile.template_name }}{% endif %}
+          </option>
         {% endfor %}
       </select>
     </div>
