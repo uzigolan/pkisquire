@@ -415,36 +415,15 @@ def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
     return algo or "Unknown"
 
 
-
-@app.route("/config", methods=["GET", "POST"])
-def view_config():
-    # If already authenticated in THIS session → allow
-    if session.get("config_access_granted") is True:
-        pass  # proceed to show config
-
-    # If POST: verify secret
-    elif request.method == "POST":
-        secret = request.form.get("config_secret", "").strip()
-        if secret == app.config.get("DELETE_SECRET"):
-            session["config_access_granted"] = True
-        else:
-            flash("Incorrect secret.", "error")
-            return redirect("/certs")
-
-    # If GET and not authenticated → block
-    else:
-        return redirect("/certs")
-
-    # Show config as before
-    try:
-        with open(CONFIG_PATH, "r") as f:
-            cfg = f.read()
-    except FileNotFoundError:
-        cfg = "# config.ini not found"
-
-    return render_template("config.html", config_text=cfg)
-
-
+@app.route("/config", methods=["POST", "GET"])
+def config():
+    if request.method == "POST":
+        secret = request.form.get("config_secret", "")
+        if secret != app.config.get("CONFIG_SECRET", "your_config_secret_here"):
+            flash("Incorrect secret for configuration access.", "danger")
+            return redirect(url_for("index"))
+        return render_template("config.html")
+    return redirect(url_for("index"))
 
 
 
@@ -843,7 +822,6 @@ def inspectM():
                         cmd = ["openssl", "pkey", "-pubin", "-in", path, "-noout", "-text"]
                         proc = subprocess.run(cmd, capture_output=True, text=True)
                         out, err = proc.stdout, proc.stderr
-
 
                     elif chosen == "OCSP Response":
                         if is_pem:
@@ -1746,6 +1724,27 @@ def est_enroll():
     except FileNotFoundError:
         validity_days = "365"
 
+    # 5) Sign CSR with OpenSSL
+    cmd = [
+        "openssl", "x509", "-req",
+        "-inform", "DER",
+        "-in", csr_der_filename,
+        "-CA", app.config["SUBCA_CERT_PATH"],
+        "-CAkey", app.config["SUBCA_KEY_PATH"],
+        "-set_serial", custom_serial_str,
+        "-days", validity_days,
+        "-out", cert_filename,
+        "-extfile", app.config["SERVER_EXT_PATH"],
+        "-extensions", ext_block
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, text=True)
+
+    # 6) Read the issued cert (PEM)
+    with open(cert_filename, "r") as f:
+        cert_pem = f.read()
+
+    # 7) Record in the database
+    cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
     # 5) Sign CSR with OpenSSL
     cmd = [
         "openssl", "x509", "-req",
