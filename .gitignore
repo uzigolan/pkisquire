@@ -16,3 +16,4 @@ pki-subca/*.key
 pki-subca/*.crt
 pki-root/*.crt
 db/*.db
+x509_profiles/*.cnf

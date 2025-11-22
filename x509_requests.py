@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app
 from extensions import db
 from flask import send_file
+from openssl_utils import get_provider_args
 import io
 x509_requests_bp = Blueprint("requests", __name__, template_folder="html_templates")
 
@@ -61,7 +62,9 @@ def generate_csr():
         temp_csr_filename = temp_csr_file.name
         config_file = os.path.abspath(os.path.join(os.getcwd(), "x509_profiles", profile_obj.filename))
         current_app.logger.debug("Using config file: %s", config_file)
-        cmd = ["openssl", "req", "-new", "-config", config_file, "-key", temp_key_filename, "-out", temp_csr_filename]
+        cmd = ["openssl", "req"]
+        cmd.extend(get_provider_args())
+        cmd.extend(["-new", "-config", config_file, "-key", temp_key_filename, "-out", temp_csr_filename])
         current_app.logger.debug("Running: %s", " ".join(cmd))
         try:
             subprocess.run(cmd, check=True, capture_output=True, text=True)

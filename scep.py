@@ -27,6 +27,7 @@ from enums import MessageType, PKIStatus, FailInfo
 from builders import PKIMessageBuilder, Signer, create_degenerate_pkcs7
 from envelope import PKCSPKIEnvelopeBuilder
 from config_storage import ConfigStorage
+from openssl_utils import get_provider_args
 
 
 scep_app = Blueprint('scep_app', __name__)
@@ -176,8 +177,9 @@ def scep():
       SUBCA_CERT_PATH   = current_app.config['SUBCA_CERT_PATH']
       SUBCA_KEY_PATH    = current_app.config['SUBCA_KEY_PATH']
 
-      cmd = [
-        "openssl","x509","-req",
+      cmd = ["openssl","x509"]
+      cmd.extend(get_provider_args())
+      cmd.extend(["-req",
         "-in",   csr_tmp.name,
         "-CA",   SUBCA_CERT_PATH,
         "-CAkey",SUBCA_KEY_PATH,
@@ -187,7 +189,7 @@ def scep():
         "-extfile", SERVER_EXT_PATH,
         "-extensions", ext_block,
         "-out",  cert_tmp.name
-      ]
+      ])
       current_app.logger.debug("Running OpenSSL: %s", " ".join(cmd))
       try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
