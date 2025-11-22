@@ -5,6 +5,7 @@ import tempfile
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, url_for, flash, send_file, make_response
 from extensions import db
+from openssl_utils import get_provider_args, is_pqc_available
 
 x509_keys_bp = Blueprint("keys", __name__, template_folder="html_templates")
 
@@ -51,12 +52,10 @@ def generate_key():
             elif key_type == "PQC":
                 # pull the PQC algorithm choice
                 pqc_alg = request.form.get("pqc_alg", "mldsa44")
-                cmd = [
-                    "openssl", "genpkey",
-                    "-algorithm", pqc_alg,
-                    "-provider", "oqsprovider",
-                    "-out", priv_path
-                ]
+                cmd = ["openssl", "genpkey", "-algorithm", pqc_alg]
+                # Add provider args only if oqsprovider is available
+                cmd.extend(get_provider_args())
+                cmd.extend(["-out", priv_path])
             else:
                 flash("Invalid key type.", "error")
                 os.unlink(priv_path)
@@ -75,7 +74,10 @@ def generate_key():
         pub_f.close()
 
         try:
-            pub_cmd = ["openssl", "pkey", "-in", priv_path, "-pubout", "-out", pub_path]
+            pub_cmd = ["openssl", "pkey", "-in", priv_path, "-pubout"]
+            # Add provider args if available (needed for PQC keys)
+            pub_cmd.extend(get_provider_args())
+            pub_cmd.extend(["-out", pub_path])
             subprocess.run(pub_cmd, check=True, capture_output=True, text=True)
 
         except subprocess.CalledProcessError as e:
@@ -105,7 +107,7 @@ def generate_key():
         flash("Key generated successfully.", "success")
         return redirect(url_for("keys.list_keys"))
 
-    return render_template("generate_key.html")
+    return render_template("generate_key.html", pqc_available=is_pqc_available())
 
 def generate_keyX():
     if request.method == "POST":
@@ -179,6 +181,14 @@ def generate_keyX():
 
 from zoneinfo import ZoneInfo
 
+def check_key_supported(key_obj):
+    """Check if a key can be processed. Returns (is_supported, error_message)"""
+    if key_obj.key_type == "PQC":
+        from openssl_utils import check_oqsprovider_available
+        if not check_oqsprovider_available():
+            return False, "Unsupported (requires oqsprovider)"
+    return True, None
+
 @x509_keys_bp.route("/keys", methods=["GET"])
 def list_keys():
     keys = Key.query.order_by(Key.created_at.desc()).all()
@@ -195,6 +205,12 @@ def list_keys():
             k.created_at_local = dt_local
         else:
             k.created_at_local = None
+        
+        # Check if key is supported
+        is_supported, error_msg = check_key_supported(k)
+        k.is_supported = is_supported
+        k.support_error = error_msg
+        
         local_keys.append(k)
 
     return render_template("list_keys.html", keys=local_keys)

@@ -39,6 +39,7 @@ from x509_profiles import x509_profiles_bp, Profile, X509_PROFILE_DIR
 from x509_keys import x509_keys_bp, Key
 from x509_requests import x509_requests_bp
 from scep import scep_app
+from openssl_utils import get_provider_args
 
 #from flask import render_template, current_app as app
 from cryptography.hazmat.primitives.serialization import Encoding
@@ -311,16 +312,14 @@ def certificate_to_dictX(cert):
 
 
 def get_certificate_text(pem: str) -> str:
-    # so that OpenSSL can actually understand Dilithium OIDs
+    # Use OpenSSL to parse certificate text with optional oqsprovider
     with tempfile.NamedTemporaryFile("w+", suffix=".pem", delete=False) as f:
         f.write(pem)
         f.flush()
-        cmd = [
-            "openssl", "x509",
-            "-provider", "oqsprovider",   # <-- make sure oqsprovider is loaded
-            "-in", f.name,
-            "-noout", "-text"
-        ]
+        cmd = ["openssl", "x509"]
+        # Add provider args if oqsprovider is available
+        cmd.extend(get_provider_args())
+        cmd.extend(["-in", f.name, "-noout", "-text"])
         p = subprocess.run(cmd, capture_output=True, text=True)
         return p.stdout or p.stderr
 
@@ -1140,8 +1139,9 @@ def submit():
         validity_days = "365"  # fallback if not set
 
     try:
-        cmd = [
-            "openssl", "x509", "-req",
+        cmd = ["openssl", "x509"]
+        cmd.extend(get_provider_args())
+        cmd.extend(["-req",
             "-in", csr_filename,
             "-CA", app.config["SUBCA_CERT_PATH"],
             "-CAkey", app.config["SUBCA_KEY_PATH"],
@@ -1151,7 +1151,7 @@ def submit():
             "-out", cert_filename,
             "-extfile", app.config["SERVER_EXT_PATH"],
             "-extensions", ext_block
-        ]
+        ])
         #app.logger.debug("Running OpenSSL command: %s", " ".join(cmd))
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
@@ -1200,8 +1200,9 @@ def submit_q():
         validity_days = "365"  # fallback if not set
 
     try:
-        cmd = [
-            "openssl", "x509", "-req",
+        cmd = ["openssl", "x509"]
+        cmd.extend(get_provider_args())
+        cmd.extend(["-req",
             "-in", csr_filename,
             "-CA", app.config["SUBCA_CERT_PATH"],
             "-signkey", app.config["SUBCA_KEY_PATH"],
@@ -1211,7 +1212,7 @@ def submit_q():
             "-out", cert_filename,
             "-extfile", app.config["SERVER_EXT_PATH"],
             "-extensions", ext_block
-        ]
+        ])
         subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         os.unlink(csr_filename)

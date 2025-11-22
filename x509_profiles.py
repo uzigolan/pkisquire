@@ -40,7 +40,7 @@ def _validate_cnf(path: str) -> (bool, str):
     if not os.path.exists(DUMMY_KEY_PATH):
         return False, f"Missing dummy key at {DUMMY_KEY_PATH}"
 
-    with open(path, "r") as f:
+    with open(path, "r", encoding="utf-8") as f:
         config_text = f.read()
 
     is_csr_template = re.search(r"^\s*CN\s*=", config_text, re.MULTILINE) is not None
