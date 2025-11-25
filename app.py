@@ -414,15 +414,33 @@ def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
     return algo or "Unknown"
 
 
-@app.route("/config", methods=["POST", "GET"])
-def config():
-    if request.method == "POST":
-        secret = request.form.get("config_secret", "")
-        if secret != app.config.get("CONFIG_SECRET", "your_config_secret_here"):
-            flash("Incorrect secret for configuration access.", "danger")
-            return redirect(url_for("index"))
-        return render_template("config.html")
-    return redirect(url_for("index"))
+@app.route("/config", methods=["GET", "POST"])
+def view_config():
+    # If already authenticated in THIS session → allow
+    if session.get("config_access_granted") is True:
+        pass  # proceed to show config
+
+    # If POST: verify secret
+    elif request.method == "POST":
+        secret = request.form.get("config_secret", "").strip()
+        if secret == app.config.get("DELETE_SECRET"):
+            session["config_access_granted"] = True
+        else:
+            flash("Incorrect secret.", "error")
+            return redirect("/certs")
+
+    # If GET and not authenticated → block
+    else:
+        return redirect("/certs")
+
+    # Show config as before
+    try:
+        with open(CONFIG_PATH, "r") as f:
+            cfg = f.read()
+    except FileNotFoundError:
+        cfg = "# config.ini not found"
+
+    return render_template("config.html", config_text=cfg)
 
 
 
@@ -2021,6 +2039,13 @@ def run_trusted_https():
 
 
 if __name__ == "__main__":
+    # Initialize CRL on startup (creates empty CRL if no revoked certificates)
+    try:
+        update_crl()
+        app.logger.info("CRL initialized successfully")
+    except Exception as e:
+        app.logger.warning(f"Failed to initialize CRL on startup: {e}")
+    
     Thread(target=run_https).start()
     Thread(target=run_trusted_https).start()
     Thread(target=run_http_scep_only).start()
