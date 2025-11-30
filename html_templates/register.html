@@ -1,0 +1,40 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Register</h2>
+    <form method="POST" action="{{ url_for('register') }}">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" required minlength="6" maxlength="20" pattern="[a-zA-Z0-9_]+">
+            <div class="form-text">Username must be at least 6 characters, max 20, and contain only letters, numbers, and underscores.</div>
+        </div>
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+            <div class="form-text">A valid email is required.</div>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" name="password" required minlength="6">
+            <div class="form-text">Password must be at least 6 characters.</div>
+        </div>
+        <div class="mb-3">
+            <label for="password_confirm" class="form-label">Confirm Password</label>
+            <input type="password" class="form-control" id="password_confirm" name="password_confirm" required minlength="6">
+            <div class="form-text">Passwords must match.</div>
+        </div>
+        <script>
+        document.querySelector('form').addEventListener('submit', function(e) {
+            var pw = document.getElementById('password').value;
+            var pwc = document.getElementById('password_confirm').value;
+            if (pw !== pwc) {
+                e.preventDefault();
+                alert('Passwords do not match.');
+            }
+        });
+        </script>
+        <button type="submit" class="btn btn-primary">Register</button>
+        <a href="{{ url_for('login') }}" class="btn btn-link">Already have an account? Login</a>
+    </form>
+</div>
+{% endblock %}

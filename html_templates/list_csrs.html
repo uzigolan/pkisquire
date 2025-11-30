@@ -9,6 +9,7 @@
         <th>Key</th>
         <th>Profile</th>
         <th>Created At</th>
+        {% if is_admin %}<th>User</th>{% endif %}
         <th>Actions</th>
       </tr>
     </thead>
@@ -20,6 +21,9 @@
         <td>{{ key_dict[csr.key_id].name if csr.key_id in key_dict else "N/A" }}</td>
         <td>{{ profile_dict[csr.profile_id].filename if csr.profile_id in profile_dict else "N/A" }}</td>
         <td>{{ csr.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        {% if is_admin %}
+          <td>{{ csr.user_obj.username if csr.user_obj else 'N/A' }}</td>
+        {% endif %}
         <td>
           <a href="{{ url_for('requests.download_csr', csr_id=csr.id) }}"
              class="btn btn-sm btn-secondary">Download</a>

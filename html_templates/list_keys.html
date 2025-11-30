@@ -9,6 +9,7 @@
         <th>Type</th>
         <th>Size/Curve/Algorithm</th>
         <th>Created At</th>
+        {% if is_admin %}<th>User</th>{% endif %}
         <th>Actions</th>
       </tr>
     </thead>
@@ -30,6 +31,9 @@
           {% endif %}
         </td>
         <td>{{ key.created_at_local.strftime('%Y-%m-%d %H:%M') }}</td>
+        {% if is_admin %}
+          <td>{{ key.user_obj.username if key.user_obj else 'N/A' }}</td>
+        {% endif %}
         <td>
           <a href="{{ url_for('keys.view_key', key_id=key.id) }}" 
              class="btn btn-sm btn-info">View</a>

@@ -1,3 +1,4 @@
+
 import os
 import sqlite3
 import logging
@@ -21,6 +22,7 @@ from datetime import datetime,timezone
 from threading import Thread
 
 from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_sqlalchemy import SQLAlchemy
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization, hashes
@@ -33,6 +35,7 @@ from cryptography.hazmat.primitives import serialization
 from markupsafe import escape
 from asn1crypto import x509 as asn1_x509
 
+from user_models import User, get_user_by_id
 # Load shared extensions and blueprints
 from extensions import db           # Shared SQLAlchemy instance
 from x509_profiles import x509_profiles_bp, Profile, X509_PROFILE_DIR
@@ -45,7 +48,11 @@ from openssl_utils import get_provider_args
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
 
+# --- User Registration, Login, Logout Routes ---
+from user_models import get_user_by_username, create_user_db, update_last_login
 
+# --- Manage Users (Admin Only) ---
+from user_models import get_all_users
 
 
 app = Flask(__name__, template_folder="html_templates")
@@ -104,7 +111,18 @@ app.config["DB_PATH"]          = os.path.join(basedir, _cfg.get("PATHS", "db_pat
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///" + app.config["DB_PATH"]
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["SECRET_KEY"] = "marketing"  # Replace with a secure unique secret in production
+
 db.init_app(app)
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Please log in to access this page.'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return get_user_by_id(int(user_id))
 
 # ---------- Logging Setup ----------
 import sys
@@ -414,7 +432,165 @@ def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
     return algo or "Unknown"
 
 
+
+# --- Add User (Admin Only) ---
+@app.route('/add_user', methods=['GET', 'POST'])
+@login_required
+def add_user():
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('manage_users'))
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        role = request.form.get('role', 'user')
+        email = request.form.get('email', '').strip() or None
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+            return render_template('add_user.html')
+        from user_models import get_user_by_username, create_user_db
+        if get_user_by_username(username):
+            flash('Username already exists.', 'error')
+            return render_template('add_user.html')
+        user_id = create_user_db(username, password, role, email)
+        if user_id:
+            flash('User added successfully.', 'success')
+            return redirect(url_for('manage_users'))
+        else:
+            flash('Failed to add user.', 'error')
+    return render_template('add_user.html')
+
+# --- Delete User (Admin Only) ---
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+@login_required
+def delete_user(user_id):
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('manage_users'))
+    if user_id == current_user.id:
+        flash('You cannot delete your own account.', 'error')
+        return redirect(url_for('manage_users'))
+    from user_models import delete_user_db
+    delete_user_db(user_id)
+    flash('User deleted successfully.', 'success')
+    return redirect(url_for('manage_users'))
+
+# --- Change Role (Admin Only) ---
+@app.route('/change_role/<int:user_id>', methods=['POST'])
+@login_required
+def change_role(user_id):
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('manage_users'))
+    new_role = request.form.get('role')
+    if new_role not in ('user', 'admin'):
+        flash('Invalid role.', 'error')
+        return redirect(url_for('manage_users'))
+    from user_models import update_user_role
+    update_user_role(user_id, new_role)
+    flash('User role updated.', 'success')
+    return redirect(url_for('manage_users'))
+
+@app.route('/manage_users')
+@login_required
+def manage_users():
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('index'))
+    users = get_all_users()
+    return render_template('manage_users.html', users=users)
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        password_confirm = request.form.get("password_confirm", "").strip()
+        email = request.form.get("email", "").strip()
+        errors = []
+        if not username:
+            errors.append("Username is required.")
+        elif len(username) < 6:
+            errors.append("Username must be at least 6 characters.")
+        elif len(username) > 20:
+            errors.append("Username must not exceed 20 characters.")
+        elif not re.match(r'^[a-zA-Z0-9_]+$', username):
+            errors.append("Username can only contain letters, numbers, and underscores.")
+        if not password:
+            errors.append("Password is required.")
+        elif len(password) < 6:
+            errors.append("Password must be at least 6 characters.")
+        if password != password_confirm:
+            errors.append("Passwords do not match.")
+        if not email:
+            errors.append("Email is required.")
+        else:
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            if not re.match(email_pattern, email):
+                errors.append("Invalid email format.")
+        if not errors:
+            existing_user = get_user_by_username(username)
+            if existing_user:
+                errors.append("Username already exists.")
+        if errors:
+            for error in errors:
+                flash(error, "error")
+            return render_template("register.html")
+        # Check if this is the first user (make them admin)
+        import sqlite3
+        conn = sqlite3.connect(app.config["DB_PATH"])
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM users")
+        user_count = cur.fetchone()[0]
+        conn.close()
+        role = 'admin' if user_count == 0 else 'user'
+        user_id = create_user_db(username, password, role, email or None)
+        if user_id:
+            flash(f"Account created successfully! You can now log in.{' You are the first user and have been granted admin privileges.' if role == 'admin' else ''}", "success")
+            app.logger.info(f"New user registered: {username} with role: {role}")
+            return redirect(url_for('login'))
+        else:
+            flash("Registration failed. Please try again.", "error")
+            return render_template("register.html")
+    return render_template("register.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+        if not username or not password:
+            flash("Username and password are required.", "error")
+            return render_template("login.html")
+        user = get_user_by_username(username)
+        if user and user.check_password(password) and user.is_active:
+            login_user(user)
+            update_last_login(user.id)
+            app.logger.info(f"User {username} logged in")
+            return redirect(url_for('index'))
+        else:
+            flash("Invalid username or password.", "error")
+            app.logger.warning(f"Failed login attempt for: {username}")
+    return render_template("login.html")
+
+@app.route("/logout")
+@login_required
+def logout():
+    app.logger.info(f"User {current_user.username} logged out")
+    logout_user()
+    flash("You have been logged out.", "info")
+    return redirect(url_for('login'))
+
+
+
+
 @app.route("/config", methods=["GET", "POST"])
+@login_required
 def view_config():
     # If already authenticated in THIS session → allow
     if session.get("config_access_granted") is True:
@@ -497,62 +673,79 @@ def logs_last():
 
 
 @app.route("/logs")
+@login_required
 def view_logs_page():
     return render_template("logs.html")
 
 
 
+
 @app.route("/")
 @app.route("/certs")
+@login_required
 def index():
     try:
-        # 1) Fetch raw rows
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            rows = conn.execute(
-                "SELECT id, subject, serial, revoked, cert_pem FROM certificates"
-            ).fetchall()
-
+            cur = conn.cursor()
+            if current_user.is_admin():
+                cur.execute("""
+                    SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id
+                    FROM certificates c
+                """)
+            else:
+                cur.execute("""
+                    SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id
+                    FROM certificates c
+                    WHERE c.user_id = ?
+                """, (current_user.id,))
+            rows = cur.fetchall()
+        #app.logger.debug(f"DB retruned {len(rows)} certificates for user {current_user.username}    (id={current_user.id})")
         certs = []
         now = datetime.now(timezone.utc)
-        #now = datetime.now().astimezone()
-        for id_, subject, serial, revoked, cert_pem in rows:
-            # load X.509 object
+        from user_models import get_user_by_id
+        for row in rows:
+            # Now expecting 6 columns: id, subject, serial, revoked, cert_pem, user_id
+            id_, subject, serial, revoked, cert_pem, user_id = row
             cert = x509.load_pem_x509_certificate(
                 cert_pem.encode(), default_backend()
             )
-
-            # issue date, omit seconds
-            #issue_date = cert.not_valid_before_utc.strftime("%Y-%m-%d %H:%M")
             issue_date = cert.not_valid_before_utc.astimezone().strftime("%Y-%m-%d %H:%M")
-
-            # expired if not_valid_after_utc is before now
             expired = cert.not_valid_after_utc < now
-
-            # extract key description by calling OpenSSL
             keycol = extract_keycol_with_openssl(
                 cert.public_bytes(Encoding.PEM).decode("utf-8").encode("utf-8")
             )
-
-            certs.append((id_, subject, serial, keycol, issue_date, revoked, expired))
-
+            username = None
+            if user_id:
+                user_obj = get_user_by_id(user_id)
+                username = user_obj.username if user_obj else str(user_id)
+            app.logger.debug(f"Cert ID {id_}: keycol={keycol}, expired={expired}   revoked={revoked}")
+            certs.append((id_, subject, serial, keycol, issue_date, revoked, expired, username))
 
         return render_template(
             "list_certificates.html",
-            certs=certs
+            certs=certs,
+            is_admin=current_user.is_admin()
         )
-
     except Exception as e:
         app.logger.error(f"Failed to load index: {e}")
         return f"Error: {e}", 500
 
 @app.route("/sign")
+@login_required
 def sign():
     try:
         # 1) Fetch raw rows
+
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            csr_requests = conn.execute(
-                "SELECT id, name, csr_pem, created_at FROM csrs"
-            ).fetchall()
+            if hasattr(current_user, 'is_admin') and current_user.is_admin():
+                csr_requests = conn.execute(
+                    "SELECT id, name, csr_pem, created_at FROM csrs"
+                ).fetchall()
+            else:
+                csr_requests = conn.execute(
+                    "SELECT id, name, csr_pem, created_at FROM csrs WHERE user_id = ?",
+                    (current_user.id,)
+                ).fetchall()
 
 
         # validity setting
@@ -615,6 +808,7 @@ DER_TYPES = [
 
 
 @app.route("/inspect", methods=["GET", "POST"])
+@login_required
 def inspect():
     result = None
 
@@ -901,6 +1095,7 @@ def inspectM():
 # ---------- APIs Endpoint ----------
 
 @app.route("/api")
+@login_required
 def api_doc():
     return render_template("api.html")
 
@@ -919,9 +1114,10 @@ def update_validity():
     return redirect("/")
 
 
-# ---------- VA enpoint ----------
+# ---------- VA enpoint ----------  
 
 @app.route("/va")
+@login_required
 def va_page():
     try:
         # Read the CRL content from the file defined by CRL_PATH.
@@ -957,6 +1153,7 @@ def va_page():
 
 
 @app.route("/ca")
+@login_required
 def ca_page():
     try:
         # Load the Root CA certificate
@@ -985,6 +1182,7 @@ def ca_page():
 
 
 @app.route("/server_ext", methods=["GET", "POST"])
+@login_required
 def server_ext():
     try:
         with open(app.config["SERVER_EXT_PATH"], "r") as f:
@@ -1029,34 +1227,35 @@ def view_sub():
         return f"Failed to view subordinate certificate: {str(e)}", 500
 
 @app.route("/view/<int:cert_id>")
+@login_required
 def view_certificate(cert_id):
     app.logger.debug(f"view_certificate called with cert_id={cert_id}")
     try:
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            # turn on row‐factory just for nicer logging
             conn.row_factory = sqlite3.Row
-            cur = conn.execute(
-                "SELECT id, subject, serial, revoked, cert_pem FROM certificates WHERE id = ?",
-                (cert_id,)
-            )
+            if current_user.is_admin():
+                cur = conn.execute(
+                    "SELECT id, subject, serial, revoked, cert_pem FROM certificates WHERE id = ?",
+                    (cert_id,)
+                )
+            else:
+                cur = conn.execute(
+                    "SELECT id, subject, serial, revoked, cert_pem FROM certificates WHERE id = ? AND user_id = ?",
+                    (cert_id, current_user.id)
+                )
             row = cur.fetchone()
             app.logger.debug(f"DB row for id={cert_id}: {row!r}")
 
         if not row:
-            # now you’ll see in your logs exactly which IDs exist (or don’t)
-            return f"Certificate not found (tried id={cert_id})", 404
+            return f"Certificate not found or access denied (tried id={cert_id})", 404
 
-        # at this point row["cert_pem"] is guaranteed non‐None
         cert_pem = row["cert_pem"]
         app.logger.debug("Loaded PEM, length=%d", len(cert_pem))
         cert = x509.load_pem_x509_certificate(cert_pem.encode("utf-8"), default_backend())
-
         cert_details = certificate_to_dict(cert)
-
         raw_cert = cert.public_bytes(
             encoding=serialization.Encoding.PEM
         ).decode("utf-8")
-
         cert_text = get_certificate_text(raw_cert)
         return render_template(
             "view.html",
@@ -1064,7 +1263,6 @@ def view_certificate(cert_id):
             raw_cert=raw_cert,
             cert_text=cert_text
         )
-
     except Exception as e:
         app.logger.exception("Failed to view certificate")
         return f"Failed to view certificate: {e}", 500
@@ -1102,6 +1300,7 @@ def expired_certs():
 
 
 @app.route("/delete/<int:cert_id>", methods=["POST"])
+@login_required
 def delete_certificate(cert_id):
     # Get the secret from the form and normalize it a bit
     secret = request.form.get("delete_secret", "").strip()
@@ -1117,7 +1316,10 @@ def delete_certificate(cert_id):
 
     try:
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            cur = conn.execute("DELETE FROM certificates WHERE id = ?", (cert_id,))
+            if current_user.is_admin():
+                cur = conn.execute("DELETE FROM certificates WHERE id = ?", (cert_id,))
+            else:
+                cur = conn.execute("DELETE FROM certificates WHERE id = ? AND user_id = ?", (cert_id, current_user.id))
             conn.commit()
             app.logger.info(f"[DELETE] Rows deleted for cert {cert_id}: {cur.rowcount}")
     except Exception as e:
@@ -1130,6 +1332,7 @@ def delete_certificate(cert_id):
 
 
 @app.route("/submit", methods=["POST"])
+@login_required
 def submit():
     csr_pem = request.form["csr"]
     ext_block = request.form.get("ext_block", "v3_ext")
@@ -1184,8 +1387,8 @@ def submit():
     cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
     actual_serial = hex(cert_obj.serial_number)
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("INSERT INTO certificates (subject, serial, cert_pem) VALUES (?, ?, ?)",
-                     (subject_str, actual_serial, cert_pem))
+        conn.execute("INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
+                     (subject_str, actual_serial, cert_pem, current_user.id))
     os.unlink(csr_filename)
     os.unlink(cert_filename)
     return redirect("/")
@@ -1244,15 +1447,17 @@ def submit_q():
         with open(app.config["CHAIN_FILE_PATH"], "r") as f:
             full_chain_pem += f.read()
     serial_hex = hex(x509.random_serial_number())
+    from flask_login import current_user
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("INSERT INTO certificates (subject, serial, cert_pem) VALUES (?, ?, ?)",
-                     (subject_str, serial_hex, full_chain_pem))
+        conn.execute("INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
+                     (subject_str, serial_hex, full_chain_pem, current_user.id))
     os.unlink(csr_filename)
     os.unlink(cert_filename)
     return redirect("/")
 
 
 @app.route("/revoke/<int:cert_id>", methods=["POST"])
+@login_required
 def revoke(cert_id):
     secret = request.form.get("delete_secret", "").strip()
     expected = str(app.config.get("DELETE_SECRET", "")).strip()
@@ -1260,7 +1465,10 @@ def revoke(cert_id):
         app.logger.warning(f"[REVOKE] Wrong delete secret for certificate ID {cert_id}")
         return redirect("/certs")
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
+        if current_user.is_admin():
+            conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
+        else:
+            conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ? AND user_id = ?", (cert_id, current_user.id))
         conn.commit()
         app.logger.info(f"[REVOKE] Certificate {cert_id} revoked.")
     update_crl()
@@ -1787,10 +1995,11 @@ def est_enroll():
     cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
     subject_str = ", ".join(f"{attr.oid._name}={attr.value}" for attr in cert_obj.subject)
     actual_serial = hex(cert_obj.serial_number)
+    from flask_login import current_user
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         conn.execute(
-            "INSERT INTO certificates (subject, serial, cert_pem) VALUES (?, ?, ?)",
-            (subject_str, actual_serial, cert_pem)
+            "INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
+            (subject_str, actual_serial, cert_pem, current_user.id)
         )
 
     # 8) Write the signed cert to a file (for pkcs7 conversion)

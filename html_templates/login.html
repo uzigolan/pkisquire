@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h2>Login</h2>
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <div class="input-group">
+                <input type="password" class="form-control" id="password" name="password" required>
+                <div class="input-group-append">
+                    <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">Show</button>
+                </div>
+            </div>
+        </div>
+        <script>
+        document.getElementById('togglePassword').addEventListener('click', function () {
+            var pw = document.getElementById('password');
+            if (pw.type === 'password') {
+                pw.type = 'text';
+                this.textContent = 'Hide';
+            } else {
+                pw.type = 'password';
+                this.textContent = 'Show';
+            }
+        });
+        </script>
+        <button type="submit" class="btn btn-primary">Login</button>
+        <a href="{{ url_for('register') }}" class="btn btn-link">Register</a>
+    </form>
+</div>
+{% endblock %}

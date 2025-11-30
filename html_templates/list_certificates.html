@@ -27,12 +27,13 @@
             <th>Key</th>
             <th>Date (UTC)</th>
             <th>Status</th>
+            {% if is_admin %}<th>User</th>{% endif %}
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {# Now unpack in the same order you built the tuple: #}
-          {% for id, subject, serial, keycol, date, revoked, expired in certs %}
+          {% for id, subject, serial, keycol, date, revoked, expired, username in certs %}
           <tr>
             <td>{{ id }}</td>
             <td>
@@ -55,6 +56,9 @@
                 <span style="color: green;">Valid</span>
               {% endif %}
             </td>
+            {% if is_admin %}
+              <td>{{ username if username else 'N/A' }}</td>
+            {% endif %}
             <td>
               <div class="btn-group" role="group">
                 <a href="/view/{{ id }}"      class="btn btn-sm btn-info">View</a>

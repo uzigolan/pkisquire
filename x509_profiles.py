@@ -8,12 +8,14 @@ from extensions import db
 
 x509_profiles_bp = Blueprint("profiles", __name__, template_folder="html_templates")
 
+from flask_login import current_user, login_required
 class Profile(db.Model):
     __tablename__ = "profiles"
     id            = db.Column(db.Integer, primary_key=True)
     filename      = db.Column(db.String(255), unique=True, nullable=False)
     template_name = db.Column(db.String(255), nullable=False)
     profile_type  = db.Column(db.String(255), nullable=True)
+    user_id       = db.Column(db.Integer, nullable=True, index=True)
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 X509_TEMPLATE_DIR = os.path.join(basedir, "x509_templates")
@@ -148,6 +150,7 @@ def _validate_cnf_disable(path: str) -> (bool, str):
 # 1) LIST TEMPLATES  ← explicit endpoint name
 #
 @x509_profiles_bp.route("/x509_templates/", endpoint="list_templates", methods=["GET"])
+@login_required
 def list_templates():
     template_files = [f for f in os.listdir(X509_TEMPLATE_DIR) if f.endswith(".j2")]
     return render_template("list_templates.html", template_files=template_files)
@@ -156,6 +159,7 @@ def list_templates():
 # 2) RENDER A NEW PROFILE
 #
 @x509_profiles_bp.route("/template", methods=["GET", "POST"])
+@login_required
 def template_form():
     template_name = request.args.get("template")
     if not template_name:
@@ -189,11 +193,15 @@ def template_form():
 
         prof = Profile.query.filter_by(filename=outname).first()
         if not prof:
-            prof = Profile(filename=outname, template_name=template_name, profile_type=prof_type)
+            prof = Profile(filename=outname, template_name=template_name, profile_type=prof_type, user_id=current_user.id)
             db.session.add(prof)
         else:
             prof.template_name = template_name
             prof.profile_type  = prof_type
+            # Only allow update if admin or owner
+            if not (current_user.is_admin or prof.user_id == current_user.id):
+                flash("Not authorized to update this profile.", "error")
+                return redirect(url_for("profiles.list_profiles"))
         db.session.commit()
 
         return render_template("profile_result.html",
@@ -215,20 +223,36 @@ def template_form():
 # 3) LIST SAVED PROFILES
 #
 @x509_profiles_bp.route("/profiles/", methods=["GET"])
+@login_required
 def list_profiles():
-    profiles = Profile.query.all()
-    return render_template("list_profiles.html", profiles=profiles)
+    if current_user.is_authenticated and current_user.is_admin():
+        profiles = Profile.query.order_by(Profile.id.desc()).all()
+        from user_models import get_user_by_id
+        for p in profiles:
+            p.user_obj = get_user_by_id(p.user_id) if p.user_id else None
+        is_admin = True
+    else:
+        profiles = Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
+        for p in profiles:
+            p.user_obj = current_user
+        is_admin = False
+    return render_template("list_profiles.html", profiles=profiles, is_admin=is_admin)
 
 #
 # 4) VIEW A RENDERED PROFILE
 #
 @x509_profiles_bp.route("/profiles/<filename>", methods=["GET"])
+@login_required
 def view_profile(filename):
     path = os.path.join(X509_PROFILE_DIR, filename)
     if not os.path.exists(path):
         return f"File {filename} not found.", 404
     content = open(path).read()
     prof = Profile.query.filter_by(filename=filename).first()
+    # Only allow view if admin or owner
+    if not prof or (not (current_user.is_admin or prof.user_id == current_user.id)):
+        flash("Not authorized to view this profile.", "error")
+        return redirect(url_for("profiles.list_profiles"))
     return render_template("profile_file.html",
                            filename=filename,
                            file_content=content,
@@ -238,6 +262,7 @@ def view_profile(filename):
 # 5) EDIT A RENDERED PROFILE
 #
 @x509_profiles_bp.route("/profiles/edit/<filename>", methods=["GET", "POST"])
+@login_required
 def edit_profile_file(filename):
     filepath = os.path.join(X509_PROFILE_DIR, filename)
     if not os.path.exists(filepath):
@@ -266,6 +291,10 @@ def edit_profile_file(filename):
 
     content = open(filepath).read()
     prof    = Profile.query.filter_by(filename=filename).first()
+    # Only allow edit if admin or owner
+    if not prof or (not (current_user.is_admin or prof.user_id == current_user.id)):
+        flash("Not authorized to edit this profile.", "error")
+        return redirect(url_for("profiles.list_profiles"))
     return render_template("edit_profile.html",
                            filename=filename,
                            file_content=content,
@@ -275,14 +304,18 @@ def edit_profile_file(filename):
 # 6) DELETE
 #
 @x509_profiles_bp.route("/profiles/delete/<filename>", methods=["POST"])
+@login_required
 def delete_profile(filename):
     path = os.path.join(X509_PROFILE_DIR, filename)
     if os.path.exists(path):
         os.remove(path)
     prof = Profile.query.filter_by(filename=filename).first()
-    if prof:
+    # Only allow delete if admin or owner
+    if prof and (current_user.is_admin or prof.user_id == current_user.id):
         db.session.delete(prof)
         db.session.commit()
+    else:
+        flash("Not authorized to delete this profile.", "error")
     return redirect(url_for("profiles.list_profiles"))
 
 #
@@ -298,6 +331,7 @@ def is_valid_profile_filename(filename):
     )
 
 @x509_profiles_bp.route("/profiles/new", methods=["GET", "POST"])
+@login_required
 def new_profile_file():
     # Get all existing profile types for the dropdown
     existing_types = [pt for (pt,) in db.session.query(Profile.profile_type).distinct().all() if pt]
@@ -327,7 +361,7 @@ def new_profile_file():
             outpath = os.path.join(X509_PROFILE_DIR, filename)
             with open(outpath, "w") as f:
                 f.write(new_content)
-            prof = Profile(filename=filename, template_name="", profile_type=profile_type)
+            prof = Profile(filename=filename, template_name="", profile_type=profile_type, user_id=current_user.id)
             db.session.add(prof)
             db.session.commit()
             flash(f"Profile {filename} created.", "success")
