@@ -11,6 +11,7 @@
         <th>Profile File Name</th>
         <th>Originating Template</th>
         <th>Profile Type</th>
+        {% if is_admin %}<th>User</th>{% endif %}
         <th>Actions</th>
       </tr>
     </thead>
@@ -26,6 +27,9 @@
           {% endif %}
         </td>
         <td>{{ profile.profile_type }}</td>
+        {% if is_admin %}
+          <td>{{ profile.user_obj.username if profile.user_obj else 'N/A' }}</td>
+        {% endif %}
         <td>
           <a href="{{ url_for('profiles.view_profile', filename=profile.filename) }}"
              class="btn btn-sm btn-info">View</a>

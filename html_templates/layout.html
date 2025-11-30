@@ -58,6 +58,7 @@
         <li class="nav-item"><a class="nav-link" href="/x509_templates">Templates</a></li>
         <li class="nav-item"><a class="nav-link" href="/api">APIs</a></li>
         <li class="nav-item"><a class="nav-link" href="/inspect">Inspect</a></li>
+        {% if current_user.is_authenticated %}
         <li class="nav-item">
           <a class="nav-link" href="javascript:void(0);" onclick="openConfig();">Config</a>
         </li>
@@ -67,6 +68,7 @@
         <li class="nav-item">
           <a class="nav-link" href="{{ url_for('static', filename='help.pdf') }}" target="_blank">Help</a>
         </li>
+        {% endif %}
         <li class="nav-item"><a class="nav-link" href="/logs">Logs</a></li>
       </ul>
     </ul>
@@ -74,6 +76,17 @@
     <span class="navbar-text text-muted ml-3">
       v{{ version }}
     </span>
+    <!-- User info and actions -->
+    {% if current_user.is_authenticated %}
+      <span class="navbar-text ml-4">
+        <strong>User:</strong> {{ current_user.username }}
+        <span class="ml-2"><strong>Role:</strong> {{ 'admin' if current_user.is_admin() else 'user' }}</span>
+        <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light ml-2">Logout</a>
+        {% if current_user.is_admin() %}
+          <a href="/manage_users" class="btn btn-sm btn-warning ml-2">Manage Users</a>
+        {% endif %}
+      </span>
+    {% endif %}
     </div>
   </nav>
   <div class="container">

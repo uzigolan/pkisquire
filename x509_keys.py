@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, url_for, flash, send_file, make_response
+from flask_login import login_required, current_user
 from extensions import db
 from openssl_utils import get_provider_args, is_pqc_available
 
@@ -20,9 +21,11 @@ class Key(db.Model):
     private_key= db.Column(db.Text,        nullable=False)
     public_key = db.Column(db.Text,        nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id    = db.Column(db.Integer, nullable=True)  # Multi-tenancy
 
 
 @x509_keys_bp.route("/generate", methods=["GET", "POST"])
+@login_required
 def generate_key():
     if request.method == "POST":
         key_name = request.form.get("key_name")
@@ -99,7 +102,8 @@ def generate_key():
             pqc_alg=pqc_alg if key_type == "PQC" else None,
             private_key=priv_data,
             public_key=pub_data,
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
+            user_id=current_user.id
         )
         db.session.add(new_key)
         db.session.commit()
@@ -190,47 +194,59 @@ def check_key_supported(key_obj):
     return True, None
 
 @x509_keys_bp.route("/keys", methods=["GET"])
+@login_required
 def list_keys():
-    keys = Key.query.order_by(Key.created_at.desc()).all()
+    if current_user.is_admin():
+        keys = Key.query.order_by(Key.created_at.desc()).all()
+        # Fetch user info for each key
+        from user_models import get_user_by_id
+        for k in keys:
+            k.user_obj = get_user_by_id(k.user_id) if k.user_id else None
+    else:
+        keys = Key.query.filter_by(user_id=current_user.id).order_by(Key.created_at.desc()).all()
+        for k in keys:
+            k.user_obj = current_user
 
     # convert each key’s created_at to the system tz (or hardcode Asia/Jerusalem)
     local_keys = []
     for k in keys:
         dt = k.created_at
         if dt is not None:
-            # assume stored in UTC
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=ZoneInfo("UTC"))
-            dt_local = dt.astimezone()  # uses OS timezone
+            dt_local = dt.astimezone()
             k.created_at_local = dt_local
         else:
             k.created_at_local = None
-        
-        # Check if key is supported
         is_supported, error_msg = check_key_supported(k)
         k.is_supported = is_supported
         k.support_error = error_msg
-        
         local_keys.append(k)
-
-    return render_template("list_keys.html", keys=local_keys)
+    return render_template("list_keys.html", keys=local_keys, is_admin=current_user.is_admin())
 
 
 
 
 @x509_keys_bp.route("/keys/<int:key_id>", methods=["GET"])
+@login_required
 def view_key(key_id):
-    key_obj = Key.query.get_or_404(key_id)
+    if current_user.is_admin():
+        key_obj = Key.query.get_or_404(key_id)
+    else:
+        key_obj = Key.query.filter_by(id=key_id, user_id=current_user.id).first_or_404()
     return render_template("view_key.html", key=key_obj)
 
 
 @x509_keys_bp.route("/keys/<int:key_id>/download", methods=["GET"])
+@login_required
 def download_key(key_id):
-    key_obj = Key.query.get_or_404(key_id)
+    if current_user.is_admin():
+        key_obj = Key.query.get_or_404(key_id)
+    else:
+        key_obj = Key.query.filter_by(id=key_id, user_id=current_user.id).first_or_404()
     pem_bytes = key_obj.private_key.encode("utf-8")
     buf = io.BytesIO(pem_bytes)
     buf.seek(0)
-
     return send_file(
         buf,
         as_attachment=True,
@@ -241,8 +257,12 @@ def download_key(key_id):
 
 
 @x509_keys_bp.route("/keys/<int:key_id>/delete", methods=["POST"])
+@login_required
 def delete_key(key_id):
-    key_obj = Key.query.get_or_404(key_id)
+    if current_user.is_admin():
+        key_obj = Key.query.get_or_404(key_id)
+    else:
+        key_obj = Key.query.filter_by(id=key_id, user_id=current_user.id).first_or_404()
     db.session.delete(key_obj)
     db.session.commit()
     flash("Key deleted successfully.", "success")

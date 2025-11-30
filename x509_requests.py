@@ -9,6 +9,7 @@ from openssl_utils import get_provider_args
 import io
 x509_requests_bp = Blueprint("requests", __name__, template_folder="html_templates")
 
+from flask_login import current_user, login_required
 class CSR(db.Model):
     __tablename__ = "csrs"
     id = db.Column(db.Integer, primary_key=True)
@@ -17,15 +18,19 @@ class CSR(db.Model):
     profile_id = db.Column(db.Integer, nullable=False)
     csr_pem = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, nullable=True, index=True)
 
 
 @x509_requests_bp.route("/requests/<int:csr_id>/download", methods=["GET"])
+@login_required
 def download_csr(csr_id):
     csr_obj = CSR.query.get_or_404(csr_id)
-    # create an in-memory file
+    # Only allow download if admin or owner
+    if not (current_user.is_admin or csr_obj.user_id == current_user.id):
+        flash("Not authorized to download this CSR.", "error")
+        return redirect(url_for("requests.list_csrs"))
     buf = io.BytesIO(csr_obj.csr_pem.encode("utf-8"))
     buf.seek(0)
-    # use CSR name for download filename
     filename = f"{csr_obj.name}.csr"
     return send_file(
         buf,
@@ -38,6 +43,7 @@ def download_csr(csr_id):
 
 
 @x509_requests_bp.route("/requests/generate", methods=["GET", "POST"])
+@login_required
 def generate_csr():
     if request.method == "POST":
         csr_name = request.form.get("csr_name")
@@ -77,31 +83,52 @@ def generate_csr():
             csr_pem = f.read()
         os.unlink(temp_key_filename)
         os.unlink(temp_csr_filename)
-        new_csr = CSR(name=csr_name, key_id=key_obj.id, profile_id=profile_obj.id, csr_pem=csr_pem, created_at=datetime.utcnow())
+        new_csr = CSR(name=csr_name, key_id=key_obj.id, profile_id=profile_obj.id, csr_pem=csr_pem, created_at=datetime.utcnow(), user_id=current_user.id)
         db.session.add(new_csr)
         db.session.commit()
         flash("CSR created successfully.", "success")
         return redirect(url_for("requests.list_csrs"))
     from x509_keys import Key
     from x509_profiles import Profile
-    keys = Key.query.order_by(Key.created_at.desc()).all()
-    profiles = Profile.query.order_by(Profile.id.desc()).all()
+    if current_user.is_authenticated and hasattr(current_user, 'is_admin') and current_user.is_admin():
+        keys = Key.query.order_by(Key.created_at.desc()).all()
+        profiles = Profile.query.order_by(Profile.id.desc()).all()
+    else:
+        keys = Key.query.filter_by(user_id=current_user.id).order_by(Key.created_at.desc()).all()
+        profiles = Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
     return render_template("generate_csr.html", keys=keys, profiles=profiles)
 
+
 @x509_requests_bp.route("/requests", methods=["GET"])
+@login_required
 def list_csrs():
-    csrs = CSR.query.order_by(CSR.created_at.desc()).all()
+    if current_user.is_authenticated and current_user.is_admin():
+        csrs = CSR.query.order_by(CSR.created_at.desc()).all()
+        from user_models import get_user_by_id
+        for csr in csrs:
+            csr.user_obj = get_user_by_id(csr.user_id) if csr.user_id else None
+        is_admin = True
+    else:
+        csrs = CSR.query.filter_by(user_id=current_user.id).order_by(CSR.created_at.desc()).all()
+        for csr in csrs:
+            csr.user_obj = current_user
+        is_admin = False
     from x509_keys import Key
     from x509_profiles import Profile
     keys = Key.query.all()
     profiles = Profile.query.all()
     key_dict = {key.id: key for key in keys}
     profile_dict = {profile.id: profile for profile in profiles}
-    return render_template("list_csrs.html", csrs=csrs, key_dict=key_dict, profile_dict=profile_dict)
+    return render_template("list_csrs.html", csrs=csrs, key_dict=key_dict, profile_dict=profile_dict, is_admin=is_admin)
 
 @x509_requests_bp.route("/requests/<int:csr_id>", methods=["GET"])
+@login_required
 def view_csr(csr_id):
     csr_obj = CSR.query.get_or_404(csr_id)
+    # Only allow view if admin or owner
+    if not (current_user.is_admin or csr_obj.user_id == current_user.id):
+        flash("Not authorized to view this CSR.", "error")
+        return redirect(url_for("requests.list_csrs"))
     from x509_keys import Key
     from x509_profiles import Profile
     key_obj = Key.query.get(csr_obj.key_id)
@@ -118,10 +145,15 @@ def view_csr(csr_id):
     return render_template("view_csr.html", csr=csr_obj, key=key_obj, profile=profile_obj, profile_content=profile_content)
 
 @x509_requests_bp.route("/requests/<int:csr_id>/delete", methods=["POST"])
+@login_required
 def delete_csr(csr_id):
     csr_obj = CSR.query.get_or_404(csr_id)
-    db.session.delete(csr_obj)
-    db.session.commit()
-    flash("CSR deleted successfully.", "success")
+    # Only allow delete if admin or owner
+    if current_user.is_admin or csr_obj.user_id == current_user.id:
+        db.session.delete(csr_obj)
+        db.session.commit()
+        flash("CSR deleted successfully.", "success")
+    else:
+        flash("Not authorized to delete this CSR.", "error")
     return redirect(url_for("requests.list_csrs"))
 

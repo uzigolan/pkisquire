@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Manage Users</h2>
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Email</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user.id }}</td>
+            <td>{{ user.username }}</td>
+            <td>{{ user.role }}</td>
+            <td>{{ user.email or '' }}</td>
+            <td>
+                {% if user.id != current_user.id %}
+                <form method="post" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+                </form>
+                <form method="post" action="{{ url_for('change_role', user_id=user.id) }}" style="display:inline;">
+                    <select name="role" class="form-control form-control-sm d-inline-block w-auto" style="vertical-align:middle;">
+                        <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
+                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
+                </form>
+                {% else %}
+                <span class="text-muted">(You)</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<a href="{{ url_for('add_user') }}" class="btn btn-success">Add User</a>
+{% endblock %}
