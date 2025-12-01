@@ -8,6 +8,8 @@
             <th>Username</th>
             <th>Role</th>
             <th>Email</th>
+            <th>Status</th>
+            <th>Logged In</th>
             <th>Actions</th>
         </tr>
     </thead>
@@ -18,6 +20,22 @@
             <td>{{ user.username }}</td>
             <td>{{ user.role }}</td>
             <td>{{ user.email or '' }}</td>
+            <td>
+                {% if user.status == 'active' %}
+                    <span class="badge badge-success">Active</span>
+                {% elif user.status == 'pending' %}
+                    <span class="badge badge-warning">Pending</span>
+                {% else %}
+                    <span class="badge badge-secondary">Deactivated</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if user.is_logged_in %}
+                    <span class="badge badge-info">Yes</span>
+                {% else %}
+                    <span class="badge badge-light">No</span>
+                {% endif %}
+            </td>
             <td>
                 {% if user.id != current_user.id %}
                 <form method="post" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;">
@@ -30,6 +48,27 @@
                     </select>
                     <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
                 </form>
+                {% if user.status == 'active' %}
+                    <form method="post" action="{{ url_for('toggle_user_active', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                    </form>
+                {% elif user.status == 'deactivated' %}
+                    <form method="post" action="{{ url_for('toggle_user_active', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-success">Activate</button>
+                    </form>
+                {% elif user.status == 'pending' %}
+                    <form method="post" action="{{ url_for('approve_user', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                    </form>
+                    <form method="post" action="{{ url_for('toggle_user_active', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                    </form>
+                {% endif %}
+                {% if user.is_logged_in %}
+                    <form method="post" action="{{ url_for('admin_logout', user_id=user.id) }}" style="display:inline; margin-left: 2px;">
+                        <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
+                    </form>
+                {% endif %}
                 {% else %}
                 <span class="text-muted">(You)</span>
                 {% endif %}

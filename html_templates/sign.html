@@ -6,8 +6,9 @@
     </div>
   </div>
 
+
   <div class="row">
-    <div class="col-md-9">
+    <div class="col-md-8">
       <!-- CSR Submission Section -->
       <h2>Submit a CSR</h2>
       <form method="POST" action="/submit" class="csr-form mb-4">
@@ -35,10 +36,19 @@
     </div>
 
     <!-- Sidebar Section -->
-    <div class="col-md-3">
-      <h2>Server Extension Configuration</h2>
-      <textarea id="server_ext_config" name="server_ext_config" rows="10" class="form-control mb-2" style="font-size: 12px;" readonly>{{ server_ext_config }}</textarea>
-      <a href="/server_ext" class="btn btn-primary btn-block mb-3">Manage Server Extensions</a>
+    <div class="col-md-4">
+      <h2>X509 Extensions</h2>
+      <form id="server_ext_form">
+        <div class="form-group">
+          <select id="server_ext_select" name="server_ext_select" class="form-control">
+            {% for ext in server_ext_options %}
+              <option value="{{ ext }}">{{ ext }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </form>
+      <pre id="server_ext_content" style="background:#f8f9fa; border:1px solid #ccc; padding:8px; min-height:120px; font-size:12px;">Select a config to view its content.</pre>
+      <a href="/server_ext" class="btn btn-primary btn-block mb-3">Manage X509 Extensions</a>
 
       <h2>Validity Period</h2>
       <form method="POST" action="/update_validity">
@@ -59,20 +69,24 @@
       var csrText = select.value;
       document.getElementById('csr_textarea').value = csrText;
     }
-    function filterTable() {
-      var filterValue = document.getElementById('filterInput').value.toLowerCase();
-      var table = document.getElementById('certTable');
-      var rows = table.getElementsByTagName('tr');
-      for (var i = 1; i < rows.length; i++) {
-        var commonNameText = rows[i].cells[1].textContent.trim().toLowerCase();
-        var serialText = rows[i].cells[2].textContent.trim().toLowerCase();
-        if (commonNameText.indexOf(filterValue) > -1 || serialText.indexOf(filterValue) > -1) {
-          rows[i].style.display = "";
+
+    // Show server extension config content on selection
+    document.addEventListener('DOMContentLoaded', function() {
+      var select = document.getElementById('server_ext_select');
+      var content = document.getElementById('server_ext_content');
+      function updateContent() {
+        var val = select.value;
+        if (val === 'None') {
+          content.textContent = '[ v3_ext ]\n# No additional extensions';
         } else {
-          rows[i].style.display = "none";
+          fetch('/get_server_ext_content?name=' + encodeURIComponent(val))
+            .then(r => r.ok ? r.text() : 'Error loading config')
+            .then(txt => { content.textContent = txt; });
         }
       }
-    }
+      select.addEventListener('change', updateContent);
+      updateContent();
+    });
   </script>
 {% endblock %}
 
