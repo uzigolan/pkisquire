@@ -79,3 +79,41 @@ https://openxpki.iot-rad.com:4443/
 ## ⚡ Pikachu Says...
 
 Stay secure, and may your certs never expire! Pika Pi! 💛
+
+---
+
+## 👤 User Management
+
+- Supports multi-user accounts with roles: admin and user.
+- Admins can approve, deactivate, activate, and manage users via the web UI.
+- Each certificate, key, and profile is associated with a user (ownership enforced).
+- Only admins can manage all resources; users can only view/manage their own.
+- User status (active, deactivated, pending) is enforced at login and visible in the admin UI.
+- Registration, login, and logout are available from the web interface.
+
+---
+
+## 🗄️ Database Initialization & Migration
+
+### Initialize a New Database
+
+To create a new database with all required tables and a default admin user:
+
+```bash
+python init_db.py
+```
+
+- Reads configuration from `config.ini` (including admin user credentials).
+- Creates all tables and the initial admin user if not present.
+
+### Migrate an Existing Database
+
+To migrate an old database (e.g., certs.db) to the latest schema, including user table and admin user:
+
+```bash
+python migrate_db.py
+```
+
+- Adds missing columns (e.g., user_id) to existing tables if needed.
+- Creates the users table and admin user if missing.
+- Safe to run multiple times (idempotent).
