@@ -5,7 +5,11 @@
     <div class="form-group">
       <textarea id="server_ext_config" name="server_ext_config" rows="10" class="form-control" placeholder="Edit server extension configuration...">{{ server_ext_config }}</textarea>
     </div>
-    <button type="submit" class="btn btn-primary">Save Configuration</button>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="checkbox" id="save_system_default" name="save_system_default">
+      <label class="form-check-label" for="save_system_default">Also save as system default</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Save User Configuration</button>
   </form>
 
   <h2>Load Configuration from a Saved Profile</h2>

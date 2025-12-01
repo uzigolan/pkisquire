@@ -1,11 +1,19 @@
+
 import sqlite3
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
 from flask import current_app
 
+def set_user_active(user_id, active: bool):
+    conn = sqlite3.connect(current_app.config["DB_PATH"])
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET is_active = ? WHERE id = ?", (1 if active else 0, user_id))
+    conn.commit()
+    conn.close()
+
 class User(UserMixin):
-    def __init__(self, id, username, password_hash, role, email=None, created_at=None, last_login=None, is_active_db=True):
+    def __init__(self, id, username, password_hash, role, email=None, created_at=None, last_login=None, status='pending'):
         self.id = id
         self.username = username
         self.password_hash = password_hash
@@ -13,8 +21,7 @@ class User(UserMixin):
         self.email = email
         self.created_at = created_at
         self.last_login = last_login
-        self.is_active_db = is_active_db
-
+        self.status = status  # 'pending', 'active', 'disabled'
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -22,7 +29,7 @@ class User(UserMixin):
     @property
     def is_active(self):
         # Flask-Login uses this property to determine if the user is active
-        return bool(self.is_active_db)
+        return self.status == 'active'
 
     def is_admin(self):
         return self.role == 'admin'
@@ -30,7 +37,7 @@ class User(UserMixin):
     @staticmethod
     def create_user(username, password, role='user', email=None):
         password_hash = generate_password_hash(password)
-        return User(None, username, password_hash, role, email)
+        return User(None, username, password_hash, role, email, status='pending')
 
 def get_user_by_id(user_id):
     conn = sqlite3.connect(current_app.config["DB_PATH"])
@@ -40,6 +47,12 @@ def get_user_by_id(user_id):
     row = cur.fetchone()
     conn.close()
     if row:
+        if 'status' in row.keys():
+            status = row['status']
+        elif 'is_active' in row.keys():
+            status = 'active' if row['is_active'] else 'disabled'
+        else:
+            status = 'active'
         return User(
             id=row['id'],
             username=row['username'],
@@ -48,7 +61,7 @@ def get_user_by_id(user_id):
             email=row['email'],
             created_at=row['created_at'],
             last_login=row['last_login'],
-            is_active_db=row['is_active']
+            status=status
         )
     return None
 
@@ -68,7 +81,7 @@ def get_user_by_username(username):
             email=row['email'],
             created_at=row['created_at'],
             last_login=row['last_login'],
-            is_active_db=row['is_active']
+            status=row['status'] if 'status' in row.keys() else ('active' if row.get('is_active', 1) else 'disabled')
         )
     return None
 
@@ -81,6 +94,12 @@ def get_all_users():
     conn.close()
     users = []
     for row in rows:
+        if 'status' in row.keys():
+            status = row['status']
+        elif 'is_active' in row.keys():
+            status = 'active' if row['is_active'] else 'disabled'
+        else:
+            status = 'active'
         users.append({
             'id': row['id'],
             'username': row['username'],
@@ -88,7 +107,7 @@ def get_all_users():
             'email': row['email'],
             'created_at': row['created_at'],
             'last_login': row['last_login'],
-            'is_active': row['is_active']
+            'status': status
         })
     return users
 
@@ -98,8 +117,8 @@ def create_user_db(username, password, role='user', email=None):
     cur = conn.cursor()
     try:
         cur.execute(
-            "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)",
-            (username, password_hash, role, email)
+            "INSERT INTO users (username, password_hash, role, email, status) VALUES (?, ?, ?, ?, ?)",
+            (username, password_hash, role, email, 'pending')
         )
         conn.commit()
         user_id = cur.lastrowid

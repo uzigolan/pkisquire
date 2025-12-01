@@ -3,28 +3,32 @@
 <div class="container mt-4">
     <h2>Login</h2>
     <form method="POST" action="{{ url_for('login') }}">
-        <div class="mb-3">
+        <div class="mb-3" style="max-width: 350px;">
             <label for="username" class="form-label">Username</label>
-            <input type="text" class="form-control" id="username" name="username" required>
+            <input type="text" class="form-control" id="username" name="username" required style="max-width: 300px;">
         </div>
-        <div class="mb-3">
+        <div class="mb-3" style="max-width: 350px;">
             <label for="password" class="form-label">Password</label>
-            <div class="input-group">
+            <div class="input-group" style="max-width: 300px;">
                 <input type="password" class="form-control" id="password" name="password" required>
-                <div class="input-group-append">
-                    <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">Show</button>
-                </div>
+                <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1" style="border-left:0;">
+                    <span id="eyeIcon" class="fa fa-eye" aria-hidden="true"></span>
+                </button>
             </div>
         </div>
         <script>
+        // FontAwesome eye/eye-slash toggle
         document.getElementById('togglePassword').addEventListener('click', function () {
             var pw = document.getElementById('password');
+            var icon = document.getElementById('eyeIcon');
             if (pw.type === 'password') {
                 pw.type = 'text';
-                this.textContent = 'Hide';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
             } else {
                 pw.type = 'password';
-                this.textContent = 'Show';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         });
         </script>
@@ -32,4 +36,6 @@
         <a href="{{ url_for('register') }}" class="btn btn-link">Register</a>
     </form>
 </div>
+<!-- FontAwesome CDN for eye icon -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {% endblock %}

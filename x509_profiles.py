@@ -188,8 +188,12 @@ def template_form():
             return redirect(url_for("profiles.template_form", template=template_name))
 
         outpath = os.path.join(X509_PROFILE_DIR, outname)
-        with open(outpath, "w") as f:
-            f.write(rendered)
+        # Normalize line endings and collapse multiple blank lines
+        import re
+        rendered_normalized = rendered.replace('\r\n', '\n').replace('\r', '\n')
+        rendered_normalized = re.sub(r'\n{3,}', '\n\n', rendered_normalized)
+        with open(outpath, "w", newline='') as f:
+            f.write(rendered_normalized)
 
         prof = Profile.query.filter_by(filename=outname).first()
         if not prof:
@@ -281,8 +285,11 @@ def edit_profile_file(filename):
             return redirect(url_for("profiles.edit_profile_file", filename=filename))
 
         try:
-            with open(filepath, "w") as f:
-                f.write(new_content)
+            import re
+            new_content_normalized = new_content.replace('\r\n', '\n').replace('\r', '\n')
+            new_content_normalized = re.sub(r'\n{3,}', '\n\n', new_content_normalized)
+            with open(filepath, "w", newline='') as f:
+                f.write(new_content_normalized)
             flash(f"Profile {filename} updated.", "success")
         except Exception as e:
             flash(f"Failed to save: {e}", "error")
@@ -358,9 +365,12 @@ def new_profile_file():
             return redirect(url_for("profiles.new_profile_file"))
 
         try:
+            import re
+            new_content_normalized = new_content.replace('\r\n', '\n').replace('\r', '\n')
+            new_content_normalized = re.sub(r'\n{3,}', '\n\n', new_content_normalized)
             outpath = os.path.join(X509_PROFILE_DIR, filename)
-            with open(outpath, "w") as f:
-                f.write(new_content)
+            with open(outpath, "w", newline='') as f:
+                f.write(new_content_normalized)
             prof = Profile(filename=filename, template_name="", profile_type=profile_type, user_id=current_user.id)
             db.session.add(prof)
             db.session.commit()

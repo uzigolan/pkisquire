@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Flask Server (with OpenSSL)",
+			"type": "shell",
+			"command": "$env:Path=\"C:\\Program Files\\OpenSSL-Win64\\bin;\" + $env:Path; C:/Users/uzi_g/AppData/Local/Python/pythoncore-3.14-64/python.exe app.py",
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Full Start Server (OpenSSL, DB, Flask)",
+			"type": "shell",
+			"command": "$env:Path=\"C:\\Program Files\\OpenSSL-Win64\\bin;\" + $env:Path; $env:FLASK_ENV=\"production\"; $env:FLASK_APP=\"app.py\"; C:/Users/uzi_g/AppData/Local/Python/pythoncore-3.14-64/python.exe app.py",
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

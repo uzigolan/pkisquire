@@ -1,3 +1,4 @@
+
 import os
 import sqlite3
 import logging
@@ -50,11 +51,61 @@ from cryptography.hazmat.primitives.asymmetric import rsa, ec
 # --- User Registration, Login, Logout Routes ---
 from user_models import get_user_by_username, create_user_db, update_last_login
 
+
 # --- Manage Users (Admin Only) ---
 from user_models import get_all_users
 
+# --- Server-side session tracking for all logged-in users ---
+def ensure_sessions_table():
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS user_sessions (
+            session_id TEXT PRIMARY KEY,
+            user_id INTEGER,
+            login_time TEXT
+        )''')
+
+import uuid
+from flask import session as flask_session
+from flask_login import user_logged_in, user_logged_out
+
+
+from flask_login import user_logged_in, user_logged_out
+
+
 
 app = Flask(__name__, template_folder="html_templates")
+
+
+@user_logged_in.connect_via(app)
+def track_user_logged_in(sender, user):
+    ensure_sessions_table()
+    sid = flask_session.get('sid')
+    if not sid:
+        sid = str(uuid.uuid4())
+        flask_session['sid'] = sid
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute("INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time) VALUES (?, ?, datetime('now'))", (sid, user.id))
+
+@user_logged_out.connect_via(app)
+def track_user_logged_out(sender, user):
+    sid = flask_session.get('sid')
+    if sid:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            conn.execute("DELETE FROM user_sessions WHERE session_id = ?", (sid,))
+        flask_session.pop('sid', None)
+
+def get_logged_in_user_ids():
+    ensure_sessions_table()
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        rows = conn.execute("SELECT DISTINCT user_id FROM user_sessions").fetchall()
+        return set(row[0] for row in rows)
+
+# Track logged-in users by user_id in a set
+import threading
+LOGGED_IN_USERS = set()
+LOGGED_IN_USERS_LOCK = threading.Lock()
+
+
 
 # Define base paths and certificate configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -430,6 +481,96 @@ def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
     # 5) ultimate fallback
     return algo or "Unknown"
 
+@app.route('/toggle_user_active/<int:user_id>', methods=['POST'])
+@login_required
+def toggle_user_active(user_id):
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('manage_users'))
+    from user_models import get_user_by_id
+    user = get_user_by_id(user_id)
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('manage_users'))
+    # Toggle between 'active' and 'deactivated'
+    import sqlite3
+    new_status = 'deactivated' if user.status == 'active' else 'active'
+    conn = sqlite3.connect(app.config["DB_PATH"])
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET status = ? WHERE id = ?", (new_status, user_id))
+    conn.commit()
+    conn.close()
+    flash(f'User {"activated" if new_status == "active" else "deactivated"}.', 'success')
+    return redirect(url_for('manage_users'))
+
+
+@app.before_request
+def enforce_session_revocation():
+    from flask_login import current_user, logout_user
+    if current_user.is_authenticated:
+        sid = session.get('sid')
+        if not sid:
+            # Defensive: if no sid, treat as invalid session
+            logout_user()
+            flash('Your session has expired or was revoked.', 'warning')
+            return redirect(url_for('login'))
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            row = conn.execute("SELECT 1 FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
+            if not row:
+                logout_user()
+                session.pop('sid', None)
+                flash('You have been logged out by an administrator.', 'warning')
+                return redirect(url_for('login'))
+
+
+
+
+# --- Approve User (Admin Only) ---
+@app.route('/approve_user/<int:user_id>', methods=['POST'])
+@login_required
+def approve_user(user_id):
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('manage_users'))
+    from user_models import get_user_by_id
+    user = get_user_by_id(user_id)
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('manage_users'))
+    if user.status != 'pending':
+        flash('User is not pending approval.', 'info')
+        return redirect(url_for('manage_users'))
+    import sqlite3
+    conn = sqlite3.connect(app.config["DB_PATH"])
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET status = 'active' WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+    flash('User approved and activated.', 'success')
+    return redirect(url_for('manage_users'))
+
+
+
+# AJAX endpoint to serve server extension config content
+@app.route('/get_server_ext_content')
+@login_required
+def get_server_ext_content():
+    name = request.args.get('name')
+    if not name or name == 'None':
+        return '[ v3_ext ]\n# No additional extensions', 200, {'Content-Type': 'text/plain'}
+    server_ext_dir = os.path.join(app.root_path, "pki-misc")
+    if name == 'User':
+        safe_name = f'server_ext_{current_user.id}.cnf'
+    elif name == 'System':
+        safe_name = 'server_ext.cnf'
+    else:
+        safe_name = os.path.basename(name)
+    file_path = os.path.join(server_ext_dir, safe_name)
+    if not os.path.isfile(file_path):
+        return 'File not found', 404
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return f.read(), 200, {'Content-Type': 'text/plain'}
+
 
 
 # --- Add User (Admin Only) ---
@@ -490,6 +631,13 @@ def change_role(user_id):
     flash('User role updated.', 'success')
     return redirect(url_for('manage_users'))
 
+
+@app.context_processor
+def inject_logged_in_users():
+    # Make LOGGED_IN_USERS available to all templates
+    with LOGGED_IN_USERS_LOCK:
+        return {"LOGGED_IN_USERS": set(LOGGED_IN_USERS)}
+
 @app.route('/manage_users')
 @login_required
 def manage_users():
@@ -497,7 +645,29 @@ def manage_users():
         flash('Access denied: Admins only.', 'error')
         return redirect(url_for('index'))
     users = get_all_users()
+    logged_in_ids = get_logged_in_user_ids()
+    for user in users:
+        user['is_logged_in'] = user['id'] in logged_in_ids
     return render_template('manage_users.html', users=users)
+
+# Admin-forced logout action
+@app.route('/admin_logout/<int:user_id>', methods=['POST'])
+@login_required
+def admin_logout(user_id):
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('manage_users'))
+    # Remove all sessions for the user
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
+    # If admin logs out themselves, also call logout_user()
+    if user_id == current_user.id:
+        logout_user()
+        flash('You have been logged out.', 'success')
+        return redirect(url_for('login'))
+    else:
+        flash('User has been logged out from all sessions.', 'success')
+        return redirect(url_for('manage_users'))
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -567,11 +737,21 @@ def login():
             flash("Username and password are required.", "error")
             return render_template("login.html")
         user = get_user_by_username(username)
-        if user and user.check_password(password) and user.is_active:
-            login_user(user)
-            update_last_login(user.id)
-            app.logger.info(f"User {username} logged in")
-            return redirect(url_for('index'))
+        if user:
+            if user.status == 'deactivated':
+                flash("User account is disabled. Contact administrator.", "error")
+                app.logger.warning(f"Login attempt for deactivated user: {username}")
+            elif user.status == 'pending':
+                flash("User account is pending approval by administrator.", "error")
+                app.logger.warning(f"Login attempt for pending user: {username}")
+            elif user.status == 'active' and user.check_password(password):
+                login_user(user)
+                update_last_login(user.id)
+                app.logger.info(f"User {username} logged in")
+                return redirect(url_for('index'))
+            else:
+                flash("Invalid username or password.", "error")
+                app.logger.warning(f"Failed login attempt for: {username}")
         else:
             flash("Invalid username or password.", "error")
             app.logger.warning(f"Failed login attempt for: {username}")
@@ -729,12 +909,12 @@ def index():
         app.logger.error(f"Failed to load index: {e}")
         return f"Error: {e}", 500
 
+
 @app.route("/sign")
 @login_required
 def sign():
     try:
         # 1) Fetch raw rows
-
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
             if hasattr(current_user, 'is_admin') and current_user.is_admin():
                 csr_requests = conn.execute(
@@ -746,7 +926,6 @@ def sign():
                     (current_user.id,)
                 ).fetchall()
 
-
         # validity setting
         try:
             with open(app.config["VALIDITY_CONF"], "r") as f:
@@ -754,17 +933,21 @@ def sign():
         except FileNotFoundError:
             validity_days = "365"
 
-        # server extension config
-        try:
-            with open(app.config["SERVER_EXT_PATH"], "r") as f:
-                server_ext_config = f.read()
-        except FileNotFoundError:
-            server_ext_config = ""
+        # List available server extension configs from pki-misc
+        # Use app.root_path for compatibility (Flask always sets this)
+        server_ext_dir = os.path.join(app.root_path, "pki-misc")
+        ext_files = [f for f in os.listdir(server_ext_dir) if f.endswith('.cnf')]
+        server_ext_options = ["None"]
+        user_ext = f"server_ext_{current_user.id}.cnf"
+        if "server_ext.cnf" in ext_files:
+            server_ext_options.append("System")
+        if user_ext in ext_files:
+            server_ext_options.append("User")
 
         return render_template(
             "sign.html",
             csr_requests=csr_requests,
-            server_ext_config=server_ext_config,
+            server_ext_options=server_ext_options,
             validity_days=validity_days
         )
 
@@ -1183,18 +1366,47 @@ def ca_page():
 @app.route("/server_ext", methods=["GET", "POST"])
 @login_required
 def server_ext():
-    try:
-        with open(app.config["SERVER_EXT_PATH"], "r") as f:
+    user_ext_path = os.path.join(app.root_path, "pki-misc", f"server_ext_{current_user.id}.cnf")
+    system_ext_path = app.config["SERVER_EXT_PATH"]
+    # Load user default if exists, else system default
+    if os.path.exists(user_ext_path):
+        with open(user_ext_path, "r", encoding="utf-8") as f:
             manual_config = f.read()
-    except FileNotFoundError:
-        manual_config = ""
+    else:
+        try:
+            with open(system_ext_path, "r", encoding="utf-8") as f:
+                manual_config = f.read()
+        except FileNotFoundError:
+            manual_config = ""
     if request.method == "POST":
-        new_config = request.form.get("server_ext_config")
-        with open(app.config["SERVER_EXT_PATH"], "w") as f:
-            f.write(new_config)
-        flash("Server extension configuration updated.", "success")
-        return redirect(url_for("server_ext"))
-    profiles = Profile.query.order_by(Profile.id.desc()).all()
+        new_config = request.form.get("server_ext_config") or ""
+        save_system = request.form.get("save_system_default") == "on"
+        # Validate config using _validate_cnf from x509_profiles.py
+        import tempfile
+        from x509_profiles import _validate_cnf
+        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".cnf", encoding="utf-8") as tmpf:
+            tmpf.write(new_config)
+            tmp_path = tmpf.name
+        is_valid, msg = _validate_cnf(tmp_path)
+        os.unlink(tmp_path)
+        if not is_valid:
+            flash(f"Configuration validation failed: {msg}", "danger")
+            manual_config = new_config  # repopulate form with attempted config
+        else:
+            # Always save user default
+            with open(user_ext_path, "w", encoding="utf-8", newline='') as f:
+                f.write(new_config)
+            if save_system:
+                with open(system_ext_path, "w", encoding="utf-8", newline='') as f:
+                    f.write(new_config)
+                flash("Configuration saved as both user and system default.", "success")
+            else:
+                flash("Configuration saved as your user default.", "success")
+            return redirect(url_for("server_ext"))
+    if current_user.is_admin():
+        profiles = Profile.query.order_by(Profile.id.desc()).all()
+    else:
+        profiles = Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
     return render_template("server_ext.html", server_ext_config=manual_config, profiles=profiles)
 
 @app.route("/view_root")
