@@ -718,7 +718,10 @@ def register():
         role = 'admin' if user_count == 0 else 'user'
         user_id = create_user_db(username, password, role, email or None)
         if user_id:
-            flash(f"Account created successfully! You can now log in.{' You are the first user and have been granted admin privileges.' if role == 'admin' else ''}", "success")
+            if role == 'admin':
+                flash("Account created successfully! You are the first user and have been granted admin privileges. You can now log in.", "success")
+            else:
+                flash("Account created and pending approval. Your registration is awaiting administrator review.", "info")
             app.logger.info(f"New user registered: {username} with role: {role}")
             return redirect(url_for('login'))
         else:
