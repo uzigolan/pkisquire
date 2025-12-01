@@ -1,4 +1,3 @@
-
 import os
 import sqlite3
 import logging
@@ -2205,6 +2204,35 @@ def download_pfx(cert_id):
     )
 
 
+# --- Change Password ---
+@app.route("/account", methods=["GET"])
+@login_required
+def account():
+    return render_template("account.html")
+
+@app.route("/change_password", methods=["POST"])
+@login_required
+def change_password():
+    current_password = request.form.get("current_password", "").strip()
+    new_password = request.form.get("new_password", "").strip()
+    confirm_password = request.form.get("confirm_password", "").strip()
+    if not current_user.check_password(current_password):
+        flash("Current password is incorrect.", "error")
+        return redirect(url_for('account'))
+    if not new_password or new_password != confirm_password:
+        flash("New passwords do not match or are empty.", "error")
+        return redirect(url_for('account'))
+    from werkzeug.security import generate_password_hash
+    import sqlite3
+    db_path = app.config["DB_PATH"]
+    con = sqlite3.connect(db_path)
+    cur = con.cursor()
+    cur.execute("UPDATE users SET password_hash = ? WHERE id = ?", (generate_password_hash(new_password), current_user.id))
+    con.commit()
+    con.close()
+    flash("Password changed successfully.", "success")
+    app.logger.info(f"User {current_user.username} changed their password.")
+    return redirect(url_for('account'))
 
 
 
