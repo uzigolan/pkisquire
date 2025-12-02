@@ -13,8 +13,9 @@
             <th>Actions</th>
         </tr>
     </thead>
-    <tbody>
+    <tbody id="users-table-body">
         {% for user in users %}
+        <!-- Initial render for non-JS fallback -->
         <tr>
             <td>{{ user.id }}</td>
             <td>{{ user.username }}</td>
@@ -78,4 +79,69 @@
     </tbody>
 </table>
 <a href="{{ url_for('add_user') }}" class="btn btn-success">Add User</a>
+
+<script>
+function renderUserRow(user, currentUserId) {
+    let statusBadge = '<span class="badge badge-secondary">Deactivated</span>';
+    if (user.status === 'active') statusBadge = '<span class="badge badge-success">Active</span>';
+    else if (user.status === 'pending') statusBadge = '<span class="badge badge-warning">Pending</span>';
+    let loggedInBadge = user.is_logged_in ? '<span class="badge badge-info">Yes</span>' : '<span class="badge badge-light">No</span>';
+    let actions = '';
+    if (user.id !== currentUserId) {
+        actions += `<form method="post" action="/delete_user/${user.id}" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+        </form>`;
+        actions += `<form method="post" action="/change_role/${user.id}" style="display:inline;">
+            <select name="role" class="form-control form-control-sm d-inline-block w-auto" style="vertical-align:middle;">
+                <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
+                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
+        </form>`;
+        if (user.status === 'active') {
+            actions += `<form method="post" action="/toggle_user_active/${user.id}" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+            </form>`;
+        } else if (user.status === 'deactivated') {
+            actions += `<form method="post" action="/toggle_user_active/${user.id}" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-success">Activate</button>
+            </form>`;
+        } else if (user.status === 'pending') {
+            actions += `<form method="post" action="/approve_user/${user.id}" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-success">Approve</button>
+            </form>`;
+            actions += `<form method="post" action="/toggle_user_active/${user.id}" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+            </form>`;
+        }
+        if (user.is_logged_in) {
+            actions += `<form method="post" action="/admin_logout/${user.id}" style="display:inline; margin-left: 2px;">
+                <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
+            </form>`;
+        }
+    } else {
+        actions = '<span class="text-muted">(You)</span>';
+    }
+    return `<tr>
+        <td>${user.id}</td>
+        <td>${user.username}</td>
+        <td>${user.role}</td>
+        <td>${user.email || ''}</td>
+        <td>${statusBadge}</td>
+        <td>${loggedInBadge}</td>
+        <td>${actions}</td>
+    </tr>`;
+}
+
+function fetchAndUpdateUsers() {
+    fetch('/api/users')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('users-table-body');
+            tbody.innerHTML = data.users.map(user => renderUserRow(user, data.current_user_id)).join('');
+        });
+}
+setInterval(fetchAndUpdateUsers, 5000);
+window.addEventListener('DOMContentLoaded', fetchAndUpdateUsers);
+</script>
 {% endblock %}

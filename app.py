@@ -1,4 +1,3 @@
-
 import os
 import sqlite3
 import logging
@@ -54,6 +53,12 @@ from user_models import get_user_by_username, create_user_db, update_last_login
 
 # --- Manage Users (Admin Only) ---
 from user_models import get_all_users
+
+
+# --- API endpoint for AJAX login status polling ---
+from flask import jsonify
+
+
 
 # --- Server-side session tracking for all logged-in users ---
 def ensure_sessions_table():
@@ -649,6 +654,29 @@ def manage_users():
     for user in users:
         user['is_logged_in'] = user['id'] in logged_in_ids
     return render_template('manage_users.html', users=users)
+
+
+# --- API endpoint for AJAX user table (full user list with login status) ---
+@app.route('/api/users')
+@login_required
+def api_users():
+    if not current_user.is_admin():
+        return jsonify({'error': 'forbidden'}), 403
+    users = get_all_users()
+    logged_in_ids = get_logged_in_user_ids()
+    user_list = []
+    for user in users:
+        user_list.append({
+            'id': user['id'],
+            'username': user['username'],
+            'role': user['role'],
+            'email': user.get('email', ''),
+            'status': user['status'],
+            'is_logged_in': user['id'] in logged_in_ids
+        })
+    return jsonify({'users': user_list, 'current_user_id': current_user.id})
+
+
 
 # Admin-forced logout action
 @app.route('/admin_logout/<int:user_id>', methods=['POST'])
