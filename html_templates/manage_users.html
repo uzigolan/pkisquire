@@ -6,11 +6,10 @@
         <tr>
             <th>ID</th>
             <th>Username</th>
-            <th>Role</th>
             <th>Email</th>
-            <th>Status</th>
-            <th>Logged In</th>
-            <th>Actions</th>
+            <th style="width: 120px;">Idle</th>
+            <th style="width: 320px;">Settings/Status</th>
+            <th style="width: 520px;">Actions</th>
         </tr>
     </thead>
     <tbody id="users-table-body">
@@ -19,25 +18,35 @@
         <tr>
             <td>{{ user.id }}</td>
             <td>{{ user.username }}</td>
-            <td>{{ user.role }}</td>
             <td>{{ user.email or '' }}</td>
+            <td>{{ user.idle or '' }}</td>
             <td>
-                {% if user.status == 'active' %}
-                    <span class="badge badge-success">Active</span>
-                {% elif user.status == 'pending' %}
-                    <span class="badge badge-warning">Pending</span>
-                {% else %}
-                    <span class="badge badge-secondary">Deactivated</span>
-                {% endif %}
+                <div>
+                    {% if user.role == 'admin' %}
+                        <span class="badge badge-dark">Admin</span>
+                    {% else %}
+                        <span class="badge" style="background-color: #007bff; color: white;">User</span>
+                    {% endif %}
+                    {% if user.auth_source == 'ldap' %}
+                        <span class="badge badge-primary">LDAP</span>
+                    {% else %}
+                        <span class="badge badge-secondary">Local</span>
+                    {% endif %}
+                    {% if user.status == 'active' %}
+                        <span class="badge badge-success">Active</span>
+                    {% elif user.status == 'pending' %}
+                        <span class="badge badge-warning">Pending</span>
+                    {% else %}
+                        <span class="badge badge-secondary">Suspended</span>
+                    {% endif %}
+                    {% if user.is_logged_in %}
+                        <span class="badge badge-info">Yes</span>
+                    {% else %}
+                        <span class="badge" style="background-color: #6f42c1; color: white;">No</span>
+                    {% endif %}
+                </div>
             </td>
-            <td>
-                {% if user.is_logged_in %}
-                    <span class="badge badge-info">Yes</span>
-                {% else %}
-                    <span class="badge badge-light">No</span>
-                {% endif %}
-            </td>
-            <td>
+            <td style="white-space: nowrap;">
                 {% if user.id != current_user.id %}
                 <form method="post" action="{{ url_for('delete_user', user_id=user.id) }}" style="display:inline;">
                     <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
@@ -51,7 +60,7 @@
                 </form>
                 {% if user.status == 'active' %}
                     <form method="post" action="{{ url_for('toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                        <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
                     </form>
                 {% elif user.status == 'deactivated' %}
                     <form method="post" action="{{ url_for('toggle_user_active', user_id=user.id) }}" style="display:inline;">
@@ -62,7 +71,7 @@
                         <button type="submit" class="btn btn-sm btn-success">Approve</button>
                     </form>
                     <form method="post" action="{{ url_for('toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                        <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
                     </form>
                 {% endif %}
                 {% if user.is_logged_in %}
@@ -80,12 +89,48 @@
 </table>
 <a href="{{ url_for('add_user') }}" class="btn btn-success">Add User</a>
 
+<div class="mt-3">
+    <div style="margin-bottom: 6px;"><strong>Legend:</strong></div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 8px 16px; max-width: 840px;">
+        <div>
+            <div style="font-weight: 600;">User Roles</div>
+            <div><span class="badge badge-dark">Admin</span> Admin</div>
+            <div><span class="badge" style="background-color: #007bff; color: white;">User</span> User</div>
+        </div>
+        <div>
+            <div style="font-weight: 600;">Auth Source</div>
+            <div><span class="badge badge-primary">LDAP</span> LDAP</div>
+            <div><span class="badge badge-secondary">Local</span> Local</div>
+        </div>
+        <div>
+            <div style="font-weight: 600;">User State</div>
+            <div><span class="badge badge-success">Active</span> Active</div>
+            <div><span class="badge badge-warning">Pending</span> Pending</div>
+            <div><span class="badge badge-secondary">Suspended</span> Suspended</div>
+        </div>
+        <div>
+            <div style="font-weight: 600;">Login Status</div>
+            <div><span class="badge badge-info">Yes</span> Logged in</div>
+            <div><span class="badge" style="background-color: #6f42c1; color: white;">No</span> Not logged in</div>
+        </div>
+    </div>
+</div>
+
 <script>
 function renderUserRow(user, currentUserId) {
-    let statusBadge = '<span class="badge badge-secondary">Deactivated</span>';
+    let statusBadge = '<span class="badge badge-secondary">Suspended</span>';
     if (user.status === 'active') statusBadge = '<span class="badge badge-success">Active</span>';
     else if (user.status === 'pending') statusBadge = '<span class="badge badge-warning">Pending</span>';
-    let loggedInBadge = user.is_logged_in ? '<span class="badge badge-info">Yes</span>' : '<span class="badge badge-light">No</span>';
+    let loggedInBadge = user.is_logged_in
+        ? '<span class="badge badge-info">Yes</span>'
+        : '<span class="badge" style="background-color: #6f42c1; color: white;">No</span>';
+    const sourceBadge = user.auth_source === 'ldap'
+        ? '<span class="badge badge-primary">LDAP</span>'
+        : '<span class="badge badge-secondary">Local</span>';
+    const roleBadge = user.role === 'admin'
+        ? '<span class="badge badge-dark">Admin</span>'
+        : '<span class="badge" style="background-color: #007bff; color: white;">User</span>';
+    const settings = `${roleBadge} ${sourceBadge} ${statusBadge} ${loggedInBadge}`;
     let actions = '';
     if (user.id !== currentUserId) {
         actions += `<form method="post" action="/delete_user/${user.id}" style="display:inline;">
@@ -100,7 +145,7 @@ function renderUserRow(user, currentUserId) {
         </form>`;
         if (user.status === 'active') {
             actions += `<form method="post" action="/toggle_user_active/${user.id}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
             </form>`;
         } else if (user.status === 'deactivated') {
             actions += `<form method="post" action="/toggle_user_active/${user.id}" style="display:inline;">
@@ -111,7 +156,7 @@ function renderUserRow(user, currentUserId) {
                 <button type="submit" class="btn btn-sm btn-success">Approve</button>
             </form>`;
             actions += `<form method="post" action="/toggle_user_active/${user.id}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-warning">Deactivate</button>
+                <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
             </form>`;
         }
         if (user.is_logged_in) {
@@ -125,11 +170,10 @@ function renderUserRow(user, currentUserId) {
     return `<tr>
         <td>${user.id}</td>
         <td>${user.username}</td>
-        <td>${user.role}</td>
         <td>${user.email || ''}</td>
-        <td>${statusBadge}</td>
-        <td>${loggedInBadge}</td>
-        <td>${actions}</td>
+        <td>${user.idle || ''}</td>
+        <td>${settings}</td>
+        <td style="white-space: nowrap;">${actions}</td>
     </tr>`;
 }
 

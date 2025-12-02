@@ -16,7 +16,7 @@ import re
 import ssl
 
 from pathlib import Path
-from datetime import datetime,timezone
+from datetime import datetime,timezone, timedelta
 
 from threading import Thread
 
@@ -34,6 +34,7 @@ from cryptography.hazmat.primitives import serialization
 from markupsafe import escape
 from asn1crypto import x509 as asn1_x509
 
+from ldap_utils import ldap_authenticate, ldap_user_exists
 from user_models import User, get_user_by_id
 # Load shared extensions and blueprints
 from extensions import db           # Shared SQLAlchemy instance
@@ -66,8 +67,22 @@ def ensure_sessions_table():
         conn.execute('''CREATE TABLE IF NOT EXISTS user_sessions (
             session_id TEXT PRIMARY KEY,
             user_id INTEGER,
-            login_time TEXT
+            login_time TEXT,
+            last_activity TEXT
         )''')
+        # Ensure last_activity column exists if table was created earlier without it
+        cur = conn.cursor()
+        cur.execute("PRAGMA table_info(user_sessions)")
+        cols = [row[1] for row in cur.fetchall()]
+        if "last_activity" not in cols:
+            conn.execute("ALTER TABLE user_sessions ADD COLUMN last_activity TEXT")
+        # Backfill last_activity where missing
+        conn.execute("""
+            UPDATE user_sessions
+            SET last_activity = login_time
+            WHERE last_activity IS NULL OR last_activity = ''
+        """)
+        conn.commit()
 
 import uuid
 from flask import session as flask_session
@@ -88,8 +103,10 @@ def track_user_logged_in(sender, user):
     if not sid:
         sid = str(uuid.uuid4())
         flask_session['sid'] = sid
+    now_str = _now_utc_str()
+    flask_session['last_activity'] = now_str
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time) VALUES (?, ?, datetime('now'))", (sid, user.id))
+        conn.execute("INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time, last_activity) VALUES (?, ?, ?, ?)", (sid, user.id, now_str, now_str))
 
 @user_logged_out.connect_via(app)
 def track_user_logged_out(sender, user):
@@ -105,10 +122,117 @@ def get_logged_in_user_ids():
         rows = conn.execute("SELECT DISTINCT user_id FROM user_sessions").fetchall()
         return set(row[0] for row in rows)
 
+def get_user_idle_map():
+    """
+    Returns {user_id: 'HH:MM'} for users with a recorded last_activity/login_time.
+    """
+    ensure_sessions_table()
+    now = datetime.now(timezone.utc)
+    idle = {}
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        rows = conn.execute("""
+            SELECT user_id, MAX(COALESCE(last_activity, login_time)) AS last_ts
+            FROM user_sessions
+            GROUP BY user_id
+        """).fetchall()
+    for user_id, last_ts in rows:
+        parsed = _parse_ts_utc(last_ts)
+        if not parsed:
+            continue
+        delta = now - parsed
+        if delta.total_seconds() < 0:
+            continue
+        minutes = int(delta.total_seconds() // 60)
+        hours = minutes // 60
+        minutes = minutes % 60
+        idle[user_id] = f"{hours:02d}:{minutes:02d}"
+    return idle
+
 # Track logged-in users by user_id in a set
 import threading
 LOGGED_IN_USERS = set()
 LOGGED_IN_USERS_LOCK = threading.Lock()
+LDAP_IMPORTED_USERS = set()  # runtime memory of users created via LDAP
+LDAP_SOURCE_CACHE = {}  # username -> 'ldap'|'local' for this runtime
+
+def parse_idle_time(value: str):
+    if not value:
+        return None
+    s = str(value).strip().lower()
+    try:
+        if s.endswith("h"):
+            num = float(s[:-1])
+            return timedelta(hours=num)
+        if s.endswith("d"):
+            num = float(s[:-1])
+            return timedelta(days=num)
+        # fallback: treat as days if numeric only
+        num = float(s)
+        return timedelta(days=num)
+    except Exception:
+        return None
+
+app.config["IDLE_TIMEOUT"] = parse_idle_time(app.config.get("MAX_IDLE_TIME"))
+
+def _now_utc_str():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+def _parse_ts_utc(ts: str):
+    if not ts:
+        return None
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f"):
+        try:
+            dt = datetime.strptime(ts, fmt)
+            return dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+    try:
+        dt = datetime.fromisoformat(ts)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except Exception:
+        return None
+
+def cleanup_idle_sessions():
+    """Remove stale sessions that exceeded IDLE_TIMEOUT, regardless of who is logged in."""
+    idle_timeout = app.config.get("IDLE_TIMEOUT")
+    if not idle_timeout:
+        return
+    cutoff = datetime.now(timezone.utc) - idle_timeout
+    cutoff_str = cutoff.strftime("%Y-%m-%d %H:%M:%S")
+    ensure_sessions_table()
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            conn.execute(
+                "DELETE FROM user_sessions WHERE COALESCE(last_activity, login_time) < ?",
+                (cutoff_str,)
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+def get_auth_source_for_username(username: str) -> str:
+    """Best-effort determination of user source without touching DB schema."""
+    key = (username or "").lower()
+    if not key:
+        return "local"
+    if key in LDAP_SOURCE_CACHE:
+        return LDAP_SOURCE_CACHE[key]
+    # Prefer DB value if user exists
+    try:
+        from user_models import get_user_by_username
+        user = get_user_by_username(username)
+        if user:
+            LDAP_SOURCE_CACHE[key] = getattr(user, "auth_source", "local")
+            return LDAP_SOURCE_CACHE[key]
+    except Exception:
+        pass
+    if app.config.get("LDAP_ENABLED") and ldap_user_exists(username, app.config, app.logger):
+        LDAP_SOURCE_CACHE[key] = "ldap"
+        return "ldap"
+    LDAP_SOURCE_CACHE[key] = "local"
+    return "local"
 
 
 
@@ -124,6 +248,7 @@ _cfg.read(CONFIG_PATH)
 app.config["SECRET_KEY"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
+app.config["MAX_IDLE_TIME"] = _cfg.get("DEFAULT", "max_idle_time", fallback="7d")
 
 
 ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
@@ -135,6 +260,13 @@ app.config["SUBCA_CERT_PATH"]  = _cfg.get("CA", f"SUBCA_CERT_PATH_{ca_mode}")
 app.config["CHAIN_FILE_PATH"]  = _cfg.get("CA", f"CHAIN_FILE_PATH_{ca_mode}")
 app.config["ROOT_CERT_PATH"]   = _cfg.get("CA", "ROOT_CERT_PATH")
 app.config["CA_MODE"]          = ca_mode
+app.config["LDAP_HOST"]           = _cfg.get("LDAP", "LDAP_HOST", fallback=None)
+app.config["LDAP_PORT"]           = _cfg.getint("LDAP", "LDAP_PORT", fallback=389)
+app.config["LDAP_BASE_DN"]        = _cfg.get("LDAP", "BASE_DN", fallback=None)
+app.config["LDAP_PEOPLE_DN"]      = _cfg.get("LDAP", "PEOPLE_DN", fallback=None)
+app.config["LDAP_ADMIN_DN"]       = _cfg.get("LDAP", "ADMIN_DN", fallback=None)
+app.config["LDAP_ADMIN_PASSWORD"] = _cfg.get("LDAP", "ADMIN_PASSWORD", fallback=None)
+app.config["LDAP_ENABLED"]        = bool(app.config["LDAP_HOST"])
 
 # —— SCEP section —— 
 app.config["SCEP_ENABLED"]   = _cfg.getboolean("SCEP", "enabled", fallback=True)
@@ -512,6 +644,7 @@ def toggle_user_active(user_id):
 @app.before_request
 def enforce_session_revocation():
     from flask_login import current_user, logout_user
+    cleanup_idle_sessions()
     if current_user.is_authenticated:
         sid = session.get('sid')
         if not sid:
@@ -526,6 +659,55 @@ def enforce_session_revocation():
                 session.pop('sid', None)
                 flash('You have been logged out by an administrator.', 'warning')
                 return redirect(url_for('login'))
+
+@app.before_request
+def enforce_idle_timeout():
+    from flask_login import current_user, logout_user
+    cleanup_idle_sessions()
+    idle_timeout = app.config.get("IDLE_TIMEOUT")
+    if not idle_timeout:
+        return
+
+    # Update last activity for authenticated users; logout if over threshold
+    now = datetime.now(timezone.utc)
+    last_activity_iso = session.get("last_activity")
+    # Try to backfill from DB if session lacks last_activity
+    if not last_activity_iso:
+        sid = session.get('sid')
+        if sid:
+            try:
+                with sqlite3.connect(app.config["DB_PATH"]) as conn:
+                    row = conn.execute("SELECT last_activity FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
+                    if row and row[0]:
+                        last_activity_iso = row[0]
+                        session["last_activity"] = last_activity_iso
+            except Exception:
+                pass
+    if current_user.is_authenticated:
+        if last_activity_iso:
+            last_activity = _parse_ts_utc(last_activity_iso)
+            if last_activity and now - last_activity > idle_timeout:
+                sid = session.get('sid')
+                if sid:
+                    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+                        conn.execute("DELETE FROM user_sessions WHERE session_id = ?", (sid,))
+                logout_user()
+                session.pop('sid', None)
+                session.pop('last_activity', None)
+                flash('You have been logged out due to inactivity.', 'warning')
+                return redirect(url_for('login'))
+        now_str = _now_utc_str()
+        session["last_activity"] = now_str
+        sid = session.get('sid')
+        if sid:
+            try:
+                with sqlite3.connect(app.config["DB_PATH"]) as conn:
+                    conn.execute("UPDATE user_sessions SET last_activity = ? WHERE session_id = ?", (now_str, sid))
+                    conn.commit()
+            except Exception:
+                pass
+    else:
+        session.pop('last_activity', None)
 
 
 
@@ -651,8 +833,11 @@ def manage_users():
         return redirect(url_for('index'))
     users = get_all_users()
     logged_in_ids = get_logged_in_user_ids()
+    idle_map = get_user_idle_map()
     for user in users:
         user['is_logged_in'] = user['id'] in logged_in_ids
+        user['auth_source'] = get_auth_source_for_username(user['username'])
+        user['idle'] = idle_map.get(user['id'], '') if user['is_logged_in'] else ''
     return render_template('manage_users.html', users=users)
 
 
@@ -664,15 +849,19 @@ def api_users():
         return jsonify({'error': 'forbidden'}), 403
     users = get_all_users()
     logged_in_ids = get_logged_in_user_ids()
+    idle_map = get_user_idle_map()
     user_list = []
     for user in users:
+        user['auth_source'] = get_auth_source_for_username(user['username'])
         user_list.append({
             'id': user['id'],
             'username': user['username'],
             'role': user['role'],
             'email': user.get('email', ''),
             'status': user['status'],
-            'is_logged_in': user['id'] in logged_in_ids
+            'is_logged_in': user['id'] in logged_in_ids,
+            'auth_source': user.get('auth_source', 'local'),
+            'idle': idle_map.get(user['id'], '') if user['id'] in logged_in_ids else ''
         })
     return jsonify({'users': user_list, 'current_user_id': current_user.id})
 
@@ -770,8 +959,8 @@ def login():
         user = get_user_by_username(username)
         if user:
             if user.status == 'deactivated':
-                flash("User account is disabled. Contact administrator.", "error")
-                app.logger.warning(f"Login attempt for deactivated user: {username}")
+                flash("User account is suspended. Contact administrator.", "error")
+                app.logger.warning(f"Login attempt for suspended user: {username}")
             elif user.status == 'pending':
                 flash("User account is pending approval by administrator.", "error")
                 app.logger.warning(f"Login attempt for pending user: {username}")
@@ -784,8 +973,24 @@ def login():
                 flash("Invalid username or password.", "error")
                 app.logger.warning(f"Failed login attempt for: {username}")
         else:
-            flash("Invalid username or password.", "error")
-            app.logger.warning(f"Failed login attempt for: {username}")
+            ldap_result = ldap_authenticate(username, password, app.config, app.logger)
+            if ldap_result:
+                # Auto-provision LDAP users locally as active standard users
+                user_id = create_user_db(username, password, role='user', email=ldap_result.get('email'), status='active', auth_source='ldap')
+                LDAP_IMPORTED_USERS.add(username.lower())
+                LDAP_SOURCE_CACHE[username.lower()] = "ldap"
+                user = get_user_by_username(username)
+                if user and user.status == 'active':
+                    login_user(user)
+                    update_last_login(user.id)
+                    app.logger.info(f"User {username} authenticated via LDAP and synced to local DB.")
+                    return redirect(url_for('index'))
+                else:
+                    flash("LDAP authentication succeeded but local user could not be activated. Contact administrator.", "error")
+                    app.logger.error(f"LDAP auth ok for {username} but local user creation/activation failed.")
+            else:
+                flash("Invalid username or password.", "error")
+                app.logger.warning(f"Failed login attempt for: {username} (local + LDAP)")
     return render_template("login.html")
 
 @app.route("/logout")
