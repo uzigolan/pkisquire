@@ -25,7 +25,8 @@ def main():
         email TEXT,
         created_at TEXT,
         last_login TEXT,
-        status TEXT
+        status TEXT,
+        auth_source TEXT DEFAULT 'local'
     )''')
 
     # Certificates table

@@ -13,7 +13,7 @@ def set_user_active(user_id, active: bool):
     conn.close()
 
 class User(UserMixin):
-    def __init__(self, id, username, password_hash, role, email=None, created_at=None, last_login=None, status='pending'):
+    def __init__(self, id, username, password_hash, role, email=None, created_at=None, last_login=None, status='pending', auth_source='local'):
         self.id = id
         self.username = username
         self.password_hash = password_hash
@@ -22,6 +22,7 @@ class User(UserMixin):
         self.created_at = created_at
         self.last_login = last_login
         self.status = status  # 'pending', 'active', 'disabled'
+        self.auth_source = auth_source  # 'local' or 'ldap'
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -39,10 +40,20 @@ class User(UserMixin):
         password_hash = generate_password_hash(password)
         return User(None, username, password_hash, role, email, status='pending')
 
+
+def ensure_auth_source_column(conn):
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(users)")
+    cols = [row[1] for row in cur.fetchall()]
+    if "auth_source" not in cols:
+        cur.execute("ALTER TABLE users ADD COLUMN auth_source TEXT DEFAULT 'local'")
+        conn.commit()
+
 def get_user_by_id(user_id):
     conn = sqlite3.connect(current_app.config["DB_PATH"])
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
+    ensure_auth_source_column(conn)
     cur.execute("SELECT * FROM users WHERE id = ?", (user_id,))
     row = cur.fetchone()
     conn.close()
@@ -61,7 +72,8 @@ def get_user_by_id(user_id):
             email=row['email'],
             created_at=row['created_at'],
             last_login=row['last_login'],
-            status=status
+            status=status,
+            auth_source=row['auth_source'] if 'auth_source' in row.keys() else 'local'
         )
     return None
 
@@ -69,6 +81,7 @@ def get_user_by_username(username):
     conn = sqlite3.connect(current_app.config["DB_PATH"])
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
+    ensure_auth_source_column(conn)
     cur.execute("SELECT * FROM users WHERE username = ?", (username,))
     row = cur.fetchone()
     conn.close()
@@ -81,7 +94,8 @@ def get_user_by_username(username):
             email=row['email'],
             created_at=row['created_at'],
             last_login=row['last_login'],
-            status=row['status'] if 'status' in row.keys() else ('active' if row.get('is_active', 1) else 'disabled')
+            status=row['status'] if 'status' in row.keys() else ('active' if row.get('is_active', 1) else 'disabled'),
+            auth_source=row['auth_source'] if 'auth_source' in row.keys() else 'local'
         )
     return None
 
@@ -89,6 +103,7 @@ def get_all_users():
     conn = sqlite3.connect(current_app.config["DB_PATH"])
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
+    ensure_auth_source_column(conn)
     cur.execute("SELECT * FROM users ORDER BY username")
     rows = cur.fetchall()
     conn.close()
@@ -107,18 +122,20 @@ def get_all_users():
             'email': row['email'],
             'created_at': row['created_at'],
             'last_login': row['last_login'],
-            'status': status
+            'status': status,
+            'auth_source': row['auth_source'] if 'auth_source' in row.keys() else 'local'
         })
     return users
 
-def create_user_db(username, password, role='user', email=None):
+def create_user_db(username, password, role='user', email=None, status='pending', auth_source='local'):
     password_hash = generate_password_hash(password)
     conn = sqlite3.connect(current_app.config["DB_PATH"])
     cur = conn.cursor()
     try:
+        ensure_auth_source_column(conn)
         cur.execute(
-            "INSERT INTO users (username, password_hash, role, email, status) VALUES (?, ?, ?, ?, ?)",
-            (username, password_hash, role, email, 'pending')
+            "INSERT INTO users (username, password_hash, role, email, status, auth_source) VALUES (?, ?, ?, ?, ?, ?)",
+            (username, password_hash, role, email, status, auth_source)
         )
         conn.commit()
         user_id = cur.lastrowid
