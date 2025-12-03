@@ -172,8 +172,6 @@ def parse_idle_time(value: str):
     except Exception:
         return None
 
-app.config["IDLE_TIMEOUT"] = parse_idle_time(app.config.get("MAX_IDLE_TIME"))
-
 def _now_utc_str():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -249,6 +247,7 @@ app.config["SECRET_KEY"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-se
 app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
 app.config["MAX_IDLE_TIME"] = _cfg.get("DEFAULT", "max_idle_time", fallback="7d")
+app.config["IDLE_TIMEOUT"] = parse_idle_time(app.config.get("MAX_IDLE_TIME"))
 
 
 ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
@@ -266,7 +265,7 @@ app.config["LDAP_BASE_DN"]        = _cfg.get("LDAP", "BASE_DN", fallback=None)
 app.config["LDAP_PEOPLE_DN"]      = _cfg.get("LDAP", "PEOPLE_DN", fallback=None)
 app.config["LDAP_ADMIN_DN"]       = _cfg.get("LDAP", "ADMIN_DN", fallback=None)
 app.config["LDAP_ADMIN_PASSWORD"] = _cfg.get("LDAP", "ADMIN_PASSWORD", fallback=None)
-app.config["LDAP_ENABLED"]        = bool(app.config["LDAP_HOST"])
+app.config["LDAP_ENABLED"]        = _cfg.getboolean("LDAP", "enabled", fallback=bool(_cfg.get("LDAP", "LDAP_HOST", fallback=None)))
 
 # —— SCEP section —— 
 app.config["SCEP_ENABLED"]   = _cfg.getboolean("SCEP", "enabled", fallback=True)
@@ -645,16 +644,19 @@ def toggle_user_active(user_id):
 def enforce_session_revocation():
     from flask_login import current_user, logout_user
     cleanup_idle_sessions()
+    app.logger.debug("revocation check path=%s user_id=%s", request.path, getattr(current_user, 'id', None))
     if current_user.is_authenticated:
         sid = session.get('sid')
         if not sid:
             # Defensive: if no sid, treat as invalid session
+            app.logger.debug("Session revocation: missing sid for user_id=%s", getattr(current_user, 'id', None))
             logout_user()
             flash('Your session has expired or was revoked.', 'warning')
             return redirect(url_for('login'))
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
             row = conn.execute("SELECT 1 FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
             if not row:
+                app.logger.debug("Session revocation: sid %s not found in user_sessions (user_id=%s)", sid, getattr(current_user, 'id', None))
                 logout_user()
                 session.pop('sid', None)
                 flash('You have been logged out by an administrator.', 'warning')
@@ -663,51 +665,74 @@ def enforce_session_revocation():
 @app.before_request
 def enforce_idle_timeout():
     from flask_login import current_user, logout_user
-    cleanup_idle_sessions()
     idle_timeout = app.config.get("IDLE_TIMEOUT")
     if not idle_timeout:
         return
 
     # Update last activity for authenticated users; logout if over threshold
     now = datetime.now(timezone.utc)
-    last_activity_iso = session.get("last_activity")
-    # Try to backfill from DB if session lacks last_activity
-    if not last_activity_iso:
-        sid = session.get('sid')
-        if sid:
-            try:
-                with sqlite3.connect(app.config["DB_PATH"]) as conn:
-                    row = conn.execute("SELECT last_activity FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
-                    if row and row[0]:
-                        last_activity_iso = row[0]
-                        session["last_activity"] = last_activity_iso
-            except Exception:
-                pass
-    if current_user.is_authenticated:
-        if last_activity_iso:
-            last_activity = _parse_ts_utc(last_activity_iso)
-            if last_activity and now - last_activity > idle_timeout:
-                sid = session.get('sid')
-                if sid:
-                    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-                        conn.execute("DELETE FROM user_sessions WHERE session_id = ?", (sid,))
-                logout_user()
-                session.pop('sid', None)
-                session.pop('last_activity', None)
-                flash('You have been logged out due to inactivity.', 'warning')
-                return redirect(url_for('login'))
-        now_str = _now_utc_str()
-        session["last_activity"] = now_str
-        sid = session.get('sid')
-        if sid:
-            try:
-                with sqlite3.connect(app.config["DB_PATH"]) as conn:
-                    conn.execute("UPDATE user_sessions SET last_activity = ? WHERE session_id = ?", (now_str, sid))
-                    conn.commit()
-            except Exception:
-                pass
-    else:
+    if not current_user.is_authenticated:
         session.pop('last_activity', None)
+        return
+
+    ensure_sessions_table()
+    sid = session.get('sid')
+    app.logger.debug("idle check path=%s user_id=%s sid=%s", request.path, getattr(current_user, 'id', None), sid)
+    if not sid:
+        app.logger.debug("Idle timeout: missing sid for user_id=%s", getattr(current_user, 'id', None))
+        logout_user()
+        session.pop('last_activity', None)
+        flash('Your session has expired or was revoked.', 'warning')
+        return redirect(url_for('login'))
+
+    last_ts = session.get("last_activity")
+    db_last = None
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT last_activity, login_time FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
+            if row:
+                db_last = row["last_activity"] or row["login_time"]
+                app.logger.debug("Idle timeout: sid=%s db_last=%s user_id=%s", sid, db_last, getattr(current_user, 'id', None))
+    except Exception:
+        pass
+
+    if not db_last:
+        # No DB row for this session, treat as invalid
+        app.logger.debug("Idle timeout: sid %s missing in DB; logging out user_id=%s", sid, getattr(current_user, 'id', None))
+        logout_user()
+        session.clear()
+        flash('Your session has expired or was revoked.', 'warning')
+        return redirect(url_for('login'))
+
+    if not last_ts:
+        last_ts = db_last
+        session["last_activity"] = last_ts
+
+    parsed = _parse_ts_utc(last_ts) or _parse_ts_utc(db_last)
+    if parsed and now - parsed > idle_timeout:
+        try:
+            with sqlite3.connect(app.config["DB_PATH"]) as conn:
+                conn.execute("DELETE FROM user_sessions WHERE session_id = ?", (sid,))
+                conn.commit()
+        except Exception:
+            pass
+        app.logger.info("Idle timeout exceeded for user_id=%s sid=%s; logging out.", getattr(current_user, 'id', None), sid)
+        logout_user()
+        session.clear()
+        flash('You have been logged out due to inactivity.', 'warning')
+        return redirect(url_for('login'))
+
+    # touch activity
+    now_str = _now_utc_str()
+    session["last_activity"] = now_str
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            conn.execute("UPDATE user_sessions SET last_activity = ? WHERE session_id = ?", (now_str, sid))
+            conn.commit()
+    except Exception:
+        pass
+    app.logger.debug("Idle touch: user_id=%s sid=%s last_activity=%s", getattr(current_user, 'id', None), sid, now_str)
 
 
 
