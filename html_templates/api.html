@@ -53,35 +53,35 @@
       <!-- SCEP -->
       <tr>
         <td rowspan="3">SCEP</td>
-        <td>SCEP CRL</td>
+        <td>SCEP GetCaps</td>
         <td>
-          <pre>sscep getcrl \
-  -u http://pikachu-ca.iot-rad.com:8090/scep \
-  -c ca_rsa.crt \
-  -k local.key \
-  -l local.crt \
-  -w crl.pem</pre>
+          <pre>sscep getcaps -u http://localhost:8090/scep</pre>
+          <pre>curl http://localhost:8090/scep?operation=GetCACaps</pre>
         </td>
-        <td>Not Supported</td>
+        <td>Query server capabilities (AES, DES3, POSTPKIOperation, SHA-256, etc.)</td>
+      </tr>
+      <tr>
+        <td>SCEP GetCA</td>
+        <td>
+          <pre>sscep getca \
+  -u http://localhost:8090/scep \
+  -c ca.crt</pre>
+        </td>
+        <td>Download CA certificate (prerequisite: RSA-based SubCA)</td>
       </tr>
       <tr>
         <td>SCEP Enrollment</td>
         <td>
-          <pre>sscep enroll -d -v \
-  -u http://pikachu-ca.iot-rad.com:8090/scep \
-  -c rad_ca_sub_rsa.crt \
-  -k client1.key \
-  -r client1.csr \
-  -l client1.crt</pre>
+          <pre>sscep enroll \
+  -u http://localhost:8090/scep \
+  -k client.key \
+  -r client.csr \
+  -c ca.crt \
+  -l client.crt \
+  -E aes \
+  -S sha256</pre>
         </td>
-        <td>prerequisite RSA based Sub CA @Work</td>
-      </tr>
-      <tr>
-        <td>SCEP CA Certs</td>
-        <td>
-          <pre>sscep getca -u http://pikachu-ca.iot-rad.com:8090/scep -c cap.pem</pre>
-        </td>
-        <td>prerequisite RSA based Sub CA</td>
+        <td>Enroll certificate via SCEP. Options: -E (encryption: aes|3des), -S (signature: sha256|sha512)</td>
       </tr>
 
       <!-- EST -->
