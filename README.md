@@ -1,6 +1,8 @@
-# 🔡 RAD PKI Certificate Authority Server
+# 🔐 Pikachu CA - PKI Certificate Authority Server
 
-Welcome to the RAD CA Server — a Flask-based Public Key Infrastructure (PKI) platform designed for managing certificate lifecycles, securing MQTT brokers, and supporting quantum-safe key algorithms! Pika Pi! ⚡
+A Flask-based Public Key Infrastructure (PKI) platform for managing certificate lifecycles with SCEP, EST, and OCSP protocol support.
+
+**GitHub Repository**: [https://github.com/uzigolan/pikachu-ca](https://github.com/uzigolan/pikachu-ca)
 
 ---
 
@@ -37,15 +39,14 @@ This server provides tools for:
 ### 1. Clone the repo and install dependencies:
 
 ```bash
-sudo dnf install python3
+git clone https://github.com/uzigolan/pikachu-ca.git
+cd pikachu-ca
 pip install Flask cryptography asn1crypto
 ```
 
-### 2. Extract and set up the server:
+### 2. Run the server:
 
 ```bash
-tar xvfz pki_server_1.tar.gz
-cd pki-server
 python app.py
 ```
 
@@ -60,25 +61,11 @@ sudo cmake --install _build
 
 ---
 
-## 🌐 Web Access
+## 🔗 Related Projects
 
-Access the server via:
-
-```
-https://openxpki.iot-rad.com:4443/
-```
-
----
-
-## 📎 License
-
-> This software is proprietary and confidential. Unauthorized use, copying, or distribution is strictly prohibited without prior written consent from RAD Data Communications Ltd.
-
----
-
-## ⚡ Pikachu Says...
-
-Stay secure, and may your certs never expire! Pika Pi! 💛
+- **SCEP Client**: [sscep](https://github.com/certnanny/sscep) - Simple SCEP client for automated enrollment
+- **EST Client**: [estclient](https://github.com/globalsign/est) - GlobalSign EST protocol implementation
+- **Post-Quantum Crypto**: [oqs-provider](https://github.com/open-quantum-safe/oqs-provider) - OpenSSL provider for quantum-safe algorithms
 
 ---
 

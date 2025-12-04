@@ -1586,6 +1586,11 @@ def api_doc():
     return render_template("api.html")
 
 
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
 # ---------- Validity Endpoint ----------
 
 @app.route("/update_validity", methods=["POST"])
