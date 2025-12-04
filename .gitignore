@@ -6,6 +6,7 @@ logs/
 *.log
 *.code-workspace
 openscep/
+temp_unused/
 pki-https/*.crt
 pki-https/*.key
 pki-https/*.pem
@@ -14,7 +15,8 @@ pki-misc/*.conf
 pki-misc/*.cnf
 pki-subca/*.key
 pki-subca/*.crt
+pki-subca/dumps/*
 pki-root/*.crt
 db/*.db
-x509_profiles/*.cnf
+x509_profiles/*
 tests/results/*

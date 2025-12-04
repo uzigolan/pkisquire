@@ -20,6 +20,7 @@ from datetime import datetime,timezone, timedelta
 
 from threading import Thread
 
+
 from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_sqlalchemy import SQLAlchemy
@@ -311,39 +312,82 @@ def load_user(user_id):
     return get_user_by_id(int(user_id))
 
 # ---------- Logging Setup ----------
-import sys
-import os
-import logging
 from logging import Formatter
 from logging.handlers import RotatingFileHandler
 
-# Put logs in ./logs/server.log (create dir if needed)
-basedir = os.path.abspath(os.path.dirname(__file__))
-LOG_DIR = os.path.join(basedir, "logs")
+# Add custom TRACE logging level
+TRACE = 5
+logging.addLevelName(TRACE, "TRACE")
+
+def trace(self, message, *args, **kwargs):
+    # Only log TRACE messages if logger level is set to TRACE or lower
+    # Use isEnabledFor which properly checks if this level would be logged
+    if self.isEnabledFor(5):  # 5 = TRACE level
+        self._log(5, message, args, **kwargs)
+
+logging.Logger.trace = trace
+
+# Read logging configuration from config.ini (needs to be after _cfg is loaded)
+# Note: _cfg is loaded at line ~243, basedir at line ~239
+log_level_str = _cfg.get("LOGGING", "log_level", fallback="DEBUG").upper()
+log_file_path = _cfg.get("LOGGING", "log_file", fallback="logs/server.log")
+
+# Map level name to logging constant
+level_map = {
+    "TRACE": TRACE,
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL
+}
+log_level = level_map.get(log_level_str, logging.DEBUG)
+
+# Put logs in configured location (create dir if needed)
+LOG_FILE = os.path.join(basedir, log_file_path)
+LOG_DIR = os.path.dirname(LOG_FILE)
 os.makedirs(LOG_DIR, exist_ok=True)
-LOG_FILE = os.path.join(LOG_DIR, "server.log")
 app.config["LOG_FILE"] = LOG_FILE  # expose to routes
 
 # One rotating file handler (no stdout handler to avoid confusion)
 file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8")
-file_handler.setLevel(logging.DEBUG)
+file_handler.setLevel(TRACE)  # Allow all levels including TRACE
 formatter = Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
 file_handler.setFormatter(formatter)
 
 # Apply to Flask app logger
 app.logger.handlers.clear()
-app.logger.setLevel(logging.DEBUG)
+app.logger.setLevel(log_level)
 app.logger.addHandler(file_handler)
 app.logger.propagate = False
 
 # Also capture Werkzeug (request logs) into the same file
+# Add filter to exclude noisy requests and strip ANSI color codes
+import re
+
+class ExcludeNoisyRequestsFilter(logging.Filter):
+    # ANSI color code pattern
+    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+    
+    def filter(self, record):
+        # Get the full formatted message
+        msg = record.getMessage()
+        # Filter out noisy requests
+        if '/logs/last' in msg or '/static/favicon' in msg:
+            return False
+        # Strip ANSI color codes from the formatted message
+        if hasattr(record, 'msg') and isinstance(record.msg, str):
+            record.msg = self.ansi_escape.sub('', record.msg)
+        return True
+
 werkzeug_logger = logging.getLogger("werkzeug")
 werkzeug_logger.handlers.clear()
-werkzeug_logger.setLevel(logging.INFO)
+werkzeug_logger.setLevel(logging.INFO)  # Set back to INFO for other requests
+werkzeug_logger.addFilter(ExcludeNoisyRequestsFilter())
 werkzeug_logger.addHandler(file_handler)
 werkzeug_logger.propagate = False
 
-app.logger.info("Logging initialized. Writing to %s", LOG_FILE)
+app.logger.info("Logging initialized. Writing to %s (level=%s)", LOG_FILE, logging.getLevelName(log_level))
 
 
 # ---------- Database Initialization ----------
@@ -644,19 +688,19 @@ def toggle_user_active(user_id):
 def enforce_session_revocation():
     from flask_login import current_user, logout_user
     cleanup_idle_sessions()
-    app.logger.debug("revocation check path=%s user_id=%s", request.path, getattr(current_user, 'id', None))
+    app.logger.trace("revocation check path=%s user_id=%s", request.path, getattr(current_user, 'id', None))
     if current_user.is_authenticated:
         sid = session.get('sid')
         if not sid:
             # Defensive: if no sid, treat as invalid session
-            app.logger.debug("Session revocation: missing sid for user_id=%s", getattr(current_user, 'id', None))
+            app.logger.trace("Session revocation: missing sid for user_id=%s", getattr(current_user, 'id', None))
             logout_user()
             flash('Your session has expired or was revoked.', 'warning')
             return redirect(url_for('login'))
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
             row = conn.execute("SELECT 1 FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
             if not row:
-                app.logger.debug("Session revocation: sid %s not found in user_sessions (user_id=%s)", sid, getattr(current_user, 'id', None))
+                app.logger.trace("Session revocation: sid %s not found in user_sessions (user_id=%s)", sid, getattr(current_user, 'id', None))
                 logout_user()
                 session.pop('sid', None)
                 flash('You have been logged out by an administrator.', 'warning')
@@ -677,9 +721,9 @@ def enforce_idle_timeout():
 
     ensure_sessions_table()
     sid = session.get('sid')
-    app.logger.debug("idle check path=%s user_id=%s sid=%s", request.path, getattr(current_user, 'id', None), sid)
+    app.logger.trace("idle check path=%s user_id=%s sid=%s", request.path, getattr(current_user, 'id', None), sid)
     if not sid:
-        app.logger.debug("Idle timeout: missing sid for user_id=%s", getattr(current_user, 'id', None))
+        app.logger.trace("Idle timeout: missing sid for user_id=%s", getattr(current_user, 'id', None))
         logout_user()
         session.pop('last_activity', None)
         flash('Your session has expired or was revoked.', 'warning')
@@ -693,13 +737,13 @@ def enforce_idle_timeout():
             row = conn.execute("SELECT last_activity, login_time FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
             if row:
                 db_last = row["last_activity"] or row["login_time"]
-                app.logger.debug("Idle timeout: sid=%s db_last=%s user_id=%s", sid, db_last, getattr(current_user, 'id', None))
+                app.logger.trace("Idle timeout: sid=%s db_last=%s user_id=%s", sid, db_last, getattr(current_user, 'id', None))
     except Exception:
         pass
 
     if not db_last:
         # No DB row for this session, treat as invalid
-        app.logger.debug("Idle timeout: sid %s missing in DB; logging out user_id=%s", sid, getattr(current_user, 'id', None))
+        app.logger.trace("Idle timeout: sid %s missing in DB; logging out user_id=%s", sid, getattr(current_user, 'id', None))
         logout_user()
         session.clear()
         flash('Your session has expired or was revoked.', 'warning')
@@ -732,7 +776,7 @@ def enforce_idle_timeout():
             conn.commit()
     except Exception:
         pass
-    app.logger.debug("Idle touch: user_id=%s sid=%s last_activity=%s", getattr(current_user, 'id', None), sid, now_str)
+    app.logger.trace("Idle touch: user_id=%s sid=%s last_activity=%s", getattr(current_user, 'id', None), sid, now_str)
 
 
 
@@ -1131,12 +1175,14 @@ def index():
                 cur.execute("""
                     SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id
                     FROM certificates c
+                    ORDER BY c.id DESC
                 """)
             else:
                 cur.execute("""
                     SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id
                     FROM certificates c
                     WHERE c.user_id = ?
+                    ORDER BY c.id DESC
                 """, (current_user.id,))
             rows = cur.fetchall()
         #app.logger.debug(f"DB retruned {len(rows)} certificates for user {current_user.username}    (id={current_user.id})")
@@ -1158,7 +1204,7 @@ def index():
             if user_id:
                 user_obj = get_user_by_id(user_id)
                 username = user_obj.username if user_obj else str(user_id)
-            app.logger.debug(f"Cert ID {id_}: keycol={keycol}, expired={expired}   revoked={revoked}")
+            app.logger.trace(f"Cert ID {id_}: keycol={keycol}, expired={expired}   revoked={revoked}")
             certs.append((id_, subject, serial, keycol, issue_date, revoked, expired, username))
 
         return render_template(
@@ -1225,14 +1271,11 @@ def load_profile():
     if not filename:
         return "Filename not provided", 400
 
-    absolute_path = os.path.join(app.root_path, X509_PROFILE_DIR, filename)
-    #app.logger.debug(f"Looking for profile configuration at: {absolute_path}")
-
-    if not os.path.exists(absolute_path):
-        return "File not found", 404
-    with open(absolute_path, "r") as f:
-        content = f.read()
-    return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    prof = Profile.query.filter_by(name=filename).first()
+    if not prof or not prof.content:
+        return "Profile not found", 404
+    
+    return prof.content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 # ---------- Inspect Endpoint ----------
 
@@ -2468,10 +2511,14 @@ def est_enroll():
     subject_str = ", ".join(f"{attr.oid._name}={attr.value}" for attr in cert_obj.subject)
     actual_serial = hex(cert_obj.serial_number)
     from flask_login import current_user
+    
+    # Use current_user.id if authenticated, otherwise None
+    user_id = current_user.id if current_user.is_authenticated else None
+    
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         conn.execute(
             "INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
-            (subject_str, actual_serial, cert_pem, current_user.id)
+            (subject_str, actual_serial, cert_pem, user_id)
         )
 
     # 8) Write the signed cert to a file (for pkcs7 conversion)

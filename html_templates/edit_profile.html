@@ -5,8 +5,8 @@
   <form method="post" class="mb-4">
     <div class="form-group">
       {% if not filename %}
-        <label for="filename">Profile File Name:</label>
-        <input type="text" class="form-control" name="filename" pattern="^[\w\-.]+\.cnf$" required title="Must be a valid filename ending with .cnf">
+        <label for="filename">Profile Name:</label>
+        <input type="text" class="form-control" name="filename" pattern="^[\w\-.]+$" required title="Must contain only letters, numbers, dots, dashes, and underscores">
       {% else %}
         <input type="hidden" name="filename" value="{{ filename }}">
         <h5>Editing: {{ filename }}</h5>

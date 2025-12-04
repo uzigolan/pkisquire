@@ -91,8 +91,43 @@ def migrate_db():
     ensure_column('users', 'auth_source', "TEXT DEFAULT 'local'")
     ensure_column('certificates', 'user_id', 'INTEGER')
     ensure_column('profiles', 'user_id', 'INTEGER')
+    ensure_column('profiles', 'created_at', 'DATETIME')
+    ensure_column('profiles', 'content', 'TEXT')
     ensure_column('keys', 'user_id', 'INTEGER')
     ensure_column('csrs', 'user_id', 'INTEGER')
+    
+    # Rename filename to name in profiles table
+    cur.execute("PRAGMA table_info(profiles)")
+    columns = [row[1] for row in cur.fetchall()]
+    if 'filename' in columns and 'name' not in columns:
+        print("[migrate_db] Renaming profiles.filename to profiles.name...")
+        cur.execute("ALTER TABLE profiles RENAME COLUMN filename TO name")
+        print("[migrate_db] Column renamed successfully")
+
+    # Migrate profile files to database
+    print("[migrate_db] Migrating profile files to database...")
+    cur.execute("SELECT id, name, content FROM profiles")
+    profiles = cur.fetchall()
+    
+    profile_dir = os.path.join(basedir, "x509_profiles")
+    
+    migrated_count = 0
+    for profile_id, name, content in profiles:
+        if not content:  # Only migrate if content is NULL
+            filepath = os.path.join(profile_dir, name)
+            if os.path.exists(filepath):
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        file_content = f.read()
+                    cur.execute("UPDATE profiles SET content = ? WHERE id = ?", (file_content, profile_id))
+                    migrated_count += 1
+                except Exception as e:
+                    print(f"[migrate_db] Warning: Could not migrate {name}: {e}")
+    
+    if migrated_count > 0:
+        print(f"[migrate_db] Migrated {migrated_count} profile(s) from filesystem to database")
+    else:
+        print("[migrate_db] No profiles needed migration")
 
     # Ensure default admin
     cur.execute("SELECT id FROM users WHERE username = ?", ("admin",))

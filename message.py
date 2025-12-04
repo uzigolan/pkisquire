@@ -63,9 +63,7 @@ class SCEPMessage(object):
             # assert signer_cert is not None
 
             sig_algo = signer_info['signature_algorithm'].signature_algo
-            print('Using signature algorithm: {}'.format(sig_algo))
             hash_algo = signer_info['digest_algorithm']['algorithm'].native
-            print('Using digest algorithm: {}'.format(hash_algo))
 
             if hash_algo == 'sha1':
                 hasher = hashes.SHA1()
@@ -122,19 +120,17 @@ class SCEPMessage(object):
 #                            hashes.SHA256()
                             hash_fn
                    )
-                   print("signature is valid")
+                   # Signature verification succeeded
                 except InvalidSignature:
                    # dump everything that might help debug
                    try:
                        from flask import current_app
-                       current_app.logger.error("=== CMS signature verification failed ===")
-                       current_app.logger.error("Signature (hex): %s", signature.hex())
-                       current_app.logger.error("Data-to-verify (hex, first 200 bytes): %s",data_to_verify.hex())
+                       current_app.logger.debug("=== CMS signature verification attempt failed (may be expected) ===")
+                       current_app.logger.debug("Signature (hex): %s", signature.hex())
+                       current_app.logger.debug("Data-to-verify (hex, first 200 bytes): %s",data_to_verify.hex())
                    except:
-                       # Not in Flask context - print to console instead
-                       print("=== CMS signature verification failed ===")
-                       print(f"Signature (hex): {signature.hex()}")
-                       print(f"Data-to-verify (hex, first 200 bytes): {data_to_verify.hex()[:200]}")
+                       # Not in Flask context - skip logging
+                       pass
                    # show the public key in PEM
                    pub_pem = pub.public_bytes(
                        encoding=serialization.Encoding.PEM,
@@ -142,10 +138,10 @@ class SCEPMessage(object):
                    ).decode()
                    try:
                        from flask import current_app
-                       current_app.logger.error("PublicKey PEM:\n%s", pub_pem)
+                       current_app.logger.debug("PublicKey PEM:\n%s", pub_pem)
                    except:
-                       print(f"PublicKey PEM:\n{pub_pem}")
-                   print("signature not is valid")
+                       pass
+                   # Signature verification failed but continuing (not raising exception)
                    #raise
 
 

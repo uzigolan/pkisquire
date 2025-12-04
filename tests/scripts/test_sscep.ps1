@@ -23,12 +23,12 @@ Write-Host ""
 
 # Test 1: GetCaps
 Write-Host "[1/3] Testing GetCaps - Query server capabilities" -ForegroundColor Yellow
-tests\sscep\sscep.exe getcaps -u $SCEP_URL
+tests\sscep\sscep.exe getcaps -u $SCEP_URL -v
 Write-Host ""
 
 # Test 2: GetCA
 Write-Host "[2/3] Testing GetCA - Download CA certificate" -ForegroundColor Yellow
-tests\sscep\sscep.exe getca -u $SCEP_URL -c tests\results\ca.crt
+tests\sscep\sscep.exe getca -u $SCEP_URL -c tests\results\ca.crt -v
 if (Test-Path tests\results\ca.crt) {
     Write-Host "      Done - CA certificate downloaded" -ForegroundColor Green
     openssl x509 -in tests\results\ca.crt -noout -subject -issuer 2>$null | ForEach-Object {
@@ -39,7 +39,7 @@ Write-Host ""
 
 # Test 3: Enroll
 Write-Host "[3/3] Testing Enroll - Certificate enrollment" -ForegroundColor Yellow
-tests\sscep\sscep.exe enroll -u $SCEP_URL -k tests\results\test.key -r tests\results\test.csr -c tests\results\ca.crt -l tests\results\enrolled.crt -E aes -S sha256
+tests\sscep\sscep.exe enroll -u $SCEP_URL -k tests\results\test.key -r tests\results\test.csr -c tests\results\ca.crt -l tests\results\enrolled.crt -E aes -S sha256 -v
 if (Test-Path tests\results\enrolled.crt) {
     Write-Host "      Done - Certificate enrolled successfully" -ForegroundColor Green
     $certInfo = openssl x509 -in tests\results\enrolled.crt -noout -subject -issuer -dates -serial 2>$null
