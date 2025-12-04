@@ -145,6 +145,7 @@ def scep():
     req     = SCEPMessage.parse(raw)
     der_csr = req.get_decrypted_envelope_data(ca.certificate, ca.private_key)
     current_app.logger.debug("Decrypted CSR length: %d bytes", len(der_csr))
+    current_app.logger.debug("Request message type: %s", req.message_type)
 
     if dump_dir:
       fn = os.path.join(dump_dir, dump_prefix + '.csr')
@@ -206,6 +207,9 @@ def scep():
       )
       actual_serial = hex(cert_obj.serial_number)
 
+      # Debug: log the certificate subject to verify it's correct
+      current_app.logger.debug("Issued certificate subject: %s", cert_obj.subject.rfc4514_string())
+
 
       # build the same subject_str you use elsewhere
       try:
@@ -235,7 +239,9 @@ def scep():
       os.unlink(cert_tmp.name)
 
       # 6) wrap & encrypt as SCEP response
-      deg = create_degenerate_pkcs7(cert_obj, ca.certificate)
+      # Only include the issued certificate, not the CA certificate
+      # (sscep already has the CA cert and including it causes confusion)
+      deg = create_degenerate_pkcs7(cert_obj)
       envelope, _, _ = (
         PKCSPKIEnvelopeBuilder()
           .encrypt(deg.dump(), 'aes256')
@@ -259,8 +265,8 @@ def scep():
       current_app.logger.debug("Returning SCEP CertRep (%d bytes)", len(out))
       return Response(out, mimetype='application/x-pki-message')
 
-    # any other SCEP message type is unsupported here
-    current_app.logger.error("Unhandled SCEP message type: %s", req.message_type)
+    # any other SCEP message type is unsupported
+    current_app.logger.error("Unsupported SCEP message type: %s", req.message_type)
     return Response("Bad Request", status=400)
 
   # operation not recognized

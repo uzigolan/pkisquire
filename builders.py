@@ -2,11 +2,11 @@ import os
 import datetime
 import logging
 from typing import List, Union
-from asn1crypto.core import PrintableString, GeneralizedTime
+from asn1crypto.core import PrintableString, GeneralizedTime, ParsableOctetString
 from asn1crypto import x509 as asn1x509
 from asn1crypto.cms import CMSAttribute, ContentInfo, EnvelopedData, SignedData, SignerInfos, \
     SignerInfo, CMSAttributes, SignerIdentifier, IssuerAndSerialNumber, OctetString, CertificateSet, \
-    CertificateChoices, ContentType, DigestAlgorithms, CMSVersion, RevocationInfoChoices
+    CertificateChoices, ContentType, DigestAlgorithms, CMSVersion, RevocationInfoChoices, EncapsulatedContentInfo
 from asn1crypto.algos import DigestAlgorithm, SignedDigestAlgorithm, SignedDigestAlgorithmId, DigestAlgorithmId, \
     DigestInfo
 
@@ -41,31 +41,41 @@ def certificates_from_asn1(cert_set: CertificateSet) -> List[x509.Certificate]:
     return result
 
 
-def create_degenerate_pkcs7(*certificates: List[x509.Certificate]) -> ContentInfo:
+def create_degenerate_pkcs7(*certificates: List[x509.Certificate], is_crl: bool = False, crl_data: bytes = None) -> ContentInfo:
     """Produce a PKCS#7 Degenerate case.
 
     The degenerate case is a SignedData content type in which there are no signers. Certificates are disseminated
-    via the ``certificates`` attribute.
+    via the ``certificates`` attribute. For GetCRL, CRL data is included in the content.
 
     Args:
          *certificates (List[x509.Certificate]): The certificates to attach to the degenerate pkcs#7 payload.
             The first must always be the issued certificate.
+         is_crl (bool): If True, this is a GetCRL response containing CRL data
+         crl_data (bytes): DER-encoded CRL data (used when is_crl=True)
     Returns:
           ContentInfo: The ContentInfo containing a SignedData structure.
     """
+    # For GetCRL responses, the content is the CRL data
+    if is_crl and crl_data:
+        from asn1crypto.core import OctetString
+        encap_content = ContentInfo({
+            'content_type': ContentType('data'),
+            'content': OctetString(crl_data)
+        })
+    else:
+        # Normal degenerate cert response - draft-gutmann-scep 3.4. content type must be omitted
+        encap_content = ContentInfo({
+            'content_type': ContentType('data')
+        })
+    
     certificates_der = [c.public_bytes(serialization.Encoding.DER) for c in certificates]
     certificates_asn1 = [parse_certificate(der_bytes) for der_bytes in certificates_der]
 
-    # draft-gutmann-scep 3.4. content type must be omitted
-    empty = ContentInfo({
-        'content_type': ContentType('data')
-    })
-
-    sd_certificates = CertificateSet([CertificateChoices('certificate', asn1) for asn1 in certificates_asn1])
+    sd_certificates = CertificateSet([CertificateChoices('certificate', asn1) for asn1 in certificates_asn1]) if certificates else CertificateSet([])
 
     sd = SignedData({
         'version': CMSVersion(1),
-        'encap_content_info': empty,
+        'encap_content_info': encap_content,
         'digest_algorithms': DigestAlgorithms([]),
         'certificates': sd_certificates,
         'signer_infos': SignerInfos([]),
@@ -201,7 +211,7 @@ class Signer(object):
         signature = self.private_key.sign(
           signed_attrs_der,
           asympad.PKCS1v15(),
-          hashes.SHA256()
+          digest_function()
         )
 
 
@@ -440,37 +450,23 @@ class PKIMessageBuilder(object):
             'content': pkcs_pki_envelope,
         })
 
-        # NOTE: This might not be needed for the degenerate CertRep
+        # EncapsulatedContentInfo wraps the enveloped_data ContentInfo
         encap_info = ContentInfo({
             'content_type': ContentType('data'),
-            'content': pkienvelope_content_info.dump()
+            'content': OctetString(pkienvelope_content_info.dump())
         })
-        # encap_info_degen = ContentInfo({
-        #     'content_type': ContentType('data'),
-        #     'content': pkcs_pki_envelope.dump()
-        # })
 
-        # Calculate digest on encrypted content + signed_attrs
-        #digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-        #digest = hashes.Hash(hashes.SHA512(), backend=default_backend())
-        digest = hashes.Hash(hashes.SHA1(), backend=default_backend())
-        # digest.update(pkcs_pki_envelope.dump())
+        # Calculate digest on the DER-encoded ContentInfo (enveloped_data)
+        digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
         digest.update(pkienvelope_content_info.dump())
         d = digest.finalize()
         
         # Now start building SignedData
-
-        # signer_infos = self._build_signerinfos(pkcs_pki_envelope.dump(), d, self._cms_attributes)
         signer_infos = self._build_signerinfos(pkienvelope_content_info.dump(), d, self._cms_attributes)
 
         certificates = self._certificates
 
-        #da_id = DigestAlgorithmId('sha256')
-
-        # SHA-1 works for macOS
-
-        da_id = DigestAlgorithmId('sha1')
-        #da_id = DigestAlgorithmId('sha512')
+        da_id = DigestAlgorithmId('sha256')
         da = DigestAlgorithm({'algorithm': da_id})
         das = DigestAlgorithms([da])
 
