@@ -11,6 +11,12 @@ tests/
 │   ├── scep_enroll.py     # SCEP enrollment client
 │   └── scep_tool.py       # SCEP utility tool (GetCA, GetCaps)
 │
+├── results/                # Test output directory
+│   ├── *.crt              # Certificate files
+│   ├── *.key              # Private keys
+│   ├── *.csr              # Certificate signing requests
+│   └── scep_response.bin  # Raw SCEP response (debugging)
+│
 ├── scripts/                # PowerShell test scripts
 │   ├── pyscep.ps1         # Python SCEP wrapper script
 │   ├── test_pyscep.ps1    # Python SCEP test suite
@@ -69,7 +75,7 @@ Tests Python implementation of SCEP protocol:
 
 ### Test Output
 
-All test artifacts are saved to the `tests/` directory:
+All test artifacts are saved to the `tests/results/` directory:
 
 **sscep outputs:**
 - `test.key` - Generated private key (2048-bit RSA)
@@ -82,6 +88,7 @@ All test artifacts are saved to the `tests/` directory:
 - `py_test.csr` - Certificate signing request
 - `py_ca.crt` - Downloaded CA certificate (1,521 bytes)
 - `py_enrolled.crt` - Enrolled certificate (2,000 bytes)
+- `scep_response.bin` - Raw SCEP server response (debugging)
 
 ## SCEP Server Configuration
 
@@ -208,5 +215,5 @@ All Python scripts in `tests/bin/` add the workspace root to `sys.path` automati
 ### Test Files Cleanup
 To clean up test artifacts:
 ```powershell
-Remove-Item tests/*.crt, tests/*.key, tests/*.csr -ErrorAction SilentlyContinue
+Remove-Item tests/results/* -ErrorAction SilentlyContinue
 ```
