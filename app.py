@@ -1711,7 +1711,7 @@ def server_ext():
         profiles = Profile.query.order_by(Profile.id.desc()).all()
     else:
         profiles = Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
-    return render_template("server_ext.html", server_ext_config=manual_config, profiles=profiles)
+    return render_template("server_ext.html", server_ext_config=manual_config, profiles=profiles, is_admin=current_user.is_admin())
 
 @app.route("/view_root")
 def view_root():
@@ -1800,7 +1800,7 @@ def cert_status(serial):
 def expired_certs():
     try:
         expired = []
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
             rows = conn.execute("SELECT id, cert_pem FROM certificates").fetchall()
             for row in rows:
@@ -2033,7 +2033,7 @@ def update_crl():
     with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
         ca_key = serialization.load_pem_private_key(f.read(), password=None)
     
-    now = datetime.datetime.utcnow()
+    now = datetime.utcnow()
     builder = x509.CertificateRevocationListBuilder()
     builder = builder.issuer_name(ca_cert.subject)
     builder = builder.last_update(now)
@@ -2349,7 +2349,7 @@ def ocspX():
             target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
             revoked = (revoked_flag == 1)
 
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
         next_update = now + datetime.timedelta(days=7)
 
         # Load the CA certificate to use as the issuer for OCSP responses

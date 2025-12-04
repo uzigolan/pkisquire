@@ -5,10 +5,12 @@
     <div class="form-group">
       <textarea id="server_ext_config" name="server_ext_config" rows="10" class="form-control" placeholder="Edit server extension configuration...">{{ server_ext_config }}</textarea>
     </div>
+    {% if is_admin %}
     <div class="form-check mb-2">
       <input class="form-check-input" type="checkbox" id="save_system_default" name="save_system_default">
-      <label class="form-check-label" for="save_system_default">Also save as system default</label>
+      <label class="form-check-label" for="save_system_default">Save as system default</label>
     </div>
+    {% endif %}
     <button type="submit" class="btn btn-primary">Save User Configuration</button>
   </form>
 
@@ -16,7 +18,7 @@
   <div class="form-inline mb-4">
     <select id="profile_select" class="form-control mr-2">
       {% for profile in profiles %}
-        <option value="{{ profile.filename }}">{{ profile.filename }} - {{ profile.template_name }}</option>
+        <option value="{{ profile.name }}">{{ profile.name }}{% if profile.template_name %} (from {{ profile.template_name }}){% endif %}</option>
       {% endfor %}
     </select>
     <button type="button" class="btn btn-outline-secondary" onclick="loadProfile()">Load Profile Configuration</button>
