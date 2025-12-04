@@ -4,6 +4,21 @@
     <h1 class="mb-0">List of Certificate signing request (CSR)</h1>
     <a href="{{ url_for('requests.generate_csr') }}" class="btn btn-primary">Generate New CSR</a>
   </div>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="form-inline">
+      <label for="pageSizeSelect" class="mr-2">Show:</label>
+      <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
+        <option value="10">10</option>
+        <option value="25" selected>25</option>
+        <option value="50">50</option>
+      </select>
+      <span id="pageInfo" class="mr-3"></span>
+    </div>
+    <div>
+      <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
+      <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
+    </div>
+  </div>
   <div class="form-group">
     <input
       type="text"
@@ -96,8 +111,11 @@
       }
       
       var table = document.getElementById('csrTable');
-      var rows = table.getElementsByTagName('tr');
-      for (var i = 1; i < rows.length; i++) {
+      var tbody = table.getElementsByTagName('tbody')[0];
+      var rows = tbody.getElementsByTagName('tr');
+      
+      allRows = [];
+      for (var i = 0; i < rows.length; i++) {
         var nameText = rows[i].cells[1].textContent.trim().toLowerCase();
         var keyText = rows[i].cells[2].textContent.trim().toLowerCase();
         var profileText = rows[i].cells[3].textContent.trim().toLowerCase();
@@ -107,12 +125,71 @@
             keyText.indexOf(filterValue) > -1 ||
             profileText.indexOf(filterValue) > -1 ||
             dateText.indexOf(filterValue) > -1) {
-          rows[i].style.display = "";
-        } else {
-          rows[i].style.display = "none";
+          allRows.push(rows[i]);
         }
       }
+      showPage(1);
     }
+
+    // Pagination variables
+    let currentPage = 1;
+    let pageSize = 25;
+    let allRows = [];
+
+    function initPagination() {
+      var table = document.getElementById('csrTable');
+      var tbody = table.getElementsByTagName('tbody')[0];
+      allRows = Array.from(tbody.getElementsByTagName('tr'));
+      showPage(1);
+    }
+
+    function showPage(page) {
+      currentPage = page;
+      var start = (page - 1) * pageSize;
+      var end = start + pageSize;
+      
+      allRows.forEach((row, index) => {
+        if (index >= start && index < end) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+      
+      updatePaginationInfo();
+    }
+
+    function updatePaginationInfo() {
+      var totalPages = Math.ceil(allRows.length / pageSize);
+      var start = (currentPage - 1) * pageSize + 1;
+      var end = Math.min(currentPage * pageSize, allRows.length);
+      
+      document.getElementById('pageInfo').textContent = 
+        `Showing ${start}-${end} of ${allRows.length}`;
+      
+      document.getElementById('prevBtn').disabled = currentPage === 1;
+      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+    }
+
+    function changePageSize() {
+      pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+      showPage(1);
+    }
+
+    function nextPage() {
+      var totalPages = Math.ceil(allRows.length / pageSize);
+      if (currentPage < totalPages) {
+        showPage(currentPage + 1);
+      }
+    }
+
+    function previousPage() {
+      if (currentPage > 1) {
+        showPage(currentPage - 1);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initPagination);
   </script>
 {% endblock %}
 

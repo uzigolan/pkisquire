@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="row">
+    <div class="col-12">
+      <h1 class="mb-4">🔐 About Pikachu CA</h1>
+      
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Overview</h5>
+          <p class="card-text">
+            A Flask-based Public Key Infrastructure (PKI) platform for managing certificate lifecycles 
+            with SCEP, EST, and OCSP protocol support.
+          </p>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">🚀 Features</h5>
+          <ul>
+            <li>📄 Web UI + RESTful API support</li>
+            <li>🔒 CSR submission and certificate issuance</li>
+            <li>📄 Certificate revocation and CRL generation</li>
+            <li>🌐 SCEP and EST protocol support for automated enrollment</li>
+            <li>⚛️ Post-Quantum Cryptography (e.g., Dilithium)</li>
+            <li>📡 MQTTs TLS integration</li>
+            <li>✅ OCSP real-time validation</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">🔗 Resources</h5>
+          <div class="list-group list-group-flush">
+            <a href="https://github.com/uzigolan/pikachu-ca" target="_blank" class="list-group-item list-group-item-action">
+              <strong>GitHub Repository</strong><br>
+              <small class="text-muted">https://github.com/uzigolan/pikachu-ca</small>
+            </a>
+            <a href="https://github.com/certnanny/sscep" target="_blank" class="list-group-item list-group-item-action">
+              <strong>SCEP Client (sscep)</strong><br>
+              <small class="text-muted">Simple SCEP client for automated enrollment</small>
+            </a>
+            <a href="https://github.com/globalsign/est" target="_blank" class="list-group-item list-group-item-action">
+              <strong>EST Client (estclient)</strong><br>
+              <small class="text-muted">GlobalSign EST protocol implementation</small>
+            </a>
+            <a href="https://github.com/open-quantum-safe/oqs-provider" target="_blank" class="list-group-item list-group-item-action">
+              <strong>Post-Quantum Crypto (oqs-provider)</strong><br>
+              <small class="text-muted">OpenSSL provider for quantum-safe algorithms</small>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">⚡ Version</h5>
+          <p class="card-text">
+            <strong>Current Version:</strong> {{ version }}
+          </p>
+        </div>
+      </div>
+
+      <p class="text-center text-muted mt-4">
+        <small>Stay secure, and may your certs never expire! ⚡</small>
+      </p>
+    </div>
+  </div>
+{% endblock %}
