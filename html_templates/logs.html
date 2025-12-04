@@ -17,6 +17,13 @@
          style="width:80px; padding-top:.1rem; padding-bottom:.1rem;">
   <span class="mb-0">sec</span>
   <button id="refresh" class="btn btn-primary btn-sm ml-1">Refresh</button>
+  <button id="pauseResume" class="btn btn-warning btn-sm ml-1">Pause</button>
+  <span class="text-muted">·</span>
+  <label for="filter" class="mb-0">Filter</label>
+  <input id="filter" type="text" placeholder="Filter logs..."
+         class="form-control form-control-sm"
+         style="width:200px; padding-top:.1rem; padding-bottom:.1rem;">
+  <button id="clearFilter" class="btn btn-secondary btn-sm ml-1" style="display:none;">Clear Filter</button>
 </div>
 
 <!-- Tall log frame -->
@@ -29,8 +36,33 @@
 const box = document.getElementById('logbox');
 const lines = document.getElementById('lines');
 const btn = document.getElementById('refresh');
+const pauseResumeBtn = document.getElementById('pauseResume');
 const intervalInput = document.getElementById('interval');
+const filterInput = document.getElementById('filter');
+const filterStatus = document.getElementById('filterStatus');
+const clearFilterBtn = document.getElementById('clearFilter');
 let pollTimer = null;
+let isPaused = false;
+let fullLogText = '';
+
+function applyFilter() {
+  const filterText = filterInput.value.trim().toLowerCase();
+  if (!filterText) {
+    box.textContent = fullLogText;
+    clearFilterBtn.style.display = 'none';
+  } else {
+    const lines = fullLogText.split('\n');
+    const filtered = lines.filter(line => line.toLowerCase().includes(filterText));
+    box.textContent = filtered.join('\n');
+    clearFilterBtn.style.display = 'inline-block';
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearFilter() {
+  filterInput.value = '';
+  applyFilter();
+}
 
 function fetchLogs() {
   const n = Math.max(10, Math.min(5000, parseInt(lines.value || '600', 10)));
@@ -38,7 +70,8 @@ function fetchLogs() {
     .then(r => r.text())
     .then(t => {
       const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 5;
-      box.textContent = t;
+      fullLogText = t;
+      applyFilter();
       if (atBottom) box.scrollTop = box.scrollHeight;
     })
     .catch(() => {});
@@ -46,6 +79,7 @@ function fetchLogs() {
 
 function schedulePolling() {
   if (pollTimer) clearInterval(pollTimer);
+  if (isPaused) return;
   let secs = parseFloat(intervalInput.value || '2');
   if (Number.isNaN(secs)) secs = 2;
   const ms = Math.max(500, Math.min(60000, Math.round(secs * 1000)));
@@ -53,9 +87,29 @@ function schedulePolling() {
   pollTimer = setInterval(fetchLogs, ms);
 }
 
+function togglePause() {
+  isPaused = !isPaused;
+  if (isPaused) {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    pauseResumeBtn.textContent = 'Resume';
+    pauseResumeBtn.classList.remove('btn-warning');
+    pauseResumeBtn.classList.add('btn-success');
+  } else {
+    pauseResumeBtn.textContent = 'Pause';
+    pauseResumeBtn.classList.remove('btn-success');
+    pauseResumeBtn.classList.add('btn-warning');
+    schedulePolling();
+    fetchLogs();
+  }
+}
+
 // wire up
 btn.addEventListener('click', fetchLogs);
+pauseResumeBtn.addEventListener('click', togglePause);
 intervalInput.addEventListener('change', schedulePolling);
+filterInput.addEventListener('input', applyFilter);
+clearFilterBtn.addEventListener('click', clearFilter);
 
 // initial: load saved interval (if exists), then start polling
 const savedMs = parseInt(localStorage.getItem('logs_poll_ms') || '2000', 10);

@@ -23,11 +23,11 @@
           <tr>
             <th>ID</th>
             <th>Common Name</th>
-            <th>Serial</th>
-            <th>Key</th>
-            <th>Date (UTC)</th>
-            <th>Status</th>
-            {% if is_admin %}<th>User</th>{% endif %}
+            <th>Serial <small style="color: #6c757d;">(click to copy if truncated)</small></th>
+            <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">⇅</span></th>
+            <th style="cursor:pointer;" onclick="sortTable(4)">Date (UTC) <span id="sort-4">⇅</span></th>
+            <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">⇅</span></th>
+            {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(6)">User <span id="sort-6">⇅</span></th>{% endif %}
             <th>Actions</th>
           </tr>
         </thead>
@@ -44,7 +44,15 @@
                 {% endif %}
               {% endfor %}
             </td>
-            <td>{{ serial }}</td>
+            <td>
+              {% if serial|length > 20 %}
+                <span title="{{ serial }}" style="cursor: pointer;" onclick="copyToClipboard('{{ serial }}', this)">
+                  {{ serial[:20] }}...
+                </span>
+              {% else %}
+                {{ serial }}
+              {% endif %}
+            </td>
             <td>{{ keycol }}</td>
             <td>{{ date }}</td>
             <td>
@@ -98,8 +106,61 @@
   </div>
 
   <script>
+    let sortDirections = {}; // Track sort direction for each column
+
+    function copyToClipboard(text, element) {
+      navigator.clipboard.writeText(text).then(() => {
+        const originalTitle = element.title;
+        element.title = 'Copied!';
+        setTimeout(() => {
+          element.title = originalTitle;
+        }, 1000);
+      });
+    }
+
+    function sortTable(columnIndex) {
+      var table = document.getElementById('certTable');
+      var rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
+      var isAscending = sortDirections[columnIndex] !== 'asc';
+      sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
+
+      // Update all sort indicators
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+      document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
+
+      rows.sort(function(a, b) {
+        var aText = a.cells[columnIndex].textContent.trim();
+        var bText = b.cells[columnIndex].textContent.trim();
+
+        // Special handling for Date column (index 4) - parse as date
+        if (columnIndex === 4) {
+          var aDate = new Date(aText);
+          var bDate = new Date(bText);
+          return isAscending ? aDate - bDate : bDate - aDate;
+        }
+
+        // Text comparison for other columns
+        if (aText < bText) return isAscending ? -1 : 1;
+        if (aText > bText) return isAscending ? 1 : -1;
+        return 0;
+      });
+
+      // Reattach sorted rows
+      var tbody = table.getElementsByTagName('tbody')[0];
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
     function filterTable() {
       var filterValue = document.getElementById('filterInput').value.toLowerCase();
+      var filterInput = document.getElementById('filterInput');
+      
+      // Change background color if filter is active
+      if (filterValue) {
+        filterInput.style.backgroundColor = '#fff3cd'; // Light yellow
+      } else {
+        filterInput.style.backgroundColor = '';
+      }
+      
       var table = document.getElementById('certTable');
       var rows = table.getElementsByTagName('tr');
       for (var i = 1; i < rows.length; i++) {

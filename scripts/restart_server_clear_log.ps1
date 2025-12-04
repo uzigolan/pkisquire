@@ -1,7 +1,7 @@
-# Restart Flask Server Script
-# Stops any running Flask instances and starts fresh
+# Restart Flask Server Script (with Log Clearing)
+# Stops any running Flask instances, clears the log file, and starts fresh
 
-Write-Host "=== Restarting Flask Server ===" -ForegroundColor Green
+Write-Host "=== Restarting Flask Server (Clear Log) ===" -ForegroundColor Green
 Write-Host ""
 
 # Kill any existing Flask/Python processes running app.py
@@ -12,6 +12,26 @@ Start-Sleep -Seconds 2
 # Clear Python cache to avoid stale .pyc files
 Write-Host "[*] Clearing Python cache..." -ForegroundColor Cyan
 Remove-Item -Recurse -Force __pycache__ -ErrorAction SilentlyContinue
+
+# Clear the log file (read from config.ini)
+Write-Host "[*] Clearing log file..." -ForegroundColor Cyan
+$configFile = "config.ini"
+$logFile = "logs\server.log"  # default
+
+if (Test-Path $configFile) {
+    $content = Get-Content $configFile -Raw
+    if ($content -match '(?ms)\[LOGGING\].*?log_file\s*=\s*(.+?)(\r?\n|$)') {
+        $logFile = $matches[1].Trim()
+        Write-Host "[*] Found log_file in config.ini: $logFile" -ForegroundColor Cyan
+    }
+}
+
+if (Test-Path $logFile) {
+    Clear-Content $logFile
+    Write-Host "[+] Log file cleared: $logFile" -ForegroundColor Green
+} else {
+    Write-Host "[!] Log file not found: $logFile" -ForegroundColor Yellow
+}
 
 # Start the server
 Write-Host "[*] Starting Flask server on port 8090..." -ForegroundColor Cyan

@@ -1,15 +1,23 @@
 {% extends "layout.html" %}
 {% block content %}
   <h1 class="mb-4">List of Certificate signing request (CSR)</h1>
-  <table class="table table-bordered">
+  <div class="form-group">
+    <input
+      type="text"
+      id="filterInput"
+      class="form-control mb-3"
+      onkeyup="filterTable()"
+      placeholder="Filter by Name, Key, Profile, or Date">
+  </div>
+  <table id="csrTable" class="table table-bordered">
     <thead class="thead-light">
       <tr>
         <th>ID</th>
         <th>Name</th>
         <th>Key</th>
         <th>Profile</th>
-        <th>Created At</th>
-        {% if is_admin %}<th>User</th>{% endif %}
+        <th style="cursor:pointer;" onclick="sortTable(4)">Created At <span id="sort-4">⇅</span></th>
+        {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(5)">User <span id="sort-5">⇅</span></th>{% endif %}
         <th>Actions</th>
       </tr>
     </thead>
@@ -43,5 +51,66 @@
     </tbody>
   </table>
   <a href="{{ url_for('requests.generate_csr') }}" class="btn btn-primary">Generate New CSR</a>
+
+  <script>
+    let sortDirections = {};
+
+    function sortTable(columnIndex) {
+      var table = document.getElementById('csrTable');
+      var rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
+      var isAscending = sortDirections[columnIndex] !== 'asc';
+      sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
+
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+      document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
+
+      rows.sort(function(a, b) {
+        var aText = a.cells[columnIndex].textContent.trim();
+        var bText = b.cells[columnIndex].textContent.trim();
+
+        if (columnIndex === 4) {
+          var aDate = new Date(aText);
+          var bDate = new Date(bText);
+          return isAscending ? aDate - bDate : bDate - aDate;
+        }
+
+        if (aText < bText) return isAscending ? -1 : 1;
+        if (aText > bText) return isAscending ? 1 : -1;
+        return 0;
+      });
+
+      var tbody = table.getElementsByTagName('tbody')[0];
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
+    function filterTable() {
+      var filterValue = document.getElementById('filterInput').value.toLowerCase();
+      var filterInput = document.getElementById('filterInput');
+      
+      if (filterValue) {
+        filterInput.style.backgroundColor = '#fff3cd';
+      } else {
+        filterInput.style.backgroundColor = '';
+      }
+      
+      var table = document.getElementById('csrTable');
+      var rows = table.getElementsByTagName('tr');
+      for (var i = 1; i < rows.length; i++) {
+        var nameText = rows[i].cells[1].textContent.trim().toLowerCase();
+        var keyText = rows[i].cells[2].textContent.trim().toLowerCase();
+        var profileText = rows[i].cells[3].textContent.trim().toLowerCase();
+        var dateText = rows[i].cells[4].textContent.trim().toLowerCase();
+
+        if (nameText.indexOf(filterValue) > -1 ||
+            keyText.indexOf(filterValue) > -1 ||
+            profileText.indexOf(filterValue) > -1 ||
+            dateText.indexOf(filterValue) > -1) {
+          rows[i].style.display = "";
+        } else {
+          rows[i].style.display = "none";
+        }
+      }
+    }
+  </script>
 {% endblock %}
 

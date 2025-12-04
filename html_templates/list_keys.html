@@ -1,15 +1,23 @@
 {% extends "layout.html" %}
 {% block content %}
   <h1 class="mb-4">List of Keys</h1>
-  <table class="table table-bordered table-hover">
+  <div class="form-group">
+    <input
+      type="text"
+      id="filterInput"
+      class="form-control mb-3"
+      onkeyup="filterTable()"
+      placeholder="Filter by Name, Type, Size, or Date">
+  </div>
+  <table id="keyTable" class="table table-bordered table-hover">
     <thead class="thead-light">
       <tr>
         <th>ID</th>
         <th>Name</th>
-        <th>Type</th>
+        <th style="cursor:pointer;" onclick="sortTable(2)">Type <span id="sort-2">⇅</span></th>
         <th>Size/Curve/Algorithm</th>
-        <th>Created At</th>
-        {% if is_admin %}<th>User</th>{% endif %}
+        <th style="cursor:pointer;" onclick="sortTable(4)">Created At <span id="sort-4">⇅</span></th>
+        {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(5)">User <span id="sort-5">⇅</span></th>{% endif %}
         <th>Actions</th>
       </tr>
     </thead>
@@ -52,5 +60,66 @@
     </tbody>
   </table>
   <a href="{{ url_for('keys.generate_key') }}" class="btn btn-primary">Generate New Key</a>
+
+  <script>
+    let sortDirections = {};
+
+    function sortTable(columnIndex) {
+      var table = document.getElementById('keyTable');
+      var rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
+      var isAscending = sortDirections[columnIndex] !== 'asc';
+      sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
+
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+      document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
+
+      rows.sort(function(a, b) {
+        var aText = a.cells[columnIndex].textContent.trim();
+        var bText = b.cells[columnIndex].textContent.trim();
+
+        if (columnIndex === 4) {
+          var aDate = new Date(aText);
+          var bDate = new Date(bText);
+          return isAscending ? aDate - bDate : bDate - aDate;
+        }
+
+        if (aText < bText) return isAscending ? -1 : 1;
+        if (aText > bText) return isAscending ? 1 : -1;
+        return 0;
+      });
+
+      var tbody = table.getElementsByTagName('tbody')[0];
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
+    function filterTable() {
+      var filterValue = document.getElementById('filterInput').value.toLowerCase();
+      var filterInput = document.getElementById('filterInput');
+      
+      if (filterValue) {
+        filterInput.style.backgroundColor = '#fff3cd';
+      } else {
+        filterInput.style.backgroundColor = '';
+      }
+      
+      var table = document.getElementById('keyTable');
+      var rows = table.getElementsByTagName('tr');
+      for (var i = 1; i < rows.length; i++) {
+        var nameText = rows[i].cells[1].textContent.trim().toLowerCase();
+        var typeText = rows[i].cells[2].textContent.trim().toLowerCase();
+        var sizeText = rows[i].cells[3].textContent.trim().toLowerCase();
+        var dateText = rows[i].cells[4].textContent.trim().toLowerCase();
+
+        if (nameText.indexOf(filterValue) > -1 ||
+            typeText.indexOf(filterValue) > -1 ||
+            sizeText.indexOf(filterValue) > -1 ||
+            dateText.indexOf(filterValue) > -1) {
+          rows[i].style.display = "";
+        } else {
+          rows[i].style.display = "none";
+        }
+      }
+    }
+  </script>
 {% endblock %}
 

@@ -5,20 +5,29 @@
     <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-success">Generate New Profile</a>
   </div>
   {% if profiles %}
-  <table class="table table-hover">
+  <div class="form-group">
+    <input
+      type="text"
+      id="filterInput"
+      class="form-control mb-3"
+      onkeyup="filterTable()"
+      placeholder="Filter by Profile Name, Template, Type, or Date">
+  </div>
+  <table id="profileTable" class="table table-hover">
     <thead class="thead-dark">
       <tr>
-        <th>Profile File Name</th>
+        <th>Name</th>
         <th>Originating Template</th>
-        <th>Profile Type</th>
-        {% if is_admin %}<th>User</th>{% endif %}
+        <th style="cursor:pointer;" onclick="sortTable(2)">Profile Type <span id="sort-2">⇅</span></th>
+        <th style="cursor:pointer;" onclick="sortTable(3)">Created At <span id="sort-3">⇅</span></th>
+        {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(4)">User <span id="sort-4">⇅</span></th>{% endif %}
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for profile in profiles %}
       <tr>
-        <td>{{ profile.filename }}</td>
+        <td>{{ profile.name }}</td>
         <td>
           {% if profile.template_name %}
             {{ profile.template_name }}
@@ -27,15 +36,16 @@
           {% endif %}
         </td>
         <td>{{ profile.profile_type }}</td>
+        <td>{{ profile.created_at.strftime('%Y-%m-%d %H:%M') if profile.created_at else '' }}</td>
         {% if is_admin %}
           <td>{{ profile.user_obj.username if profile.user_obj else 'N/A' }}</td>
         {% endif %}
         <td>
-          <a href="{{ url_for('profiles.view_profile', filename=profile.filename) }}"
+          <a href="{{ url_for('profiles.view_profile', name=profile.name) }}"
              class="btn btn-sm btn-info">View</a>
-          <a href="{{ url_for('profiles.edit_profile_file', filename=profile.filename) }}"
+          <a href="{{ url_for('profiles.edit_profile_file', name=profile.name) }}"
              class="btn btn-sm btn-secondary ml-1">Edit</a>
-          <form action="{{ url_for('profiles.delete_profile', filename=profile.filename) }}"
+          <form action="{{ url_for('profiles.delete_profile', name=profile.name) }}"
                 method="post" style="display:inline;">
             <button type="submit"
                     class="btn btn-sm btn-danger ml-1"
@@ -53,5 +63,66 @@
   {% endif %}
   <a href="{{ url_for('profiles.list_templates') }}"
      class="btn btn-secondary mt-3">Back to Template List</a>
+
+  <script>
+    let sortDirections = {};
+
+    function sortTable(columnIndex) {
+      var table = document.getElementById('profileTable');
+      var rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
+      var isAscending = sortDirections[columnIndex] !== 'asc';
+      sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
+
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+      document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
+
+      rows.sort(function(a, b) {
+        var aText = a.cells[columnIndex].textContent.trim();
+        var bText = b.cells[columnIndex].textContent.trim();
+
+        if (columnIndex === 3) {
+          var aDate = new Date(aText);
+          var bDate = new Date(bText);
+          return isAscending ? aDate - bDate : bDate - aDate;
+        }
+
+        if (aText < bText) return isAscending ? -1 : 1;
+        if (aText > bText) return isAscending ? 1 : -1;
+        return 0;
+      });
+
+      var tbody = table.getElementsByTagName('tbody')[0];
+      rows.forEach(row => tbody.appendChild(row));
+    }
+
+    function filterTable() {
+      var filterValue = document.getElementById('filterInput').value.toLowerCase();
+      var filterInput = document.getElementById('filterInput');
+      
+      if (filterValue) {
+        filterInput.style.backgroundColor = '#fff3cd';
+      } else {
+        filterInput.style.backgroundColor = '';
+      }
+      
+      var table = document.getElementById('profileTable');
+      var rows = table.getElementsByTagName('tr');
+      for (var i = 1; i < rows.length; i++) {
+        var nameText = rows[i].cells[0].textContent.trim().toLowerCase();
+        var templateText = rows[i].cells[1].textContent.trim().toLowerCase();
+        var typeText = rows[i].cells[2].textContent.trim().toLowerCase();
+        var dateText = rows[i].cells[3].textContent.trim().toLowerCase();
+
+        if (nameText.indexOf(filterValue) > -1 ||
+            templateText.indexOf(filterValue) > -1 ||
+            typeText.indexOf(filterValue) > -1 ||
+            dateText.indexOf(filterValue) > -1) {
+          rows[i].style.display = "";
+        } else {
+          rows[i].style.display = "none";
+        }
+      }
+    }
+  </script>
 {% endblock %}
 
