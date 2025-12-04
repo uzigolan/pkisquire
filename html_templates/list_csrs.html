@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">List of Certificate signing request (CSR)</h1>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="mb-0">List of Certificate signing request (CSR)</h1>
+    <a href="{{ url_for('requests.generate_csr') }}" class="btn btn-primary">Generate New CSR</a>
+  </div>
   <div class="form-group">
     <input
       type="text"
@@ -50,7 +53,6 @@
       {% endfor %}
     </tbody>
   </table>
-  <a href="{{ url_for('requests.generate_csr') }}" class="btn btn-primary">Generate New CSR</a>
 
   <script>
     let sortDirections = {};

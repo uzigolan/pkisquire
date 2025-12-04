@@ -19,7 +19,7 @@
       <select name="profile_id" id="profile_id" class="form-control" required>
         {% for profile in profiles %}
           <option value="{{ profile.id }}">
-            {{ profile.filename }}{% if profile.template_name %} - {{ profile.template_name }}{% endif %}
+            {{ profile.name }}{% if profile.template_name %} (from {{ profile.template_name }}){% endif %}
           </option>
         {% endfor %}
       </select>

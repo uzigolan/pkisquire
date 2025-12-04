@@ -86,7 +86,7 @@
 
       <!-- EST -->
       <tr>
-        <td rowspan="2">EST</td>
+        <td rowspan="4">EST</td>
         <td>EST Enrollment</td>
         <td>
           <pre>curl -k -X POST \
@@ -103,6 +103,24 @@
         <td>Using curl accepts DER CSR and returns signed cert in PKCS#7</td>
       </tr>
       <tr>
+        <td>EST Enrollment (mTLS)</td>
+        <td>
+          <pre>curl --cert https.crt --key https.key \
+  -X POST \
+  --data-binary @etx.csr.der \
+  https://pikachu-ca.iot-rad.com:4443/.well-known/est/simpleenroll \
+  -H "Content-Type: application/pkcs10" \
+  --output etx.crt.p7</pre>
+    <pre>estclient enroll \
+  -server pikachu-ca.iot-rad.com:4443 \
+  -cert https.crt \
+  -key https.key \
+  -csr etx.csr \
+  -out etx.crt</pre>
+        </td>
+        <td>Mutual TLS authentication with client certificate on port 4443</td>
+      </tr>
+      <tr>
         <td>EST CA Certs</td>
         <td>
           <pre>curl -k \
@@ -114,6 +132,20 @@
   -out ca.pem</pre>
         </td>
         <td>Returns CA chain in PKCS#7 format</td>
+      </tr>
+      <tr>
+        <td>EST CA Certs (mTLS)</td>
+        <td>
+          <pre>curl --cert https.crt --key https.key \
+  https://pikachu-ca.iot-rad.com:4443/.well-known/est/cacerts \
+  --output chain.crt</pre>
+<pre>estclient cacerts \
+  -server pikachu-ca.iot-rad.com:4443 \
+  -cert https.crt \
+  -key https.key \
+  -out ca.pem</pre>
+        </td>
+        <td>Mutual TLS authentication with client certificate on port 4443</td>
       </tr>
 
       <!-- OCSP -->
