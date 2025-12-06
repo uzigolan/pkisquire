@@ -260,6 +260,7 @@ app.config["SUBCA_CERT_PATH"]  = _cfg.get("CA", f"SUBCA_CERT_PATH_{ca_mode}")
 app.config["CHAIN_FILE_PATH"]  = _cfg.get("CA", f"CHAIN_FILE_PATH_{ca_mode}")
 app.config["ROOT_CERT_PATH"]   = _cfg.get("CA", "ROOT_CERT_PATH")
 app.config["CA_MODE"]          = ca_mode
+print(f"CA_MODE set to: {ca_mode}")
 app.config["LDAP_HOST"]           = _cfg.get("LDAP", "LDAP_HOST", fallback=None)
 app.config["LDAP_PORT"]           = _cfg.getint("LDAP", "LDAP_PORT", fallback=389)
 app.config["LDAP_BASE_DN"]        = _cfg.get("LDAP", "BASE_DN", fallback=None)
@@ -267,6 +268,16 @@ app.config["LDAP_PEOPLE_DN"]      = _cfg.get("LDAP", "PEOPLE_DN", fallback=None)
 app.config["LDAP_ADMIN_DN"]       = _cfg.get("LDAP", "ADMIN_DN", fallback=None)
 app.config["LDAP_ADMIN_PASSWORD"] = _cfg.get("LDAP", "ADMIN_PASSWORD", fallback=None)
 app.config["LDAP_ENABLED"]        = _cfg.getboolean("LDAP", "enabled", fallback=bool(_cfg.get("LDAP", "LDAP_HOST", fallback=None)))
+
+# —— VAULT section —— 
+from config_storage import load_vault_config
+
+VAULT_CONFIG = load_vault_config(CONFIG_PATH)
+app.config["VAULT_ENABLED"] = VAULT_CONFIG.get('enabled', False)
+app.config["VAULT_CONFIG"] = VAULT_CONFIG
+
+# Global Vault client (will be initialized later if enabled)
+vault_client = None
 
 # —— SCEP section —— 
 app.config["SCEP_ENABLED"]   = _cfg.getboolean("SCEP", "enabled", fallback=True)
@@ -360,6 +371,12 @@ app.logger.handlers.clear()
 app.logger.setLevel(log_level)
 app.logger.addHandler(file_handler)
 app.logger.propagate = False
+
+# Configure root logger to capture all module loggers (ca, vault_client, etc.)
+root_logger = logging.getLogger()
+root_logger.handlers.clear()
+root_logger.setLevel(log_level)
+root_logger.addHandler(file_handler)
 
 # Also capture Werkzeug (request logs) into the same file
 # Add filter to exclude noisy requests and strip ANSI color codes
@@ -591,7 +608,9 @@ def get_certificate_textY(cert_pem):
 @app.context_processor
 def inject_ca_mode():
     # so every template gets a 'ca_mode' variable
-    return {"ca_mode": app.config["CA_MODE"]}
+    ca_mode_value = app.config.get("CA_MODE", "UNKNOWN")
+    app.logger.debug(f"inject_ca_mode called: returning ca_mode={ca_mode_value}")
+    return {"ca_mode": ca_mode_value}
 
 
 OID_TO_NAME = {
@@ -1856,61 +1875,87 @@ def delete_certificate(cert_id):
 def submit():
     csr_pem = request.form["csr"]
     ext_block = request.form.get("ext_block", "v3_ext")
+    
     try:
         csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
         subject_str = ", ".join([f"{attr.oid._name}={attr.value}" for attr in csr_obj.subject])
     except Exception as e:
         subject_str = "Unknown Subject"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
-        csr_file.write(csr_pem.encode())
-        csr_filename = csr_file.name
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
-        cert_filename = cert_file.name
-
-    custom_serial = secrets.randbits(64)
-    # Format it as a hexadecimal string (with the 0x prefix)
-    custom_serial_str = hex(custom_serial)
-
+        app.logger.error(f"Failed to parse CSR: {e}")
+        flash(f"Invalid CSR: {e}", "error")
+        return redirect("/")
 
     # Read the validity period from the validity.conf file
     try:
         with open(app.config["VALIDITY_CONF"], "r") as f:
-            validity_days = f.read().strip()
-    except FileNotFoundError:
-        validity_days = "365"  # fallback if not set
+            validity_days = int(f.read().strip())
+    except (FileNotFoundError, ValueError):
+        validity_days = 365  # fallback if not set
 
+    # Try using CA class (supports both Vault and Legacy modes with debug logging)
     try:
-        cmd = ["openssl", "x509"]
-        cmd.extend(get_provider_args())
-        cmd.extend(["-req",
-            "-in", csr_filename,
-            "-CA", app.config["SUBCA_CERT_PATH"],
-            "-CAkey", app.config["SUBCA_KEY_PATH"],
-            "-set_serial", custom_serial_str, 
-            "-CAcreateserial",
-            "-days", validity_days,
-            "-out", cert_filename,
-            "-extfile", app.config["SERVER_EXT_PATH"],
-            "-extensions", ext_block
-        ])
-        #app.logger.debug("Running OpenSSL command: %s", " ".join(cmd))
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
+        ca = get_ca_instance()
+        app.logger.debug(f"CA instance created: vault_enabled={ca._vault_enabled if hasattr(ca, '_vault_enabled') else 'N/A'}")
+        
+        # Sign the certificate using CA class (will show Vault/Legacy mode in logs)
+        cert_obj = ca.sign(csr_obj, days=validity_days)
+        
+        # Serialize to PEM
+        cert_pem = cert_obj.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+        actual_serial = hex(cert_obj.serial_number)
+        
+        app.logger.info(f"Certificate signed successfully via CA class: serial={actual_serial}")
+        
+    except Exception as e:
+        # Fallback to OpenSSL command-line (legacy behavior)
+        app.logger.warning(f"CA class signing failed ({e}), falling back to OpenSSL command-line")
+        
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
+            csr_file.write(csr_pem.encode())
+            csr_filename = csr_file.name
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
+            cert_filename = cert_file.name
+
+        custom_serial = secrets.randbits(64)
+        custom_serial_str = hex(custom_serial)
+
+        try:
+            cmd = ["openssl", "x509"]
+            cmd.extend(get_provider_args())
+            cmd.extend(["-req",
+                "-in", csr_filename,
+                "-CA", app.config["SUBCA_CERT_PATH"],
+                "-CAkey", app.config["SUBCA_KEY_PATH"],
+                "-set_serial", custom_serial_str, 
+                "-CAcreateserial",
+                "-days", str(validity_days),
+                "-out", cert_filename,
+                "-extfile", app.config["SERVER_EXT_PATH"],
+                "-extensions", ext_block
+            ])
+            subprocess.run(cmd, check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            os.unlink(csr_filename)
+            os.unlink(cert_filename)
+            error_msg = f"Error during OpenSSL signing: {e.stderr}"
+            app.logger.error(error_msg)
+            flash(error_msg, "error")
+            return redirect("/")
+            
+        with open(cert_filename, "r") as f:
+            cert_pem = f.read()
+        cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+        actual_serial = hex(cert_obj.serial_number)
+        
         os.unlink(csr_filename)
         os.unlink(cert_filename)
-        error_msg = f"Error during OpenSSL signing: {e.stderr}"
-        app.logger.error(error_msg)
-        flash(error_msg, "error")
-        return redirect("/")
-    with open(cert_filename, "r") as f:
-        cert_pem = f.read()
-    cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-    actual_serial = hex(cert_obj.serial_number)
+
+    # Save to database
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         conn.execute("INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
                      (subject_str, actual_serial, cert_pem, current_user.id))
-    os.unlink(csr_filename)
-    os.unlink(cert_filename)
+    
+    flash(f"Certificate signed successfully! Serial: {actual_serial}", "success")
     return redirect("/")
 
 @app.route("/submit_q", methods=["POST"])
@@ -2448,73 +2493,83 @@ def est_enroll():
     raw = request.get_data()
     ext_block = request.form.get("ext_block", "v3_ext")
 
-    # 1) Normalize CSR to DER
+    # 1) Normalize CSR to DER, then convert to PEM for CA class
     try:
         der_csr = normalize_to_der(raw)
-    except binascii.Error:
+        # Convert DER to PEM format
+        pem_csr = (
+            b"-----BEGIN CERTIFICATE REQUEST-----\n" +
+            base64.encodebytes(der_csr) +
+            b"-----END CERTIFICATE REQUEST-----\n"
+        )
+        csr_obj = x509.load_pem_x509_csr(pem_csr, default_backend())
+    except Exception as e:
+        app.logger.error(f"Invalid CSR encoding: {e}")
         return "Invalid CSR encoding", 400
 
-    # 2) Write CSR DER to temp file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
-        csr_file.write(der_csr)
-        csr_der_filename = csr_file.name
-
-    # 3) Prepare temp file for the issued cert
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
-        cert_filename = cert_file.name
-
-    # 4) Generate serial & read validity
-    custom_serial_str = hex(secrets.randbits(64))
+    # 2) Read validity
     try:
         with open(app.config["VALIDITY_CONF"], "r") as f:
             validity_days = f.read().strip()
     except FileNotFoundError:
         validity_days = "365"
 
-    # 5) Sign CSR with OpenSSL
-    cmd = [
-        "openssl", "x509", "-req",
-        "-inform", "DER",
-        "-in", csr_der_filename,
-        "-CA", app.config["SUBCA_CERT_PATH"],
-        "-CAkey", app.config["SUBCA_KEY_PATH"],
-        "-set_serial", custom_serial_str,
-        "-days", validity_days,
-        "-out", cert_filename,
-        "-extfile", app.config["SERVER_EXT_PATH"],
-        "-extensions", ext_block
-    ]
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
+    # 3) Try signing with CA class (Vault or legacy mode)
+    try:
+        ca = get_ca_instance()
+        ttl = f"{int(validity_days) * 24}h"  # Convert days to hours for Vault
+        
+        app.logger.debug(f"EST: Signing CSR with CA class (ttl={ttl})")
+        cert = ca.sign(csr_obj, ttl=ttl)
+        cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode()
+        
+    except Exception as e:
+        # Fallback to OpenSSL if CA class fails
+        app.logger.warning(f"EST: CA class signing failed ({e}), falling back to OpenSSL command-line")
+        
+        # Write CSR DER to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
+            csr_file.write(der_csr)
+            csr_der_filename = csr_file.name
 
-    # 6) Read the issued cert (PEM)
-    with open(cert_filename, "r") as f:
-        cert_pem = f.read()
+        # Prepare temp file for the issued cert
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
+            cert_filename = cert_file.name
 
-    # 7) Record in the database
-    cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-    # 5) Sign CSR with OpenSSL
-    cmd = [
-        "openssl", "x509", "-req",
-        "-inform", "DER",
-        "-in", csr_der_filename,
-        "-CA", app.config["SUBCA_CERT_PATH"],
-        "-CAkey", app.config["SUBCA_KEY_PATH"],
-        "-set_serial", custom_serial_str,
-        "-days", validity_days,
-        "-out", cert_filename,
-        "-extfile", app.config["SERVER_EXT_PATH"],
-        "-extensions", ext_block
-    ]
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
+        # Generate serial
+        custom_serial_str = hex(secrets.randbits(64))
 
-    # 6) Read the issued cert (PEM)
-    with open(cert_filename, "r") as f:
-        cert_pem = f.read()
+        # Sign CSR with OpenSSL
+        cmd = [
+            "openssl", "x509", "-req",
+            "-inform", "DER",
+            "-in", csr_der_filename,
+            "-CA", app.config["SUBCA_CERT_PATH"],
+            "-CAkey", app.config["SUBCA_KEY_PATH"],
+            "-set_serial", custom_serial_str,
+            "-days", validity_days,
+            "-out", cert_filename,
+            "-extfile", app.config["SERVER_EXT_PATH"],
+            "-extensions", ext_block
+        ]
+        subprocess.run(cmd, check=True, capture_output=True, text=True)
 
-    # 7) Record in the database
-    cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-    subject_str = ", ".join(f"{attr.oid._name}={attr.value}" for attr in cert_obj.subject)
-    actual_serial = hex(cert_obj.serial_number)
+        # Read the issued cert (PEM)
+        with open(cert_filename, "r") as f:
+            cert_pem = f.read()
+        
+        cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+
+        # Cleanup temp files
+        try:
+            os.unlink(csr_der_filename)
+            os.unlink(cert_filename)
+        except:
+            pass
+
+    # 4) Record in the database
+    subject_str = ", ".join(f"{attr.oid._name}={attr.value}" for attr in cert.subject)
+    actual_serial = hex(cert.serial_number)
     from flask_login import current_user
     
     # Use current_user.id if authenticated, otherwise None
@@ -2526,21 +2581,24 @@ def est_enroll():
             (subject_str, actual_serial, cert_pem, user_id)
         )
 
-    # 8) Write the signed cert to a file (for pkcs7 conversion)
-    with open("est_signed_cert.pem", "wb") as f:
+    # 5) Write the signed cert to a file (for pkcs7 conversion)
+    signed_cert_path = os.path.join("pki-misc", "est_signed_cert.pem")
+    with open(signed_cert_path, "wb") as f:
         f.write(cert_pem.encode())
 
-    # 9) Build a PKCS#7 container **with only the issued certificate** (no chain)
+    # 6) Build a PKCS#7 container **with only the issued certificate** (no chain)
+
+    pkcs7_path = os.path.join("pki-misc", "est_cert_chain.p7")
     subprocess.run([
         "openssl", "crl2pkcs7",
         "-nocrl",
-        "-certfile", "est_signed_cert.pem",
+        "-certfile", signed_cert_path,
         "-outform", "DER",
-        "-out", "est_cert_chain.p7"
+        "-out", pkcs7_path
     ], check=True)
 
-    # 10) Read, base64-encode, and return via make_response
-    pkcs7_der = open("est_cert_chain.p7", "rb").read()
+    # 7) Read, base64-encode, and return via make_response
+    pkcs7_der = open(pkcs7_path, "rb").read()
     b64 = base64.encodebytes(pkcs7_der)
     resp = make_response(b64, 200)
     resp.headers["Content-Type"]              = "application/pkcs7-mime; smime-type=signed-data"
@@ -2798,9 +2856,115 @@ def run_trusted_https():
     app.run(host="0.0.0.0", port=TRUSTED_HTTPS_PORT, ssl_context=context, use_reloader=False, use_debugger=True)
 
 
+# —— Vault Integration ——
+def init_vault_client():
+    """
+    Initialize Vault client from config.ini [VAULT] section.
+    Returns None if Vault is disabled, allowing fallback to file-based keys.
+    """
+    global vault_client
+    
+    if not VAULT_CONFIG.get('enabled', False):
+        app.logger.info("Vault integration is DISABLED (config.ini [VAULT] enabled=false)")
+        app.logger.info("Using file-based keys from config.ini [CA] section")
+        return None
+    
+    app.logger.info("Vault integration is ENABLED (config.ini [VAULT] enabled=true)")
+    
+    vault_addr = VAULT_CONFIG.get('address')
+    if not vault_addr:
+        raise RuntimeError("VAULT address must be set in config.ini when enabled=true")
+    
+    role_id = VAULT_CONFIG.get('role_id')
+    secret_id = VAULT_CONFIG.get('secret_id')
+    
+    if not role_id or not secret_id:
+        raise RuntimeError(
+            "VAULT_ROLE_ID and VAULT_SECRET_ID must be set in environment "
+            "or config.ini when VAULT enabled=true"
+        )
+    
+    try:
+        from vault_client import VaultClient
+        
+        # Create Vault client with settings from config.ini
+        vault = VaultClient(
+            vault_addr=vault_addr,
+            role_id=role_id,
+            secret_id=secret_id,
+            verify_ssl=VAULT_CONFIG.get('verify_ssl', True),
+            ca_cert=VAULT_CONFIG.get('ca_cert_path'),
+            timeout=VAULT_CONFIG.get('timeout', 30)
+        )
+        
+        if not vault.health_check():
+            raise RuntimeError(f"Vault health check failed for {vault_addr}")
+        
+        app.logger.info(f"✓ Vault client connected to {vault_addr}")
+        app.logger.info(f"  RSA PKI path: {VAULT_CONFIG['pki_rsa_path']}")
+        app.logger.info(f"  EC PKI path: {VAULT_CONFIG['pki_ec_path']}")
+        
+        vault_client = vault
+        app.config['VAULT_CLIENT'] = vault
+        return vault
+        
+    except Exception as e:
+        app.logger.error(f"Failed to initialize Vault: {e}")
+        raise
+
+
+def get_ca_instance():
+    """
+    Create CertificateAuthority instance based on config.ini settings.
+    Automatically uses Vault or file-based keys depending on [VAULT] enabled setting.
+    """
+    from ca import CertificateAuthority
+    
+    ca_mode = app.config.get('CA_MODE', 'RSA')
+    
+    # Use the currently configured paths from app.config
+    key_path = app.config.get('SUBCA_KEY_PATH')
+    chain_path = app.config.get('CHAIN_FILE_PATH')
+    
+    app.logger.debug(f"get_ca_instance: ca_mode={ca_mode}, key_path={key_path}, chain_path={chain_path}")
+    
+    # Determine PKI path for Vault based on mode
+    if ca_mode == 'EC':
+        pki_path = VAULT_CONFIG.get('pki_ec_path')
+    else:
+        pki_path = VAULT_CONFIG.get('pki_rsa_path')
+    
+    if vault_client:
+        # Vault mode (config.ini [VAULT] enabled=true)
+        app.logger.debug(f"Creating CA in Vault mode: pki_path={pki_path}")
+        return CertificateAuthority(
+            chain_path=chain_path,
+            vault_client=vault_client,
+            pki_path=pki_path,
+            default_role=VAULT_CONFIG.get('role_default', 'server-cert')
+        )
+    else:
+        # Legacy mode (config.ini [VAULT] enabled=false)
+        app.logger.debug(f"Creating CA in Legacy mode")
+        return CertificateAuthority(
+            key_path=key_path,
+            chain_path=chain_path
+        )
 
 
 if __name__ == "__main__":
+    # Initialize Vault if enabled
+    try:
+        init_vault_client()
+        if vault_client:
+            app.logger.info("Running in VAULT MODE - keys isolated in Vault")
+        else:
+            app.logger.info("Running in LEGACY MODE - using file-based keys")
+    except Exception as e:
+        app.logger.error(f"Failed to initialize Vault: {e}")
+        app.logger.info("Falling back to LEGACY MODE - using file-based keys")
+        vault_client = None
+    
     # Initialize CRL on startup (creates empty CRL if no revoked certificates)
     try:
         update_crl()
