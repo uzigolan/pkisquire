@@ -75,7 +75,11 @@ def scep():
     os.makedirs(dump_dir, exist_ok=True)
   dump_prefix = f"request-{datetime.datetime.utcnow().timestamp()}"
 
-  # load CA files out of ConfigStorage
+  # SCEP always uses legacy mode (file-based keys)
+  # SCEP protocol requires direct private key access for PKCS#7 envelope operations
+  # which is not compatible with Vault's key isolation model
+  current_app.logger.debug("SCEP: Using file-based CA (SCEP requires local private key)")
+  
   storage = ConfigStorage(
     key_path   = current_app.config['SUBCA_KEY_PATH'],
     cert_path  = current_app.config['SUBCA_CERT_PATH'],
@@ -91,24 +95,9 @@ def scep():
     )
     abort(500, "CA not initialized")
 
-  # Load CA from config storage
-  storage = ConfigStorage(
-      key_path   = current_app.config['SUBCA_KEY_PATH'],
-      cert_path  = current_app.config['SUBCA_CERT_PATH'],
-      chain_path = current_app.config['CHAIN_FILE_PATH'],
-      serial_path= current_app.config.get('SCEP_SERIAL_PATH'),
-      password   = None
-  )
-
-  if not storage.exists():
-      current_app.logger.error("ConfigStorage: CA files not found at %s / %s",
-                               storage._key_path, storage._cert_path)
-      abort(500, "CA not initialized")
-
   g.ca = CertificateAuthority(
-    storage._key_path,
-#    storage._cert_path,
-    storage._chain_path
+    key_path=storage._key_path,
+    chain_path=storage._chain_path
   )
 
   ca   = g.ca

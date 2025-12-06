@@ -16,7 +16,22 @@ Remove-Item -Recurse -Force __pycache__ -ErrorAction SilentlyContinue
 # Start the server
 Write-Host "[*] Starting Flask server on port 8090..." -ForegroundColor Cyan
 $env:PATH = "C:\Program Files\OpenSSL-Win64\bin;" + $env:PATH
-Start-Process -NoNewWindow -FilePath ".\.venv\Scripts\python.exe" -ArgumentList "app.py"
+$env:VAULT_ROLE_ID = "99e58006-875b-9d19-a591-1d69dcebea15"
+$env:VAULT_SECRET_ID = "a30235f6-3cd1-7080-d25a-bba644933d48"
+$env:VAULT_ADDR = "http://127.0.0.1:8200"
+
+# Start in background using Start-Job to preserve environment variables
+Start-Job -Name "FlaskServer" -ScriptBlock {
+    param($path, $vaultRole, $vaultSecret, $vaultAddr)
+    Set-Location $path
+    $env:PATH = "C:\Program Files\OpenSSL-Win64\bin;" + $env:PATH
+    $env:VAULT_ROLE_ID = $vaultRole
+    $env:VAULT_SECRET_ID = $vaultSecret
+    $env:VAULT_ADDR = $vaultAddr
+    & .\.venv\Scripts\python.exe app.py
+} -ArgumentList (Get-Location), $env:VAULT_ROLE_ID, $env:VAULT_SECRET_ID, $env:VAULT_ADDR | Out-Null
+
+Start-Sleep -Seconds 3
 
 Write-Host "[+] Server started!" -ForegroundColor Green
 Write-Host "    SCEP endpoint: http://localhost:8090/scep" -ForegroundColor Yellow

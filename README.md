@@ -22,13 +22,21 @@ This server provides tools for:
 
 ## 🚀 Features
 
-* 📄 Web UI + RESTful API support
-* 🔒 CSR submission and certificate issuance
-* 📄 Certificate revocation and CRL generation
-* 🌐 SCEP and EST protocol support for automated enrollment
-* ⚛️ Post-Quantum Cryptography (e.g., Dilithium)
-* 📡 MQTTs TLS integration
-* ✅ OCSP real-time validation
+* 📄 **Web UI + RESTful API** - Intuitive interface with programmatic access
+* 🔒 **CSR submission and certificate issuance** - Full certificate lifecycle management
+* 📄 **Certificate revocation and CRL generation** - Automated revocation lists
+* 🌐 **SCEP and EST protocol support** - Automated device enrollment
+* ⚛️ **Post-Quantum Cryptography** - Support for quantum-safe algorithms (e.g., Dilithium)
+* 📡 **MQTTs TLS integration** - Secure MQTT with certificate authentication
+* ✅ **OCSP real-time validation** - Instant certificate status verification
+* 🏢 **Multi-tenancy support** - User isolation and role-based access control
+* 🔐 **HashiCorp Vault integration** - Optional CA key isolation and secure signing
+  - Private keys stored in Vault (never on filesystem)
+  - Signing operations performed via Vault PKI engine
+  - Support for dual CA modes (RSA and EC) with separate Vault engines
+  - Automatic fallback to legacy file-based keys if Vault unavailable
+  - AppRole authentication with configurable policies
+  - **Vault is supported only for Web UI and EST enrollment. SCEP protocol does NOT support Vault and always uses local file-based keys.**
 
 ---
 
@@ -58,6 +66,100 @@ cd oqs-provider
 ./scripts/fullbuild.sh
 sudo cmake --install _build
 ```
+
+---
+
+## 🔐 HashiCorp Vault Integration
+
+Pikachu CA supports **optional HashiCorp Vault integration** for enhanced security through CA key isolation.
+
+> **Important:** Vault integration is only available for certificate signing via the Web UI and EST protocol. SCEP protocol does **not** support Vault and always uses local file-based CA keys due to protocol requirements for direct private key access.
+
+### Benefits
+
+* **Key Isolation** - Private CA keys never stored on filesystem or in memory
+* **Secure Signing** - All certificate signing operations performed via Vault API
+* **Audit Logging** - Vault logs all key access and signing operations
+* **Access Control** - Fine-grained permissions via Vault policies
+* **Dual CA Support** - Separate Vault PKI engines for RSA and EC certificates
+* **Automatic Fallback** - Server continues with file-based keys if Vault unavailable
+
+### Quick Setup
+
+**1. Enable Vault in `config.ini`:**
+```ini
+[VAULT]
+enabled = true
+address = http://127.0.0.1:8200
+pki_rsa_path = pki-subca-rsa
+pki_ec_path = pki-subca-ec
+```
+
+**2. Start Vault server:**
+```bash
+# Development mode (for testing)
+vault server -dev
+
+# Production: Configure Vault with proper TLS and authentication
+```
+
+**3. Start PKI server with Vault support:**
+```powershell
+# Windows - Automatically configures Vault credentials
+.\scripts\restart_server_clear_log.ps1
+
+# Linux/Unix - Set environment variables manually
+export VAULT_ROLE_ID="<your-role-id>"
+export VAULT_SECRET_ID="<your-secret-id>"
+export VAULT_ADDR="http://127.0.0.1:8200"
+python app.py
+```
+
+**4. Verify Vault mode:**
+```bash
+# Check server logs
+tail -f logs/server.log | grep -i vault
+
+# Expected output:
+# INFO [app] Vault integration is ENABLED
+# INFO [vault_client] Authenticated with Vault at http://127.0.0.1:8200
+# INFO [app] Running in VAULT MODE - keys isolated in Vault
+```
+
+### Architecture
+
+```
+┌──────────────────┐         ┌─────────────────────┐
+│   Flask Server   │────────▶│  HashiCorp Vault    │
+│   (Pikachu CA)   │ AppRole │                     │
+│                  │  Auth   │  ┌───────────────┐  │
+│  - Web UI        │◀────────│  │ pki-subca-rsa │  │
+│  - SCEP/EST      │  Sign   │  │  (RSA keys)   │  │
+│  - OCSP          │  CSR    │  └───────────────┘  │
+│                  │         │  ┌───────────────┐  │
+└──────────────────┘         │  │ pki-subca-ec  │  │
+                             │  │  (EC keys)    │  │
+                             │  └───────────────┘  │
+                             └─────────────────────┘
+```
+
+### Switching Between RSA and EC Modes
+
+```ini
+# In config.ini
+[CA]
+mode = EC    # or "RSA"
+```
+
+When Vault is enabled:
+- **RSA mode** → Uses `pki-subca-rsa` Vault engine
+- **EC mode** → Uses `pki-subca-ec` Vault engine
+
+### Documentation
+
+For complete Vault setup, credential configuration, and troubleshooting, see:
+- **[scripts/README.md](scripts/README.md)** - Server management with Vault integration
+- **[scripts/VAULT_SCRIPTS_README.md](scripts/VAULT_SCRIPTS_README.md)** - Vault migration and setup scripts
 
 ---
 
