@@ -21,7 +21,7 @@ from datetime import datetime,timezone, timedelta
 from threading import Thread
 
 
-from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session
+from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session, abort
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_sqlalchemy import SQLAlchemy
 from cryptography import x509
@@ -44,6 +44,7 @@ from x509_keys import x509_keys_bp, Key
 from x509_requests import x509_requests_bp
 from scep import scep_app
 from openssl_utils import get_provider_args
+from ra_policies import RAPolicyManager, DEFAULT_VALIDITY_DAYS
 
 #from flask import render_template, current_app as app
 from cryptography.hazmat.primitives.serialization import Encoding
@@ -85,6 +86,8 @@ def ensure_sessions_table():
         """)
         conn.commit()
 
+
+
 import uuid
 from flask import session as flask_session
 from flask_login import user_logged_in, user_logged_out
@@ -95,6 +98,10 @@ from flask_login import user_logged_in, user_logged_out
 
 
 app = Flask(__name__, template_folder="html_templates")
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.jinja_env.auto_reload = True
+# Clear template cache on each load to avoid stale HTML in dev
+app.jinja_env.cache = {}
 
 
 @user_logged_in.connect_via(app)
@@ -303,6 +310,34 @@ app.config["SERVER_EXT_PATH"]  = os.path.join(basedir, _cfg.get("PATHS", "server
 app.config["VALIDITY_CONF"]    = os.path.join(basedir, _cfg.get("PATHS", "validity_conf"))
 app.config["DB_PATH"]          = os.path.join(basedir, _cfg.get("PATHS", "db_path"))
 
+def get_ra_policy_manager() -> RAPolicyManager:
+    # Lazily initialize and reuse a single manager instance
+    mgr = getattr(app, "_ra_policy_mgr", None)
+    if mgr is None:
+        mgr = RAPolicyManager(app.config["DB_PATH"], app.logger)
+        app._ra_policy_mgr = mgr
+    return mgr
+
+def _resolve_ra_policy(policy_id_str=None, user_id=None):
+    """
+    Return (manager, policy) choosing the given policy_id when provided,
+    otherwise falling back to the default policy for the user/system.
+    """
+    mgr = get_ra_policy_manager()
+    # Admins can load any policy; skip user scoping
+    if hasattr(current_user, "is_admin") and current_user.is_admin():
+        user_id = None
+    policy = None
+    if policy_id_str:
+        try:
+            policy_id = int(policy_id_str)
+            policy = mgr.get_policy(policy_id=policy_id, user_id=user_id)
+        except (TypeError, ValueError):
+            policy = None
+    if not policy:
+        policy = mgr.get_default_policy(user_id=user_id)
+    return mgr, policy
+
 
 
 # Flask and SQLAlchemy configuration
@@ -438,7 +473,8 @@ with app.app_context():
 app.register_blueprint(x509_profiles_bp)
 app.register_blueprint(x509_keys_bp)
 app.register_blueprint(x509_requests_bp)
-app.register_blueprint(scep_app)
+if app.config["SCEP_ENABLED"]:
+    app.register_blueprint(scep_app)
 # ---------- Helper Functions ----------
 
 
@@ -711,19 +747,45 @@ def enforce_session_revocation():
     if current_user.is_authenticated:
         sid = session.get('sid')
         if not sid:
-            # Defensive: if no sid, treat as invalid session
-            app.logger.trace("Session revocation: missing sid for user_id=%s", getattr(current_user, 'id', None))
-            logout_user()
-            flash('Your session has expired or was revoked.', 'warning')
-            return redirect(url_for('login'))
+            # Defensive: generate a sid and reinsert session row instead of booting user
+            ensure_sessions_table()
+            sid = str(uuid.uuid4())
+            session['sid'] = sid
+            now_str = _now_utc_str()
+            session['last_activity'] = now_str
+            try:
+                with sqlite3.connect(app.config["DB_PATH"]) as conn:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time, last_activity) VALUES (?, ?, ?, ?)",
+                        (sid, current_user.id, now_str, now_str),
+                    )
+                    conn.commit()
+                app.logger.trace("Session revocation: sid missing, reinserted for user_id=%s sid=%s", current_user.id, sid)
+                return  # allow request
+            except Exception as e:
+                app.logger.warning("Session revocation recovery failed for user_id=%s: %s", current_user.id, e)
+                logout_user()
+                flash('Your session has expired or was revoked.', 'warning')
+                return redirect(url_for('login'))
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
             row = conn.execute("SELECT 1 FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
             if not row:
-                app.logger.trace("Session revocation: sid %s not found in user_sessions (user_id=%s)", sid, getattr(current_user, 'id', None))
-                logout_user()
-                session.pop('sid', None)
-                flash('You have been logged out by an administrator.', 'warning')
-                return redirect(url_for('login'))
+                # Attempt to reinsert instead of hard logout (handles first-login race)
+                ensure_sessions_table()
+                now_str = _now_utc_str()
+                try:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time, last_activity) VALUES (?, ?, ?, ?)",
+                        (sid, current_user.id, now_str, now_str),
+                    )
+                    conn.commit()
+                    app.logger.trace("Session revocation: sid missing in DB, reinserted for user_id=%s sid=%s", current_user.id, sid)
+                except Exception as e:
+                    app.logger.warning("Session revocation reinsertion failed for user_id=%s sid=%s: %s", current_user.id, sid, e)
+                    logout_user()
+                    session.pop('sid', None)
+                    flash('Your session has expired or was revoked.', 'warning')
+                    return redirect(url_for('login'))
 
 @app.before_request
 def enforce_idle_timeout():
@@ -830,21 +892,15 @@ def approve_user(user_id):
 @app.route('/get_server_ext_content')
 @login_required
 def get_server_ext_content():
+    policy_id = request.args.get('policy_id')
     name = request.args.get('name')
-    if not name or name == 'None':
-        return '[ v3_ext ]\n# No additional extensions', 200, {'Content-Type': 'text/plain'}
-    server_ext_dir = os.path.join(app.root_path, "pki-misc")
-    if name == 'User':
-        safe_name = f'server_ext_{current_user.id}.cnf'
-    elif name == 'System':
-        safe_name = 'server_ext.cnf'
-    else:
-        safe_name = os.path.basename(name)
-    file_path = os.path.join(server_ext_dir, safe_name)
-    if not os.path.isfile(file_path):
-        return 'File not found', 404
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read(), 200, {'Content-Type': 'text/plain'}
+    mgr, policy = _resolve_ra_policy(policy_id, current_user.id)
+    if not policy and name:
+        policy = mgr.get_policy(name=name, user_id=current_user.id)
+    if not policy:
+        return 'Policy not found', 404
+    content = policy.get("ext_config") or "[ v3_ext ]\n# No additional extensions"
+    return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 
 
@@ -1252,28 +1308,19 @@ def sign():
                     (current_user.id,)
                 ).fetchall()
 
-        # validity setting
-        try:
-            with open(app.config["VALIDITY_CONF"], "r") as f:
-                validity_days = f.read().strip()
-        except FileNotFoundError:
-            validity_days = "365"
-
-        # List available server extension configs from pki-misc
-        # Use app.root_path for compatibility (Flask always sets this)
-        server_ext_dir = os.path.join(app.root_path, "pki-misc")
-        ext_files = [f for f in os.listdir(server_ext_dir) if f.endswith('.cnf')]
-        server_ext_options = ["None"]
-        user_ext = f"server_ext_{current_user.id}.cnf"
-        if "server_ext.cnf" in ext_files:
-            server_ext_options.append("System")
-        if user_ext in ext_files:
-            server_ext_options.append("User")
+        mgr = get_ra_policy_manager()
+        if current_user.is_admin():
+            ra_policies = mgr.list_all_policies()
+        else:
+            ra_policies = mgr.list_policies_for_user(current_user.id)
+        selected_policy = ra_policies[0] if ra_policies else None
+        validity_days = mgr.get_validity_days(selected_policy)
 
         return render_template(
             "sign.html",
             csr_requests=csr_requests,
-            server_ext_options=server_ext_options,
+            ra_policies=ra_policies,
+            selected_policy=selected_policy,
             validity_days=validity_days
         )
 
@@ -1613,12 +1660,17 @@ def about():
 # ---------- Validity Endpoint ----------
 
 @app.route("/update_validity", methods=["POST"])
+@login_required
 def update_validity():
-    new_validity = request.form.get("validity_days", "365").strip()
+    policy_id = request.form.get("policy_id")
+    new_validity = request.form.get("validity_days", DEFAULT_VALIDITY_DAYS).strip()
+    mgr, policy = _resolve_ra_policy(policy_id, current_user.id)
+    if not policy:
+        flash("Policy not found", "error")
+        return redirect("/")
     try:
-        with open(app.config["VALIDITY_CONF"], "w") as f:
-            f.write(new_validity)
-        flash("Validity period updated to " + new_validity + " days", "success")
+        mgr.update_validity(new_validity, policy_id=policy["id"])
+        flash(f"Validity period updated to {new_validity} days for policy {policy['name']}", "success")
     except Exception as e:
         flash("Error updating validity period: " + str(e), "error")
     return redirect("/")
@@ -1694,18 +1746,19 @@ def ca_page():
 @app.route("/server_ext", methods=["GET", "POST"])
 @login_required
 def server_ext():
-    user_ext_path = os.path.join(app.root_path, "pki-misc", f"server_ext_{current_user.id}.cnf")
-    system_ext_path = app.config["SERVER_EXT_PATH"]
-    # Load user default if exists, else system default
-    if os.path.exists(user_ext_path):
-        with open(user_ext_path, "r", encoding="utf-8") as f:
-            manual_config = f.read()
-    else:
-        try:
-            with open(system_ext_path, "r", encoding="utf-8") as f:
-                manual_config = f.read()
-        except FileNotFoundError:
-            manual_config = ""
+    # Work against the user's default RA policy (or system default if none)
+    mgr, policy = _resolve_ra_policy(None, current_user.id)
+    if not policy:
+        policy = {
+            "name": f"server_ext_{current_user.id}.cnf",
+            "ext_config": "",
+            "validity_period": DEFAULT_VALIDITY_DAYS,
+            "type": "user",
+            "id": None,
+        }
+
+    manual_config = policy.get("ext_config") or ""
+
     if request.method == "POST":
         new_config = request.form.get("server_ext_config") or ""
         save_system = request.form.get("save_system_default") == "on"
@@ -1721,13 +1774,18 @@ def server_ext():
             flash(f"Configuration validation failed: {msg}", "danger")
             manual_config = new_config  # repopulate form with attempted config
         else:
-            # Always save user default
-            with open(user_ext_path, "w", encoding="utf-8", newline='') as f:
-                f.write(new_config)
-            if save_system:
-                with open(system_ext_path, "w", encoding="utf-8", newline='') as f:
-                    f.write(new_config)
-                flash("Configuration saved as both user and system default.", "success")
+            target_type = "system" if (save_system and current_user.is_admin()) else "user"
+            target_user = None if target_type == "system" else current_user.id
+            policy_name = policy.get("name") or f"server_ext_{current_user.id}.cnf"
+            mgr.upsert_policy(
+                name=policy_name,
+                ext_config=new_config,
+                validity_period=policy.get("validity_period", DEFAULT_VALIDITY_DAYS),
+                policy_type=target_type,
+                user_id=target_user,
+            )
+            if target_type == "system":
+                flash("Configuration saved as system default.", "success")
             else:
                 flash("Configuration saved as your user default.", "success")
             return redirect(url_for("server_ext"))
@@ -1735,7 +1793,126 @@ def server_ext():
         profiles = Profile.query.order_by(Profile.id.desc()).all()
     else:
         profiles = Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
-    return render_template("server_ext.html", server_ext_config=manual_config, profiles=profiles, is_admin=current_user.is_admin())
+    return render_template(
+        "server_ext.html",
+        server_ext_config=manual_config,
+        profiles=profiles,
+        is_admin=current_user.is_admin(),
+        policy=policy,
+    )
+
+
+@app.route("/ra_policies")
+@login_required
+def ra_policies_page():
+    mgr = get_ra_policy_manager()
+    if current_user.is_admin():
+        policies = mgr.list_all_policies()
+    else:
+        policies = mgr.list_policies_for_user(current_user.id, include_system=False)
+    return render_template("ra_policies.html", policies=policies, is_admin=current_user.is_admin())
+
+
+def _get_profile_options():
+    if current_user.is_admin():
+        return Profile.query.order_by(Profile.id.desc()).all()
+    return Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
+
+
+@app.route("/ra_policies/new", methods=["GET", "POST"])
+@login_required
+def ra_policy_new():
+    mgr = get_ra_policy_manager()
+    profiles = _get_profile_options()
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        validity = (request.form.get("validity") or DEFAULT_VALIDITY_DAYS).strip()
+        ext_config = request.form.get("ext_config") or ""
+        profile_name = request.form.get("profile_name")
+        policy_type = "system" if (current_user.is_admin() and request.form.get("is_system") == "on") else "user"
+        user_id = None if policy_type == "system" else current_user.id
+        est_default = current_user.is_admin() and request.form.get("is_est_default") == "on"
+        scep_default = current_user.is_admin() and request.form.get("is_scep_default") == "on"
+
+        if not name:
+            flash("Policy name is required", "danger")
+            return render_template("ra_policy_form.html", profiles=profiles, is_admin=current_user.is_admin(), mode="new")
+
+        if profile_name:
+            prof = Profile.query.filter_by(name=profile_name).first()
+            if prof and prof.content:
+                ext_config = prof.content
+
+        try:
+            mgr.upsert_policy(
+                name=name,
+                ext_config=ext_config,
+                validity_period=validity,
+                restrictions="",
+                policy_type=policy_type,
+                user_id=user_id,
+                est_default=est_default,
+                scep_default=scep_default,
+            )
+            flash("Policy created", "success")
+            return redirect(url_for("ra_policies_page"))
+        except Exception as e:
+            flash(f"Error creating policy: {e}", "danger")
+
+    return render_template("ra_policy_form.html", profiles=profiles, is_admin=current_user.is_admin(), mode="new")
+
+
+def _load_policy_for_edit(policy_id: int):
+    mgr = get_ra_policy_manager()
+    policy = mgr.get_policy(policy_id=policy_id)
+    if not policy:
+        abort(404)
+    if not current_user.is_admin():
+        if policy["type"] == "system" or policy.get("user_id") != current_user.id:
+            abort(403)
+    return mgr, policy
+
+
+@app.route("/ra_policies/<int:policy_id>/edit", methods=["GET", "POST"])
+@login_required
+def ra_policy_edit(policy_id):
+    mgr, policy = _load_policy_for_edit(policy_id)
+    profiles = _get_profile_options()
+    if request.method == "POST":
+        validity = (request.form.get("validity") or policy.get("validity_period") or DEFAULT_VALIDITY_DAYS).strip()
+        ext_config = request.form.get("ext_config") or policy.get("ext_config") or ""
+        profile_name = request.form.get("profile_name")
+        est_default = current_user.is_admin() and request.form.get("is_est_default") == "on"
+        scep_default = current_user.is_admin() and request.form.get("is_scep_default") == "on"
+        new_type = policy.get("type")
+        if current_user.is_admin():
+            new_type = "system" if request.form.get("is_system") == "on" else "user"
+
+        if profile_name:
+            prof = Profile.query.filter_by(name=profile_name).first()
+            if prof and prof.content:
+                ext_config = prof.content
+
+        try:
+            mgr.update_policy(policy_id, ext_config=ext_config, validity_period=validity, policy_type=new_type, est_default=est_default, scep_default=scep_default)
+            flash("Policy updated", "success")
+            return redirect(url_for("ra_policies_page"))
+        except Exception as e:
+            flash(f"Error updating policy: {e}", "danger")
+
+    return render_template("ra_policy_form.html", profiles=profiles, is_admin=current_user.is_admin(), mode="edit", policy=policy)
+
+
+@app.route("/ra_policies/<int:policy_id>/delete", methods=["POST"])
+@login_required
+def ra_policy_delete(policy_id):
+    mgr, policy = _load_policy_for_edit(policy_id)
+    try:
+        mgr.delete_policy(policy_id)
+        flash("Policy deleted", "success")
+    except Exception as e:
+        flash(f"Error deleting policy: {e}", "danger")
+    return redirect(url_for("ra_policies_page"))
 
 @app.route("/view_root")
 def view_root():
@@ -1875,6 +2052,11 @@ def delete_certificate(cert_id):
 def submit():
     csr_pem = request.form["csr"]
     ext_block = request.form.get("ext_block", "v3_ext")
+    policy_id = request.form.get("policy_id")
+    mgr, policy = _resolve_ra_policy(policy_id, current_user.id)
+    if not policy:
+        flash("No RA policy available for signing.", "error")
+        return redirect("/")
     
     try:
         csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
@@ -1885,12 +2067,14 @@ def submit():
         flash(f"Invalid CSR: {e}", "error")
         return redirect("/")
 
-    # Read the validity period from the validity.conf file
+    # ...removed strict CN validation...
+
+    policy = mgr.get_protocol_default("est")
+    validity_days = mgr.get_validity_days(policy)
     try:
-        with open(app.config["VALIDITY_CONF"], "r") as f:
-            validity_days = int(f.read().strip())
-    except (FileNotFoundError, ValueError):
-        validity_days = 365  # fallback if not set
+        validity_int = int(str(validity_days))
+    except Exception:
+        validity_int = int(DEFAULT_VALIDITY_DAYS)
 
     # Try using CA class (supports both Vault and Legacy modes with debug logging)
     try:
@@ -1898,7 +2082,7 @@ def submit():
         app.logger.debug(f"CA instance created: vault_enabled={ca._vault_enabled if hasattr(ca, '_vault_enabled') else 'N/A'}")
         
         # Sign the certificate using CA class (will show Vault/Legacy mode in logs)
-        cert_obj = ca.sign(csr_obj, days=validity_days)
+        cert_obj = ca.sign(csr_obj, days=validity_int)
         
         # Serialize to PEM
         cert_pem = cert_obj.public_bytes(serialization.Encoding.PEM).decode('utf-8')
@@ -1909,46 +2093,51 @@ def submit():
     except Exception as e:
         # Fallback to OpenSSL command-line (legacy behavior)
         app.logger.warning(f"CA class signing failed ({e}), falling back to OpenSSL command-line")
-        
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
-            csr_file.write(csr_pem.encode())
-            csr_filename = csr_file.name
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
-            cert_filename = cert_file.name
 
-        custom_serial = secrets.randbits(64)
-        custom_serial_str = hex(custom_serial)
+        with mgr.temp_extfile(policy) as extfile_path:
+            if not extfile_path:
+                flash("No RA policy extension configuration available.", "error")
+                return redirect("/")
 
-        try:
-            cmd = ["openssl", "x509"]
-            cmd.extend(get_provider_args())
-            cmd.extend(["-req",
-                "-in", csr_filename,
-                "-CA", app.config["SUBCA_CERT_PATH"],
-                "-CAkey", app.config["SUBCA_KEY_PATH"],
-                "-set_serial", custom_serial_str, 
-                "-CAcreateserial",
-                "-days", str(validity_days),
-                "-out", cert_filename,
-                "-extfile", app.config["SERVER_EXT_PATH"],
-                "-extensions", ext_block
-            ])
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
+                csr_file.write(csr_pem.encode())
+                csr_filename = csr_file.name
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
+                cert_filename = cert_file.name
+
+            custom_serial = secrets.randbits(64)
+            custom_serial_str = hex(custom_serial)
+
+            try:
+                cmd = ["openssl", "x509"]
+                cmd.extend(get_provider_args())
+                cmd.extend(["-req",
+                    "-in", csr_filename,
+                    "-CA", app.config["SUBCA_CERT_PATH"],
+                    "-CAkey", app.config["SUBCA_KEY_PATH"],
+                    "-set_serial", custom_serial_str, 
+                    "-CAcreateserial",
+                    "-days", str(validity_int),
+                    "-out", cert_filename,
+                    "-extfile", extfile_path,
+                    "-extensions", ext_block
+                ])
+                subprocess.run(cmd, check=True, capture_output=True, text=True)
+            except subprocess.CalledProcessError as e:
+                os.unlink(csr_filename)
+                os.unlink(cert_filename)
+                error_msg = f"Error during OpenSSL signing: {e.stderr}"
+                app.logger.error(error_msg)
+                flash(error_msg, "error")
+                return redirect("/")
+                
+            with open(cert_filename, "r") as f:
+                cert_pem = f.read()
+            cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
+            actual_serial = hex(cert_obj.serial_number)
+            
             os.unlink(csr_filename)
             os.unlink(cert_filename)
-            error_msg = f"Error during OpenSSL signing: {e.stderr}"
-            app.logger.error(error_msg)
-            flash(error_msg, "error")
-            return redirect("/")
-            
-        with open(cert_filename, "r") as f:
-            cert_pem = f.read()
-        cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-        actual_serial = hex(cert_obj.serial_number)
-        
-        os.unlink(csr_filename)
-        os.unlink(cert_filename)
 
     # Save to database
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
@@ -1962,11 +2151,17 @@ def submit():
 def submit_q():
     csr_pem = request.form["csr"]
     ext_block = request.form.get("ext_block", "v3_ext")
+    policy_id = request.form.get("policy_id")
+    mgr, policy = _resolve_ra_policy(policy_id, None)
+    if not policy:
+        return "No RA policy available", 400
     try:
         csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
         subject_str = ", ".join([f"{attr.oid._name}={attr.value}" for attr in csr_obj.subject])
     except Exception as e:
         subject_str = "Unknown Subject"
+
+    # ...removed strict CN validation...
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
         csr_file.write(csr_pem.encode())
         csr_filename = csr_file.name
@@ -1978,28 +2173,30 @@ def submit_q():
     custom_serial_str = hex(custom_serial)
 
 
-    # Read the validity period from the validity.conf file
+    validity_days = mgr.get_validity_days(policy)
     try:
-        with open(app.config["VALIDITY_CONF"], "r") as f:
-            validity_days = f.read().strip()
-    except FileNotFoundError:
-        validity_days = "365"  # fallback if not set
+        validity_int = int(str(validity_days))
+    except Exception:
+        validity_int = int(DEFAULT_VALIDITY_DAYS)
 
     try:
-        cmd = ["openssl", "x509"]
-        cmd.extend(get_provider_args())
-        cmd.extend(["-req",
-            "-in", csr_filename,
-            "-CA", app.config["SUBCA_CERT_PATH"],
-            "-signkey", app.config["SUBCA_KEY_PATH"],
-            "-set_serial", custom_serial_str,
-            "-CAcreateserial",
-            "-days", validity_days,
-            "-out", cert_filename,
-            "-extfile", app.config["SERVER_EXT_PATH"],
-            "-extensions", ext_block
-        ])
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        with mgr.temp_extfile(policy) as extfile_path:
+            if not extfile_path:
+                return "No extension config available", 400
+            cmd = ["openssl", "x509"]
+            cmd.extend(get_provider_args())
+            cmd.extend(["-req",
+                "-in", csr_filename,
+                "-CA", app.config["SUBCA_CERT_PATH"],
+                "-signkey", app.config["SUBCA_KEY_PATH"],
+                "-set_serial", custom_serial_str,
+                "-CAcreateserial",
+                "-days", validity_int,
+                "-out", cert_filename,
+                "-extfile", extfile_path,
+                "-extensions", ext_block
+            ])
+            subprocess.run(cmd, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         os.unlink(csr_filename)
         os.unlink(cert_filename)
@@ -2492,6 +2689,7 @@ def normalize_to_der(raw: bytes) -> bytes:
 def est_enroll():
     raw = request.get_data()
     ext_block = request.form.get("ext_block", "v3_ext")
+    mgr, policy = _resolve_ra_policy(None, None)
 
     # 1) Normalize CSR to DER, then convert to PEM for CA class
     try:
@@ -2507,20 +2705,25 @@ def est_enroll():
         app.logger.error(f"Invalid CSR encoding: {e}")
         return "Invalid CSR encoding", 400
 
-    # 2) Read validity
+    # ...removed strict CN validation...
+
+    validity_days = mgr.get_validity_days(policy)
     try:
-        with open(app.config["VALIDITY_CONF"], "r") as f:
-            validity_days = f.read().strip()
-    except FileNotFoundError:
-        validity_days = "365"
+        validity_int = int(str(validity_days))
+    except Exception:
+        validity_int = int(DEFAULT_VALIDITY_DAYS)
 
     # 3) Try signing with CA class (Vault or legacy mode)
     try:
         ca = get_ca_instance()
-        ttl = f"{int(validity_days) * 24}h"  # Convert days to hours for Vault
-        
-        app.logger.debug(f"EST: Signing CSR with CA class (ttl={ttl})")
-        cert = ca.sign(csr_obj, ttl=ttl)
+        # Detect Vault mode by attribute or config
+        vault_mode = getattr(ca, '_vault_enabled', False)
+        if vault_mode:
+            app.logger.debug(f"EST: Signing CSR with CA class (ttl={validity_int} hours) [Vault mode]")
+            cert = ca.sign(csr_obj, ttl=validity_int)
+        else:
+            app.logger.debug(f"EST: Signing CSR with CA class (days={validity_int}) [Legacy mode]")
+            cert = ca.sign(csr_obj, days=validity_int)
         cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode()
         
     except Exception as e:
@@ -2540,19 +2743,22 @@ def est_enroll():
         custom_serial_str = hex(secrets.randbits(64))
 
         # Sign CSR with OpenSSL
-        cmd = [
-            "openssl", "x509", "-req",
-            "-inform", "DER",
-            "-in", csr_der_filename,
-            "-CA", app.config["SUBCA_CERT_PATH"],
-            "-CAkey", app.config["SUBCA_KEY_PATH"],
-            "-set_serial", custom_serial_str,
-            "-days", validity_days,
-            "-out", cert_filename,
-            "-extfile", app.config["SERVER_EXT_PATH"],
-            "-extensions", ext_block
-        ]
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        with mgr.temp_extfile(policy) as extfile_path:
+            if not extfile_path:
+                return "No extension config available", 400
+            cmd = [
+                "openssl", "x509", "-req",
+                "-inform", "DER",
+                "-in", csr_der_filename,
+                "-CA", app.config["SUBCA_CERT_PATH"],
+                "-CAkey", app.config["SUBCA_KEY_PATH"],
+                "-set_serial", custom_serial_str,
+                "-days", validity_int,
+                "-out", cert_filename,
+                "-extfile", extfile_path,
+                "-extensions", ext_block
+            ]
+            subprocess.run(cmd, check=True, capture_output=True, text=True)
 
         # Read the issued cert (PEM)
         with open(cert_filename, "r") as f:
@@ -2822,21 +3028,6 @@ def change_password():
 # ---------- Run Servers ----------
 from werkzeug.serving import run_simple
 
-def run_http_scep_only():
-    http_app = Flask("http_scep")
-
-    http_app.config.update(app.config)
-
-    # --- attach the same logger handlers & level as your main 'app' ---
-    http_app.logger.handlers.clear()
-    for h in app.logger.handlers:
-      http_app.logger.addHandler(h)
-    http_app.logger.setLevel(app.logger.level)
-    # --- end logging patch ---
-
-    http_app.register_blueprint(scep_app)
-
-    run_simple("0.0.0.0", HTTP_SCEP_PORT, http_app, use_reloader=False, use_debugger=True)
 
 from threading import Thread
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -2974,7 +3165,6 @@ if __name__ == "__main__":
     
     Thread(target=run_https).start()
     Thread(target=run_trusted_https).start()
-    Thread(target=run_http_scep_only).start()
     Thread(target=run_http_general, daemon=True).start()
 
 

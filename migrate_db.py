@@ -87,6 +87,18 @@ def migrate_db():
         login_time TEXT
     )''')
 
+    cur.execute('''CREATE TABLE IF NOT EXISTS ra_policies (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        type TEXT CHECK(type IN ("system", "user")) NOT NULL,
+        user_id INTEGER,
+        ext_config TEXT,
+        restrictions TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        validity_period TEXT DEFAULT '365'
+    )''')
+
     # Ensure missing columns on existing tables
     ensure_column('users', 'auth_source', "TEXT DEFAULT 'local'")
     ensure_column('certificates', 'user_id', 'INTEGER')
@@ -95,7 +107,22 @@ def migrate_db():
     ensure_column('profiles', 'content', 'TEXT')
     ensure_column('keys', 'user_id', 'INTEGER')
     ensure_column('csrs', 'user_id', 'INTEGER')
-    
+    ensure_column('ra_policies', 'user_id', 'INTEGER')
+    ensure_column('ra_policies', 'ext_config', 'TEXT')
+    ensure_column('ra_policies', 'restrictions', 'TEXT')
+    ensure_column('ra_policies', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    ensure_column('ra_policies', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    ensure_column('ra_policies', 'validity_period', "TEXT DEFAULT '365'")
+    ensure_column('ra_policies', 'type', "TEXT CHECK(type IN ('system', 'user'))")
+    ensure_column('ra_policies', 'name', 'TEXT')
+    ensure_column('ra_policies', 'is_est_default', 'INTEGER DEFAULT 0')
+    ensure_column('ra_policies', 'is_scep_default', 'INTEGER DEFAULT 0')
+    # Unique index to avoid duplicate names per user/type (use IFNULL to group system/null)
+    try:
+        cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ra_policies_type_user_name ON ra_policies(type, IFNULL(user_id, -1), name)")
+    except Exception as e:
+        print(f"[migrate_db] Warning: could not create ra_policies unique index: {e}")
+
     # Rename filename to name in profiles table
     cur.execute("PRAGMA table_info(profiles)")
     columns = [row[1] for row in cur.fetchall()]
@@ -140,6 +167,85 @@ def migrate_db():
         print("[migrate_db] Default admin user created: admin / pikachu")
     else:
         print("[migrate_db] Admin user already exists.")
+
+    # Ensure RA policies have sensible defaults
+    cur.execute("UPDATE ra_policies SET type = 'system' WHERE type IS NULL")
+    cur.execute("UPDATE ra_policies SET validity_period = '365' WHERE validity_period IS NULL")
+    cur.execute("UPDATE ra_policies SET restrictions = '' WHERE restrictions IS NULL")
+
+    # Seed RA policies from extension configs in pki-misc
+    misc_dir = os.path.join(basedir, "pki-misc")
+    existing = {row[0]: row[1] for row in cur.execute("SELECT name, ext_config FROM ra_policies")}
+    inserted = 0
+    updated = 0
+    for filename in sorted(os.listdir(misc_dir)):
+        if not filename.lower().endswith(".cnf") or "ext" not in filename.lower():
+            continue
+        policy_name = filename
+        filepath = os.path.join(misc_dir, filename)
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                ext_config = f.read()
+        except Exception as e:
+            print(f"[migrate_db] Warning: Could not read {filename}: {e}")
+            continue
+
+        # map server_ext_*.cnf to user policies
+        user_id = None
+        if filename.startswith("server_ext_") and filename.lower().endswith(".cnf"):
+            suffix = filename[len("server_ext_"):-4]
+            try:
+                user_id = int(suffix)
+            except Exception:
+                user_id = None
+
+        if policy_name in existing:
+            if not existing[policy_name]:
+                cur.execute(
+                    "UPDATE ra_policies SET ext_config = ?, updated_at = CURRENT_TIMESTAMP WHERE name = ?",
+                    (ext_config, policy_name),
+                )
+                updated += 1
+            continue
+
+        cur.execute(
+            """
+            INSERT INTO ra_policies (name, type, user_id, ext_config, restrictions, validity_period)
+            VALUES (?, ?, ?, ?, '', '365')
+            """,
+            (policy_name, 'system' if user_id is None else 'user', user_id, ext_config),
+        )
+        inserted += 1
+
+    if inserted or updated:
+        print(f"[migrate_db] RA policies updated (inserted={inserted}, filled_missing_content={updated})")
+
+    # Ensure default system policy exists
+    def ensure_default_system_policy():
+        cur.execute("SELECT id FROM ra_policies WHERE type='system' ORDER BY id LIMIT 1")
+        existing_sys = cur.fetchone()
+        if existing_sys:
+            # ensure only one system policy
+            cur.execute("UPDATE ra_policies SET type='user' WHERE type='system' AND id != ?", (existing_sys[0],))
+            return
+        server_ext_path = os.path.join(basedir, "pki-misc", "server_ext.cnf")
+        ext_config = ""
+        if os.path.exists(server_ext_path):
+            try:
+                with open(server_ext_path, "r", encoding="utf-8") as f:
+                    ext_config = f.read()
+            except Exception:
+                ext_config = ""
+        cur.execute(
+            """
+            INSERT INTO ra_policies (name, type, user_id, ext_config, restrictions, validity_period, is_est_default, is_scep_default)
+            VALUES (?, 'system', NULL, ?, '', '365', 1, 1)
+            """,
+            ("system_default", ext_config),
+        )
+        print("[migrate_db] Default system signing policy created (system_default)")
+
+    ensure_default_system_policy()
 
     conn.commit()
     conn.close()

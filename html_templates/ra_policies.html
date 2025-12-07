@@ -1,0 +1,142 @@
+{% extends "layout.html" %}
+{% block content %}
+  <div class="d-flex align-items-center mb-3">
+    <div>
+      <h1 class="mb-0">Signing Policies</h1>
+      <p class="text-muted mb-0">Policies include extension config and validity; future fields like restrictions will appear here.</p>
+    </div>
+    <div class="ml-auto">
+      <a href="{{ url_for('ra_policy_new') }}" class="btn btn-primary">Generate New Policy</a>
+    </div>
+  </div>
+  {% if policies %}
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="form-inline">
+      <label for="pageSizeSelect" class="mr-2">Show:</label>
+      <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+      <span id="pageInfo" class="mr-3"></span>
+    </div>
+    <div>
+      <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
+      <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
+    </div>
+  </div>
+  {% endif %}
+  <div class="table-responsive">
+    <table class="table table-striped table-sm" id="policyTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Uses</th>
+          {% if is_admin %}<th>User</th>{% endif %}
+          <th>Validity (days)</th>
+          <th>Created (Updated)</th>
+          <th>Extension</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if policies %}
+          {% for p in policies %}
+          <tr>
+            <td>{{ p.name }}</td>
+            <td>
+              {% if p.type == 'system' %}
+                <span class="badge badge-dark">System</span>
+              {% endif %}
+              {% if p.is_est_default %}
+                <span class="badge badge-warning" style="color:#212529;">EST</span>
+              {% endif %}
+              {% if p.is_scep_default %}
+                <span class="badge badge-info">SCEP</span>
+              {% endif %}
+            </td>
+            {% if is_admin %}<td>{{ p.user_name if p.user_name else '-' }}</td>{% endif %}
+            <td>{{ p.validity_period }}</td>
+            <td>
+              {% set created = p.created_at or '' %}
+              {% set updated = p.updated_at or '' %}
+              {% if created and updated and created != updated %}
+                <div>{{ created }}</div>
+                <div class="text-muted" style="font-size: 12px;">({{ updated }})</div>
+              {% else %}
+                {{ created }}
+              {% endif %}
+            </td>
+            <td style="max-width: 320px; white-space: pre-wrap; font-size: 12px;">{{ (p.ext_config or '')[:200] }}{% if p.ext_config and p.ext_config|length > 200 %}...{% endif %}</td>
+            <td class="text-nowrap">
+              <a class="btn btn-sm btn-secondary" href="{{ url_for('ra_policy_edit', policy_id=p.id) }}">Edit</a>
+              {% if is_admin or p.type != 'system' %}
+              <form method="POST" action="{{ url_for('ra_policy_delete', policy_id=p.id) }}" style="display:inline;" onsubmit="return confirm('Delete policy {{ p.name }}?');">
+                <button type="submit" class="btn btn-sm btn-danger ml-1">Delete</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="{{ 7 if is_admin else 6 }}" class="text-muted">No policies found.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <script>
+    let allRows = [];
+    let currentPage = 1;
+    let pageSize = 10;
+
+    function collectRows() {
+      const tbody = document.querySelector('#policyTable tbody');
+      allRows = Array.from(tbody.querySelectorAll('tr'));
+    }
+
+    function showPage(page) {
+      currentPage = page;
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const tbody = document.querySelector('#policyTable tbody');
+      tbody.innerHTML = '';
+      allRows.slice(start, end).forEach(row => tbody.appendChild(row));
+      updatePaginationInfo();
+    }
+
+    function updatePaginationInfo() {
+      const totalPages = Math.ceil(allRows.length / pageSize) || 1;
+      const start = (currentPage - 1) * pageSize + 1;
+      const end = Math.min(currentPage * pageSize, allRows.length);
+      const pageInfo = document.getElementById('pageInfo');
+      if (pageInfo) {
+        pageInfo.textContent = `Showing ${start}-${end} of ${allRows.length}`;
+      }
+      document.getElementById('prevBtn').disabled = currentPage === 1;
+      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+    }
+
+    function changePageSize() {
+      pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+      showPage(1);
+    }
+
+    function nextPage() {
+      const totalPages = Math.ceil(allRows.length / pageSize);
+      if (currentPage < totalPages) {
+        showPage(currentPage + 1);
+      }
+    }
+
+    function previousPage() {
+      if (currentPage > 1) {
+        showPage(currentPage - 1);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      collectRows();
+      showPage(1);
+    });
+  </script>
+{% endblock %}

@@ -4,9 +4,13 @@
 Write-Host "=== Restarting Flask Server ===" -ForegroundColor Green
 Write-Host ""
 
-# Kill any existing Flask/Python processes running app.py
+# Kill any existing Flask/Python processes running app.py (or anything under PKI)
 Write-Host "[*] Stopping existing Flask processes..." -ForegroundColor Cyan
-Get-Process python -ErrorAction SilentlyContinue | Where-Object {$_.CommandLine -like "*app.py*"} | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process python -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -like "*app.py*" -or $_.Path -like "*PKI*" } |
+  Stop-Process -Force -ErrorAction SilentlyContinue
+# Kill any lingering background job we created earlier
+Get-Job -Name "FlaskServer" -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
 # Clear Python cache to avoid stale .pyc files
