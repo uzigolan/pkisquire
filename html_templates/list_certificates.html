@@ -10,8 +10,8 @@
         <div class="form-inline">
           <label for="pageSizeSelect" class="mr-2">Show:</label>
           <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
             <option value="50">50</option>
           </select>
           <span id="pageInfo" class="mr-3"></span>
@@ -250,7 +250,7 @@
 
     // Pagination variables
     let currentPage = 1;
-    let pageSize = 25;
+    let pageSize = 10;
     let allRows = [];
 
     function initPagination() {

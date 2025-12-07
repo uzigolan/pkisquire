@@ -3,6 +3,7 @@
   <h1 class="mb-4">Manage Server Extension Configuration</h1>
   <form method="POST" action="{{ url_for('server_ext') }}" class="mb-4">
     <div class="form-group">
+      <label for="server_ext_config" class="font-weight-bold">Server extension configuration</label>
       <textarea id="server_ext_config" name="server_ext_config" rows="10" class="form-control" placeholder="Edit server extension configuration...">{{ server_ext_config }}</textarea>
     </div>
     {% if is_admin %}

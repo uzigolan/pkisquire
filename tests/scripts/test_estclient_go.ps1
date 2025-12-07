@@ -3,22 +3,41 @@
 
 Write-Host "=== EST Client Test (estclient-go) ===" -ForegroundColor Cyan
 
-# Configuration
-$SERVER = "localhost"
-$EST_CLIENT = ".\tests\estclient\estclient.exe"
+
+function Get-ConfigValue {
+    param (
+        [string]$ConfigPath,
+        [string]$Section,
+        [string]$Key
+    )
+    $inSection = $false
+    foreach ($line in Get-Content $ConfigPath) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match "^\[" + [regex]::Escape($Section) + "\]") {
+            $inSection = $true
+        } elseif ($trimmed -match "^\[.*\]") {
+            $inSection = $false
+        } elseif ($inSection -and $trimmed -match "^" + [regex]::Escape($Key) + "\s*=\s*(.+)") {
+            return $matches[1].Trim()
+        }
+    }
+    return $null
+}
+
+$WORKSPACE_DIR = (Get-Location).Path
+$CONFIG_PATH = Join-Path $WORKSPACE_DIR "config.ini"
+    $HTTPS_PORT = Get-ConfigValue $CONFIG_PATH "HTTPS" "port"
+    # Detect Windows host IP for WSL access
+    $WIN_IP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike '*vEthernet*' -and $_.IPAddress -notlike '169.*' -and $_.IPAddress -notlike '127.*' } | Select-Object -First 1 -ExpandProperty IPAddress)
+    $SERVER = "${WIN_IP}:${HTTPS_PORT}"
+$ESTCLIENT_WSL = "estclient"
 $TEST_DIR = ".\tests\estclient"
 $CA_CERT = "$TEST_DIR\ca-estclient.pem"
 $CSR_FILE = "$TEST_DIR\etx-estclient.csr"
 $CERT_FILE = "$TEST_DIR\etx-estclient.crt"
 $KEY_FILE = "$TEST_DIR\etx-estclient.key"
 
-# Check if estclient exists
-if (-not (Test-Path $EST_CLIENT)) {
-    Write-Host "[-] EST client not found at $EST_CLIENT" -ForegroundColor Red
-    Write-Host "    The estclient-go executable has compatibility issues on this system" -ForegroundColor Yellow
-    Write-Host "    Use test_estclient_curl.ps1 instead" -ForegroundColor Yellow
-    exit 1
-}
+# No need to check for Windows estclient.exe; using WSL estclient
 
 # Create test directory if it doesn't exist
 if (-not (Test-Path $TEST_DIR)) {
@@ -28,27 +47,36 @@ if (-not (Test-Path $TEST_DIR)) {
 Write-Host "`n[*] Note: This script uses the estclient-go executable" -ForegroundColor Yellow
 Write-Host "    If you encounter issues, use test_estclient_curl.ps1 instead" -ForegroundColor Yellow
 
-Write-Host "`n[*] Step 1: Generate Private Key" -ForegroundColor Yellow
-Write-Host "    Command: openssl ecparam -genkey -name prime256v1 -out $KEY_FILE" -ForegroundColor Gray
 
-& openssl ecparam -genkey -name prime256v1 -out $KEY_FILE
+Write-Host "`n[*] Step 1: Generate EC Private Key (PKCS#8 PEM)" -ForegroundColor Yellow
+Write-Host "    Command: openssl ecparam -name prime256v1 -genkey | openssl pkcs8 -topk8 -nocrypt -out $KEY_FILE" -ForegroundColor Gray
+
+# Generate EC key and convert to PKCS#8 PEM
+& openssl ecparam -name prime256v1 -genkey | openssl pkcs8 -topk8 -nocrypt -out $KEY_FILE
 
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[-] Failed to generate private key" -ForegroundColor Red
+    Write-Host "[-] Failed to generate private key (PKCS#8)" -ForegroundColor Red
     exit 1
 }
 
 if (Test-Path $KEY_FILE) {
-    Write-Host "[+] Private key saved to: $KEY_FILE" -ForegroundColor Green
+    Write-Host "[+] Private key (PKCS#8 PEM) saved to: $KEY_FILE" -ForegroundColor Green
 } else {
     Write-Host "[-] Private key file not created" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "`n[*] Step 2: Generate Certificate Signing Request (CSR)" -ForegroundColor Yellow
-Write-Host "    Command: openssl req -new -key $KEY_FILE -out $CSR_FILE -subj /CN=etx-estclient-test" -ForegroundColor Gray
 
-& openssl req -new -key $KEY_FILE -out $CSR_FILE -subj "/CN=etx-estclient-test"
+
+# Generate dynamic CN: estclient-go-hr:min:day:month:year
+$now = Get-Date
+$cn = "estclient-go-$($now.Hour):$($now.Minute):$($now.Day):$($now.Month):$($now.Year)"
+
+
+Write-Host "`n[*] Step 2: Generate Certificate Signing Request (CSR)" -ForegroundColor Yellow
+Write-Host "    Command: openssl req -new -key $KEY_FILE -out $CSR_FILE -subj /CN=$cn" -ForegroundColor Gray
+
+& openssl req -new -key $KEY_FILE -out $CSR_FILE -subj "/CN=$cn"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[-] Failed to generate CSR" -ForegroundColor Red
@@ -64,23 +92,42 @@ if (Test-Path $CSR_FILE) {
     exit 1
 }
 
-Write-Host "`n[*] Step 3: Attempt EST Operations with estclient" -ForegroundColor Yellow
-Write-Host "    Note: The compiled estclient.exe has compatibility issues on this platform" -ForegroundColor Yellow
-Write-Host "    Attempting to run anyway..." -ForegroundColor Gray
 
-try {
-    Write-Host "`n    Command: $EST_CLIENT (test execution)" -ForegroundColor Gray
-    & $EST_CLIENT 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "[+] estclient executable works!" -ForegroundColor Green
-        Write-Host "    You can now use it for EST operations" -ForegroundColor Cyan
-    } else {
-        throw "estclient returned error code $LASTEXITCODE"
-    }
-} catch {
-    Write-Host "[-] estclient.exe encountered an error: $_" -ForegroundColor Red
-    Write-Host "`n[!] Alternative: Use test_estclient_curl.ps1 for a working EST test" -ForegroundColor Yellow
-    Write-Host "    The curl-based script provides the same functionality without executable issues" -ForegroundColor Gray
+Write-Host "`n[*] Step 3: Perform EST Enrollment with estclient (WSL) using a given CSR" -ForegroundColor Yellow
+
+
+# Convert Windows paths to WSL paths dynamically
+function Convert-ToWSLPath {
+    param([string]$winPath)
+    $drive, $rest = $winPath -split ':', 2
+    $drive = $drive.ToLower()
+    $rest = $rest.TrimStart('\')
+    $wslPath = "/mnt/$drive/$rest"
+    $wslPath = $wslPath -replace '\\', '/'
+    return $wslPath
+}
+
+$CSR_FILE_WSL = Convert-ToWSLPath (Resolve-Path $CSR_FILE).Path
+$KEY_FILE_WSL = Convert-ToWSLPath (Resolve-Path $KEY_FILE).Path
+$CERT_FILE_WSL = Convert-ToWSLPath (Resolve-Path $CERT_FILE).Path
+
+ $enrollCmd = "wsl ~/go/bin/estclient enroll -server $SERVER -csr '$CSR_FILE_WSL' -key '$KEY_FILE_WSL' -out '$CERT_FILE_WSL' -insecure"
+Write-Host "    Command: $enrollCmd" -ForegroundColor Gray
+
+# Run the estclient enrollment in WSL
+Invoke-Expression $enrollCmd
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[-] estclient-go enrollment failed with exit code $LASTEXITCODE" -ForegroundColor Red
+    exit 1
+}
+
+if (Test-Path $CERT_FILE) {
+    Write-Host "[+] Certificate saved to: $CERT_FILE" -ForegroundColor Green
+    $certSize = (Get-Item $CERT_FILE).Length
+    Write-Host "    Size: $certSize bytes" -ForegroundColor Gray
+} else {
+    Write-Host "[-] Certificate file not created" -ForegroundColor Red
     exit 1
 }
 

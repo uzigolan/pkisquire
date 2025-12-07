@@ -28,6 +28,7 @@ from builders import PKIMessageBuilder, Signer, create_degenerate_pkcs7
 from envelope import PKCSPKIEnvelopeBuilder
 from config_storage import ConfigStorage
 from openssl_utils import get_provider_args
+from ra_policies import RAPolicyManager, DEFAULT_VALIDITY_DAYS
 
 
 scep_app = Blueprint('scep_app', __name__)
@@ -43,6 +44,10 @@ CACAPS = (
     'SHA-512',
     'Renewal',
 )
+
+
+def _get_ra_mgr():
+    return RAPolicyManager(current_app.config["DB_PATH"], current_app.logger)
 
 
 @scep_app.before_app_request
@@ -155,34 +160,37 @@ def scep():
       # pick ext-block, serial, validity
       ext_block        = request.form.get("ext_block", "v3_ext")
       custom_serial    = hex(secrets.randbits(64))
-      VALIDITY_CONF     = current_app.config['VALIDITY_CONF']
+      mgr = _get_ra_mgr()
+      policy = mgr.get_protocol_default("scep")
+      validity_days = mgr.get_validity_days(policy)
       try:
-        with open(VALIDITY_CONF,"r") as f:
-          validity_days = f.read().strip()
-      except FileNotFoundError:
-        validity_days = "365"
+        validity_int = int(str(validity_days))
+      except Exception:
+        validity_int = int(DEFAULT_VALIDITY_DAYS)
 
-      # 3) invoke openssl x509 -req …
-      SERVER_EXT_PATH   = current_app.config['SERVER_EXT_PATH']
+      # 3) invoke openssl x509 -req
       SUBCA_CERT_PATH   = current_app.config['SUBCA_CERT_PATH']
       SUBCA_KEY_PATH    = current_app.config['SUBCA_KEY_PATH']
 
-      cmd = ["openssl","x509"]
-      cmd.extend(get_provider_args())
-      cmd.extend(["-req",
-        "-in",   csr_tmp.name,
-        "-CA",   SUBCA_CERT_PATH,
-        "-CAkey",SUBCA_KEY_PATH,
-#        "-set_serial", custom_serial,
-        "-CAcreateserial",
-        "-days", validity_days,
-        "-extfile", SERVER_EXT_PATH,
-        "-extensions", ext_block,
-        "-out",  cert_tmp.name
-      ])
-      current_app.logger.debug("Running OpenSSL: %s", " ".join(cmd))
       try:
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        with mgr.temp_extfile(policy) as extfile_path:
+          if not extfile_path:
+            return abort(500, "No RA policy extension config available")
+          cmd = ["openssl","x509"]
+          cmd.extend(get_provider_args())
+          cmd.extend(["-req",
+            "-in",   csr_tmp.name,
+            "-CA",   SUBCA_CERT_PATH,
+            "-CAkey",SUBCA_KEY_PATH,
+#        "-set_serial", custom_serial,
+            "-CAcreateserial",
+            "-days", str(validity_int),  # subprocess expects strings
+            "-extfile", extfile_path,
+            "-extensions", ext_block,
+            "-out",  cert_tmp.name
+          ])
+          current_app.logger.debug("Running OpenSSL: %s", " ".join(str(x) for x in cmd))
+          subprocess.run(cmd, check=True, capture_output=True, text=True)
       except subprocess.CalledProcessError as e:
         current_app.logger.error("OpenSSL signing failed: %s", e.stderr)
         os.unlink(csr_tmp.name)

@@ -3,8 +3,32 @@
 
 Write-Host "=== OCSP Responder Test ===" -ForegroundColor Cyan
 
-# Configuration
-$SERVER = "http://localhost:80"
+
+function Get-ConfigValue {
+    param (
+        [string]$ConfigPath,
+        [string]$Section,
+        [string]$Key
+    )
+    $inSection = $false
+    foreach ($line in Get-Content $ConfigPath) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match "^\[" + [regex]::Escape($Section) + "\]") {
+            $inSection = $true
+        } elseif ($trimmed -match "^\[.*\]") {
+            $inSection = $false
+        } elseif ($inSection -and $trimmed -match "^" + [regex]::Escape($Key) + "\s*=\s*(.+)") {
+            return $matches[1].Trim()
+        }
+    }
+    return $null
+}
+
+$SCRIPT_DIR = Split-Path -Parent $PSCommandPath
+$REPO_ROOT  = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSCommandPath))  # tests/scripts -> tests -> PKI
+$CONFIG_PATH = Join-Path $REPO_ROOT "config.ini"
+$HTTP_PORT = Get-ConfigValue $CONFIG_PATH "DEFAULT" "http_port"
+$SERVER = "http://localhost:$HTTP_PORT"
 $OCSP_PATH = "/ocsp"
 $TEST_DIR = ".\tests\results"
 $ISSUER_CERT = ".\pki-subca\rad_ca_sub_rsa.crt"

@@ -1,7 +1,7 @@
-# Restart Flask Server Script (with Log Clearing)
-# Stops any running Flask instances, clears the log file, and starts fresh
+# Restart Flask Server Script (with Log and Cache Clearing)
+# Stops any running Flask instances, clears the log file, clears Python cache, and starts fresh
 
-Write-Host "=== Restarting Flask Server (Clear Log) ===" -ForegroundColor Green
+Write-Host "=== Restarting Flask Server (Clear Log & Cache) ===" -ForegroundColor Green
 Write-Host ""
 
 # Kill any existing Flask/Python processes running app.py (or anything under PKI)
@@ -16,6 +16,8 @@ Start-Sleep -Seconds 2
 # Clear Python cache to avoid stale .pyc files
 Write-Host "[*] Clearing Python cache..." -ForegroundColor Cyan
 Remove-Item -Recurse -Force __pycache__ -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force *.pyc,*.pyo -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force .\db\*.sqlite3-journal,.\db\*.db-journal,.\db\*.sqlite3-wal,.\db\*.sqlite3-shm -ErrorAction SilentlyContinue
 
 # Clear the log file (read from config.ini)
 Write-Host "[*] Clearing log file..." -ForegroundColor Cyan

@@ -48,19 +48,19 @@
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav">
         {% if request.path not in ['/login', '/register'] %}
-          <li class="nav-item"><a class="nav-link" href="/certs">Certs</a></li>
-          <li class="nav-item"><a class="nav-link" href="/sign">RA(sign)</a></li>
-          <li class="nav-item"><a class="nav-link" href="/requests">CSRs</a></li>
-          <li class="nav-item"><a class="nav-link" href="/keys">Keys</a></li>
-          <li class="nav-item"><a class="nav-link" href="/profiles">Profiles</a></li>
-          <li class="nav-item"><a class="nav-link" href="/va">VA(crl)</a></li>
-          <li class="nav-item"><a class="nav-link" href="/server_ext">Server Ext</a></li>
-          <li class="nav-item"><a class="nav-link" href="/ca">CA ({{ ca_mode }})</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/certs') or request.path == '/' %} active{% endif %}" href="/certs">Certs</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/sign') %} active{% endif %}" href="/sign">RA(sign)</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/requests') %} active{% endif %}" href="/requests">CSRs</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/keys') %} active{% endif %}" href="/keys">Keys</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/profiles') %} active{% endif %}" href="/profiles">Profiles</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/va') %} active{% endif %}" href="/va">VA(crl)</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ra_policies') %} active{% endif %}" href="/ra_policies">Policies</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ca') %} active{% endif %}" href="/ca">CA ({{ ca_mode }})</a></li>
           {% if current_user.is_authenticated and current_user.is_admin() %}
-          <li class="nav-item"><a class="nav-link" href="/x509_templates">Templates</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/x509_templates') %} active{% endif %}" href="/x509_templates">Templates</a></li>
           {% endif %}
-          <li class="nav-item"><a class="nav-link" href="/api">APIs</a></li>
-          <li class="nav-item"><a class="nav-link" href="/inspect">Inspect</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/api') %} active{% endif %}" href="/api">APIs</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/inspect') %} active{% endif %}" href="/inspect">Inspect</a></li>
           {% if current_user.is_authenticated %}
           <li class="nav-item">
             <a class="nav-link" href="javascript:void(0);" onclick="openConfig();">Config</a>
@@ -72,7 +72,7 @@
             <a class="nav-link" href="{{ url_for('static', filename='help.pdf') }}" target="_blank">Help</a>
           </li>
           {% endif %}
-          <li class="nav-item"><a class="nav-link" href="/logs">Logs</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/logs') %} active{% endif %}" href="/logs">Logs</a></li>
         {% endif %}
       </ul>
     </ul>

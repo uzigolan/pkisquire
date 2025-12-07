@@ -2,8 +2,33 @@
 # Tests Python SCEP client with GetCaps, GetCA, and Enroll
 # All outputs go to tests folder
 
+
+function Get-ConfigValue {
+    param (
+        [string]$ConfigPath,
+        [string]$Section,
+        [string]$Key
+    )
+    $inSection = $false
+    foreach ($line in Get-Content $ConfigPath) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match "^\[" + [regex]::Escape($Section) + "\]") {
+            $inSection = $true
+        } elseif ($trimmed -match "^\[.*\]") {
+            $inSection = $false
+        } elseif ($inSection -and $trimmed -match "^" + [regex]::Escape($Key) + "\s*=\s*(.+)") {
+            return $matches[1].Trim()
+        }
+    }
+    return $null
+}
+
+$SCRIPT_DIR = Split-Path -Parent $PSCommandPath
+$REPO_ROOT  = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSCommandPath))  # go up three levels: tests/scripts -> tests -> PKI
+$CONFIG_PATH = Join-Path $REPO_ROOT "config.ini"
+$HTTP_PORT = Get-ConfigValue $CONFIG_PATH "DEFAULT" "http_port"
+$SCEP_URL = "http://localhost:$HTTP_PORT/scep"
 $env:PATH = "C:\Program Files\OpenSSL-Win64\bin;" + $env:PATH
-$SCEP_URL = "http://localhost:8090/scep"
 
 Write-Host "`n=== Python SCEP Test Suite (Core Operations) ===" -ForegroundColor Green
 Write-Host "Testing Python SCEP client tools" -ForegroundColor Gray
@@ -16,8 +41,10 @@ Write-Host ""
 
 # Generate test credentials
 Write-Host "[Prep] Generating test credentials..." -ForegroundColor Cyan
+$now = Get-Date
+$cn  = "pyscep-test-$($now.Hour):$($now.Minute):$($now.Day):$($now.Month):$($now.Year)"
 openssl genrsa -out tests\results\py_test.key 2048 2>&1 | Out-Null
-openssl req -new -key tests\results\py_test.key -out tests\results\py_test.csr -subj "/C=IL/ST=TLV/L=Tel-Aviv/O=TestOrg/OU=IT/CN=pyscep-test.example.com" 2>&1 | Out-Null
+openssl req -new -key tests\results\py_test.key -out tests\results\py_test.csr -subj "/C=IL/ST=TLV/L=Tel-Aviv/O=TestOrg/OU=IT/CN=$cn" 2>&1 | Out-Null
 Write-Host "      Generated py_test.key and py_test.csr" -ForegroundColor Gray
 Write-Host ""
 

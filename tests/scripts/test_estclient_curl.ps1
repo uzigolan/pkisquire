@@ -3,8 +3,30 @@
 
 Write-Host "=== EST Client Test (curl) ===" -ForegroundColor Cyan
 
-# Configuration
-$SERVER = "https://localhost:443"
+
+function Get-ConfigValue {
+    param (
+        [string]$ConfigPath,
+        [string]$Section,
+        [string]$Key
+    )
+    $inSection = $false
+    foreach ($line in Get-Content $ConfigPath) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match "^\[" + [regex]::Escape($Section) + "\]") {
+            $inSection = $true
+        } elseif ($trimmed -match "^\[.*\]") {
+            $inSection = $false
+        } elseif ($inSection -and $trimmed -match "^" + [regex]::Escape($Key) + "\s*=\s*(.+)") {
+            return $matches[1].Trim()
+        }
+    }
+    return $null
+}
+
+$CONFIG_PATH = "..\..\config.ini"
+$HTTPS_PORT = Get-ConfigValue $CONFIG_PATH "HTTPS" "port"
+$SERVER = "https://localhost:$HTTPS_PORT"
 $EST_PATH = "/.well-known/est"
 $TEST_DIR = ".\tests\estclient"
 $CA_CERT = "$TEST_DIR\chain.crt"
@@ -55,10 +77,15 @@ if (Test-Path $KEY_FILE) {
     exit 1
 }
 
-Write-Host "`n[*] Step 3: Generate Certificate Signing Request (CSR)" -ForegroundColor Yellow
-Write-Host "    Command: openssl req -new -key $KEY_FILE -out $CSR_FILE -subj /CN=etx-test" -ForegroundColor Gray
 
-& openssl req -new -key $KEY_FILE -out $CSR_FILE -subj "/CN=etx-test"
+# Generate dynamic CN: estclient-curl-hr:min:day:month:year
+$now = Get-Date
+$cn = "estclient-curl-$($now.Hour):$($now.Minute):$($now.Day):$($now.Month):$($now.Year)"
+
+Write-Host "`n[*] Step 3: Generate Certificate Signing Request (CSR)" -ForegroundColor Yellow
+Write-Host "    Command: openssl req -new -key $KEY_FILE -out $CSR_FILE -subj /CN=$cn" -ForegroundColor Gray
+
+& openssl req -new -key $KEY_FILE -out $CSR_FILE -subj "/CN=$cn"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[-] Failed to generate CSR" -ForegroundColor Red
