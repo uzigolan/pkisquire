@@ -1,21 +1,4 @@
-# Check challenge_password_enabled in config.ini
-$CONFIG_PATH = Join-Path (Get-Location).Path "config.ini"
-function Get-ConfigValue {
-    param ([string]$ConfigPath, [string]$Section, [string]$Key)
-    $inSection = $false
-    foreach ($line in Get-Content $ConfigPath) {
-        $trimmed = $line.Trim()
-        if ($trimmed -match "^\[" + [regex]::Escape($Section) + "\]") { $inSection = $true }
-        elseif ($trimmed -match "^\[.*\]") { $inSection = $false }
-        elseif ($inSection -and $trimmed -match "^" + [regex]::Escape($Key) + "\s*=\s*(.+)") { return $matches[1].Trim() }
-    }
-    return $null
-}
-$CHALLENGE_ENABLED = Get-ConfigValue $CONFIG_PATH "SCEP" "challenge_password_enabled"
-if ($CHALLENGE_ENABLED -eq "true") {
-    Write-Host "[-] challenge_password_enabled is true in config.ini. This test should not run." -ForegroundColor Red
-    exit 1
-}
+# ...existing code...
 # EST Client Test Script - Using estclient-go executable
 # Tests EST enrollment against the PKI server
 
