@@ -24,11 +24,12 @@ function Get-ConfigValue {
     return $null
 }
 
-$CONFIG_PATH = "..\..\config.ini"
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\\..")
+$CONFIG_PATH = Join-Path $repoRoot "config.ini"
 $HTTPS_PORT = Get-ConfigValue $CONFIG_PATH "HTTPS" "port"
 $SERVER = "https://localhost:$HTTPS_PORT"
 $EST_PATH = "/.well-known/est"
-$TEST_DIR = ".\tests\estclient"
+$TEST_DIR = Join-Path $repoRoot "tests\\estclient"
 $CA_CERT = "$TEST_DIR\chain.crt"
 $CSR_FILE = "$TEST_DIR\etx.csr"
 $CSR_DER = "$TEST_DIR\etx.csr.der"

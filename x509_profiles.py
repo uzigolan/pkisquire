@@ -3,7 +3,7 @@ import re
 import subprocess
 import tempfile
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
 from jinja2 import Environment, meta, FileSystemLoader
 from extensions import db
 
@@ -245,6 +245,19 @@ def list_profiles():
             p.user_obj = current_user
         is_admin = False
     return render_template("list_profiles.html", profiles=profiles, is_admin=is_admin)
+
+
+@x509_profiles_bp.route("/profiles/state", methods=["GET"])
+@login_required
+def profiles_state():
+    admin = current_user.is_authenticated and (current_user.is_admin() if callable(getattr(current_user, "is_admin", None)) else getattr(current_user, "is_admin", False))
+    query = Profile.query
+    if not admin:
+        query = query.filter_by(user_id=current_user.id)
+    count = query.count()
+    max_id_row = query.order_by(Profile.id.desc()).with_entities(Profile.id).first()
+    max_id = max_id_row[0] if max_id_row else 0
+    return jsonify({"count": count, "max_id": max_id})
 
 #
 # 4) VIEW A RENDERED PROFILE

@@ -38,13 +38,16 @@
 
     <!-- Sidebar Section -->
     <div class="col-md-4">
-      <h4>Select Policy</h4>
-      <p class="text-muted" style="margin-top:-6px;">Manage policies <a href="/ra_policies">here</a>.</p>
+      <h4>Select Enrollment Policy</h4>
+      <p class="text-muted" style="margin-top:-6px;">Manage enrollment policies <a href="/ra_policies">here</a>.</p>
       <form id="server_ext_form">
         <div class="form-group">
           <select id="server_ext_select" name="server_ext_select" class="form-control">
             {% for p in ra_policies %}
-              <option value="{{ p.id }}" data-validity="{{ p.validity_period }}">{{ p.name }}{% if p.type == 'user' %} (User){% else %} (System){% endif %}</option>
+              {% set owner = p.user_name if p.user_name else current_user.username %}
+              <option value="{{ p.id }}" data-validity="{{ p.validity_period }}">
+                {{ p.name }}{% if p.type == 'user' %} (User {{ owner }}){% else %} (System){% endif %}
+              </option>
             {% endfor %}
           </select>
         </div>

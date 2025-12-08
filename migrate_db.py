@@ -46,6 +46,7 @@ def migrate_db():
         subject TEXT,
         serial TEXT,
         cert_pem TEXT,
+        issued_via TEXT CHECK(issued_via IN ('ui','scep','est','manual','unknown')) DEFAULT 'unknown',
         revoked INTEGER DEFAULT 0,
         user_id INTEGER
     )''')
@@ -102,6 +103,7 @@ def migrate_db():
     # Ensure missing columns on existing tables
     ensure_column('users', 'auth_source', "TEXT DEFAULT 'local'")
     ensure_column('certificates', 'user_id', 'INTEGER')
+    ensure_column('certificates', 'issued_via', "TEXT CHECK(issued_via IN ('ui','scep','est','manual','unknown')) DEFAULT 'unknown'")
     ensure_column('profiles', 'user_id', 'INTEGER')
     ensure_column('profiles', 'created_at', 'DATETIME')
     ensure_column('profiles', 'content', 'TEXT')
@@ -117,6 +119,9 @@ def migrate_db():
     ensure_column('ra_policies', 'name', 'TEXT')
     ensure_column('ra_policies', 'is_est_default', 'INTEGER DEFAULT 0')
     ensure_column('ra_policies', 'is_scep_default', 'INTEGER DEFAULT 0')
+    # Backfill issuance source where we can infer it
+    cur.execute("UPDATE certificates SET issued_via = 'ui' WHERE issued_via IS NULL AND user_id IS NOT NULL")
+    cur.execute("UPDATE certificates SET issued_via = 'unknown' WHERE issued_via IS NULL")
     # Unique index to avoid duplicate names per user/type (use IFNULL to group system/null)
     try:
         cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ra_policies_type_user_name ON ra_policies(type, IFNULL(user_id, -1), name)")

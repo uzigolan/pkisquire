@@ -1,15 +1,15 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">Profile File: {{ filename }}</h1>
+  <h1 class="mb-4">Certificate Template File: {{ filename }}</h1>
   {% if profile %}
     <p><strong>Originating Template:</strong> {{ profile.template_name }}</p>
-    <p><strong>Profile Type:</strong> {{ profile.profile_type|default("Default") }}</p>
+    <p><strong>Template Type:</strong> {{ profile.profile_type|default("Default") }}</p>
   {% endif %}
   <div class="card">
     <div class="card-body">
       <pre>{{ file_content }}</pre>
     </div>
   </div>
-  <a href="{{ url_for('profiles.list_profiles') }}" class="btn btn-secondary mt-3">Back to Profiles List</a>
+  <a href="{{ url_for('profiles.list_profiles') }}" class="btn btn-secondary mt-3">Back to Certificate Templates</a>
 {% endblock %}
 

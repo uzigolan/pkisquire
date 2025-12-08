@@ -2,19 +2,19 @@
 {% block content %}
   <h1 class="mb-4">
     {% if rendered_template is defined %}
-      Rendered Profile:
+      Rendered Certificate Template:
     {% else %}
-      View Profile:
+      View Certificate Template:
     {% endif %}
     {{ profile.filename }}
   </h1>
 
   <p><strong>Originating Template:</strong> {{ profile.template_name }}</p>
-  <p><strong>Profile Type:</strong> {{ profile.profile_type or "Default" }}</p>
+  <p><strong>Template Type:</strong> {{ profile.profile_type or "Default" }}</p>
 
   <div class="card mb-4" style="max-width: 50%; margin: auto;">
     <div class="card-body">
-      <h5 class="card-title">Profile Content</h5>
+      <h5 class="card-title">Certificate Template Content</h5>
       <pre>{{ rendered_template|default(file_content) }}</pre>
     </div>
   </div>
@@ -25,7 +25,7 @@
     <a href="{{ url_for('profiles.list_templates') }}"
        class="btn btn-sm btn-secondary">Back to Template List</a>
     <a href="{{ url_for('profiles.list_profiles') }}"
-       class="btn btn-sm btn-primary">View All Profiles</a>
+       class="btn btn-sm btn-primary">View All Certificate Templates</a>
   </div>
 {% endblock %}
 

@@ -189,7 +189,28 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', initPagination);
+    let lastCsrState = null;
+
+    async function pollCsrState() {
+      try {
+        const res = await fetch('/requests/state', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (lastCsrState && (data.count !== lastCsrState.count || data.max_id !== lastCsrState.max_id)) {
+          window.location.reload();
+          return;
+        }
+        lastCsrState = data;
+      } catch (err) {
+        console.debug('csr-state poll failed', err);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initPagination();
+      pollCsrState();
+      setInterval(pollCsrState, 7000);
+    });
   </script>
 {% endblock %}
 

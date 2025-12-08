@@ -2,7 +2,7 @@ import os
 import subprocess
 import tempfile
 from datetime import datetime
-from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app
+from flask import Blueprint, request, render_template, redirect, url_for, flash, current_app, jsonify
 from extensions import db
 from flask import send_file
 from openssl_utils import get_provider_args
@@ -128,6 +128,19 @@ def list_csrs():
     key_dict = {key.id: key for key in keys}
     profile_dict = {profile.id: profile for profile in profiles}
     return render_template("list_csrs.html", csrs=csrs, key_dict=key_dict, profile_dict=profile_dict, is_admin=is_admin)
+
+
+@x509_requests_bp.route("/requests/state", methods=["GET"])
+@login_required
+def csrs_state():
+    admin = current_user.is_authenticated and (current_user.is_admin() if callable(getattr(current_user, "is_admin", None)) else getattr(current_user, "is_admin", False))
+    query = CSR.query
+    if not admin:
+        query = query.filter_by(user_id=current_user.id)
+    count = query.count()
+    max_id_row = query.order_by(CSR.id.desc()).with_entities(CSR.id).first()
+    max_id = max_id_row[0] if max_id_row else 0
+    return jsonify({"count": count, "max_id": max_id})
 
 @x509_requests_bp.route("/requests/<int:csr_id>", methods=["GET"])
 @login_required

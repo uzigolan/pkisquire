@@ -52,9 +52,9 @@
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/sign') %} active{% endif %}" href="/sign">RA(sign)</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/requests') %} active{% endif %}" href="/requests">CSRs</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/keys') %} active{% endif %}" href="/keys">Keys</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/profiles') %} active{% endif %}" href="/profiles">Profiles</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ra_policies') %} active{% endif %}" href="/ra_policies">Enrollment Policies</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/profiles') %} active{% endif %}" href="/profiles">Certificate Templates</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/va') %} active{% endif %}" href="/va">VA(crl)</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ra_policies') %} active{% endif %}" href="/ra_policies">Policies</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ca') %} active{% endif %}" href="/ca">CA ({{ ca_mode }})</a></li>
           {% if current_user.is_authenticated and current_user.is_admin() %}
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/x509_templates') %} active{% endif %}" href="/x509_templates">Templates</a></li>
