@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash
 
 
 def migrate_db():
+
     """
     In-place schema upgrade for the configured DB:
     - Ensure tables exist.
@@ -21,6 +22,21 @@ def migrate_db():
 
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
+
+    # Challenge Passwords table
+    cur.execute('''CREATE TABLE IF NOT EXISTS challenge_passwords (
+        value TEXT PRIMARY KEY,
+        user_id INTEGER,
+        created_at TEXT,
+        validity TEXT,
+        consumed INTEGER DEFAULT 0
+    )''')
+    # Ensure validity column exists if table already created
+    def column_exists(table, column):
+        cur.execute(f"PRAGMA table_info({table})")
+        return any(row[1] == column for row in cur.fetchall())
+    if not column_exists('challenge_passwords', 'validity'):
+        cur.execute("ALTER TABLE challenge_passwords ADD COLUMN validity TEXT")
 
     # Helpers
     def ensure_column(table, column, coltype):

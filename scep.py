@@ -3,6 +3,7 @@ import base64
 import os
 import datetime
 import plistlib
+import re
 from base64 import b64decode
 
 
@@ -67,9 +68,7 @@ def log_scep_request():
 @scep_app.route('/cgi-bin/pkiclient.exe', methods=['GET', 'POST'])
 @scep_app.route('/scep', methods=['GET', 'POST'])
 def scep():
-  # In-memory set for consumed challenge passwords (erased on server restart)
-  if not hasattr(scep, "_used_challenge_passwords"):
-      scep._used_challenge_passwords = set()
+  # Use DB for challenge password validation/consumption
   if not current_app.config.get('SCEP_ENABLED', True):
       current_app.logger.debug("SCEP disabled by configuration")
       return abort(404)
@@ -152,8 +151,8 @@ def scep():
 
     # Challenge password validation using OpenSSL
     challenge_enabled = current_app.config.get('SCEP_CHALLENGE_PASSWORD_ENABLED', False)
+    challenge_user_id = None
     if challenge_enabled and req.message_type in (MessageType.PKCSReq, MessageType.RenewalReq):
-      import tempfile
       with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as tmp_csr:
         tmp_csr.write(der_csr)
         temp_csr_path = tmp_csr.name
@@ -171,29 +170,50 @@ def scep():
               break
         if not challenge_value:
           current_app.logger.error("Failed to extract challengePassword from CSR using OpenSSL.")
-          os.unlink(temp_csr_path)
           return abort(400, "Missing or invalid challengePassword in CSR")
 
-        # Require challenge password to match an available entry in CHALLENGE_PASSWORDS
-        import sys
-        challenge_passwords_list = getattr(sys.modules[current_app.import_name], "CHALLENGE_PASSWORDS", None)
-        found_entry = None
-        if challenge_passwords_list is not None:
-          for entry in challenge_passwords_list:
-            if entry.get('value') == challenge_value:
-              found_entry = entry
-              break
-        if not found_entry:
-          current_app.logger.error(f"Challenge password {challenge_value} not found in server list.")
-          os.unlink(temp_csr_path)
-          return abort(400, "Challenge password not recognized or expired")
-        if found_entry.get('consumed'):
-          current_app.logger.error(f"Challenge password {challenge_value} already consumed.")
-          os.unlink(temp_csr_path)
-          return abort(400, "Challenge password already used")
-        # Mark as consumed
-        found_entry['consumed'] = True
-        scep._used_challenge_passwords.add(challenge_value)
+        # Validate challenge password against DB
+        db_path = current_app.config.get("DB_PATH")
+        with sqlite3.connect(db_path) as conn:
+          cur = conn.cursor()
+          cur.execute("SELECT consumed, user_id, validity, created_at FROM challenge_passwords WHERE value = ?", (challenge_value,))
+          row = cur.fetchone()
+          if not row:
+            current_app.logger.error(f"Challenge password {challenge_value} not found in DB.")
+            return abort(400, "Challenge password not recognized or expired")
+          consumed, user_id, validity, created_at = row
+          if consumed:
+            current_app.logger.error(f"Challenge password {challenge_value} already consumed.")
+            return abort(400, "Challenge password already used")
+          # Check expiry
+          m = re.match(r'^(\d+)([mhd])$', validity)
+          if m:
+            num, unit = int(m.group(1)), m.group(2)
+            if unit == 'm':
+              delta = datetime.timedelta(minutes=num)
+            elif unit == 'h':
+              delta = datetime.timedelta(hours=num)
+            elif unit == 'd':
+              delta = datetime.timedelta(days=num)
+            else:
+              delta = datetime.timedelta(minutes=60)
+          else:
+            delta = datetime.timedelta(minutes=60)
+          try:
+            created_dt = datetime.datetime.strptime(created_at, '%Y-%m-%d %H:%M:%S UTC')
+          except Exception:
+            # Treat unparsable timestamps as already expired
+            created_dt = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+          expires_at = created_dt + delta
+          if datetime.datetime.utcnow() > expires_at:
+            current_app.logger.error(f"Challenge password {challenge_value} expired at {expires_at}.")
+            return abort(400, "Challenge password expired")
+          # Optionally log user_id and validity
+          current_app.logger.info(f"Challenge password {challenge_value} accepted for user_id={user_id}, validity={validity}")
+          challenge_user_id = user_id
+          # Mark as consumed
+          cur.execute("UPDATE challenge_passwords SET consumed = 1 WHERE value = ?", (challenge_value,))
+          conn.commit()
       finally:
         if os.path.exists(temp_csr_path):
           os.unlink(temp_csr_path)
@@ -273,15 +293,28 @@ def scep():
       # 5) store in your sqlite DB
       DB_PATH           = current_app.config['DB_PATH']
       with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-          "INSERT INTO certificates (subject, serial, cert_pem, issued_via) VALUES (?,?,?,?)",
-          (  # reuse your subject_str logic here if needed
-            subject_str,
-            actual_serial,
-            cert_pem,
-            'scep'
+        # Store user_id if available
+        if challenge_user_id is not None:
+          conn.execute(
+            "INSERT INTO certificates (subject, serial, cert_pem, issued_via, user_id) VALUES (?,?,?,?,?)",
+            (
+              subject_str,
+              actual_serial,
+              cert_pem,
+              'scep',
+              challenge_user_id
+            )
           )
-        )
+        else:
+          conn.execute(
+            "INSERT INTO certificates (subject, serial, cert_pem, issued_via) VALUES (?,?,?,?)",
+            (
+              subject_str,
+              actual_serial,
+              cert_pem,
+              'scep'
+            )
+          )
         conn.commit()
 
       # cleanup CSR + cert files

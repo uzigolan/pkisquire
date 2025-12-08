@@ -1,3 +1,28 @@
+
+# Helper: Read config value from INI file
+function Get-ConfigValue {
+    param (
+        [string]$ConfigPath,
+        [string]$Section,
+        [string]$Key
+    )
+    $inSection = $false
+    foreach ($line in Get-Content $ConfigPath) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match "^\[" + [regex]::Escape($Section) + "\]") {
+            $inSection = $true
+        } elseif ($trimmed -match "^\[.*\]") {
+            $inSection = $false
+        } elseif ($inSection -and $trimmed -match "^" + [regex]::Escape($Key) + "\s*=\s*(.+)") {
+            return $matches[1].Trim()
+        }
+    }
+    return $null
+}
+
+$WORKSPACE_DIR = (Get-Location).Path
+$CONFIG_PATH = Join-Path $WORKSPACE_DIR "config.ini"
+
 $challengeEnabled = Get-ConfigValue $CONFIG_PATH "SCEP" "challenge_password_enabled"
 if ($challengeEnabled -eq $null -or $challengeEnabled.ToLower() -ne "false") {
     Write-Host "[SKIP] challenge_password_enabled is not false in config.ini ([SCEP] challenge_password_enabled=$challengeEnabled)" -ForegroundColor Yellow
