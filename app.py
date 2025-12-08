@@ -21,7 +21,7 @@ from datetime import datetime,timezone, timedelta
 from threading import Thread
 
 
-from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session, abort
+from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session, abort, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_sqlalchemy import SQLAlchemy
 from cryptography import x509
@@ -1248,13 +1248,13 @@ def index():
             cur = conn.cursor()
             if current_user.is_admin():
                 cur.execute("""
-                    SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id
+                    SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id, c.issued_via
                     FROM certificates c
                     ORDER BY c.id DESC
                 """)
             else:
                 cur.execute("""
-                    SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id
+                    SELECT c.id, c.subject, c.serial, c.revoked, c.cert_pem, c.user_id, c.issued_via
                     FROM certificates c
                     WHERE c.user_id = ?
                     ORDER BY c.id DESC
@@ -1265,8 +1265,8 @@ def index():
         now = datetime.now(timezone.utc)
         from user_models import get_user_by_id
         for row in rows:
-            # Now expecting 6 columns: id, subject, serial, revoked, cert_pem, user_id
-            id_, subject, serial, revoked, cert_pem, user_id = row
+            # Now expecting 7 columns: id, subject, serial, revoked, cert_pem, user_id, issued_via
+            id_, subject, serial, revoked, cert_pem, user_id, issued_via = row
             cert = x509.load_pem_x509_certificate(
                 cert_pem.encode(), default_backend()
             )
@@ -1280,7 +1280,7 @@ def index():
                 user_obj = get_user_by_id(user_id)
                 username = user_obj.username if user_obj else str(user_id)
             app.logger.trace(f"Cert ID {id_}: keycol={keycol}, expired={expired}   revoked={revoked}")
-            certs.append((id_, subject, serial, keycol, issue_date, revoked, expired, username))
+            certs.append((id_, subject, serial, keycol, issue_date, revoked, expired, username, issued_via))
 
         return render_template(
             "list_certificates.html",
@@ -1290,6 +1290,22 @@ def index():
     except Exception as e:
         app.logger.error(f"Failed to load index: {e}")
         return f"Error: {e}", 500
+
+
+@app.route("/certs/state")
+@login_required
+def certs_state():
+    """
+    Lightweight state endpoint for polling certificate changes.
+    Returns total count and max(id); clients can refresh when they change.
+    """
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            row = conn.execute("SELECT COUNT(*) as cnt, IFNULL(MAX(id), 0) as max_id FROM certificates").fetchone()
+        return jsonify({"count": row[0], "max_id": row[1]})
+    except Exception as e:
+        app.logger.error(f"Failed to fetch certificate state: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/sign")
@@ -1813,6 +1829,24 @@ def ra_policies_page():
     return render_template("ra_policies.html", policies=policies, is_admin=current_user.is_admin())
 
 
+@app.route("/ra_policies/state")
+@login_required
+def ra_policies_state():
+    try:
+        if current_user.is_admin():
+            query = "SELECT COUNT(*) as cnt, IFNULL(MAX(id),0) as max_id FROM ra_policies"
+            params = ()
+        else:
+            query = "SELECT COUNT(*) as cnt, IFNULL(MAX(id),0) as max_id FROM ra_policies WHERE type='user' AND user_id = ?"
+            params = (current_user.id,)
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            row = conn.execute(query, params).fetchone()
+        return jsonify({"count": row[0], "max_id": row[1]})
+    except Exception as e:
+        app.logger.error(f"Failed to fetch RA policy state: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 def _get_profile_options():
     if current_user.is_admin():
         return Profile.query.order_by(Profile.id.desc()).all()
@@ -1951,12 +1985,12 @@ def view_certificate(cert_id):
             conn.row_factory = sqlite3.Row
             if current_user.is_admin():
                 cur = conn.execute(
-                    "SELECT id, subject, serial, revoked, cert_pem FROM certificates WHERE id = ?",
+                    "SELECT id, subject, serial, revoked, cert_pem, issued_via FROM certificates WHERE id = ?",
                     (cert_id,)
                 )
             else:
                 cur = conn.execute(
-                    "SELECT id, subject, serial, revoked, cert_pem FROM certificates WHERE id = ? AND user_id = ?",
+                    "SELECT id, subject, serial, revoked, cert_pem, issued_via FROM certificates WHERE id = ? AND user_id = ?",
                     (cert_id, current_user.id)
                 )
             row = cur.fetchone()
@@ -1977,7 +2011,8 @@ def view_certificate(cert_id):
             "view.html",
             cert_details=cert_details,
             raw_cert=raw_cert,
-            cert_text=cert_text
+            cert_text=cert_text,
+            issued_via=row["issued_via"] if row and "issued_via" in row.keys() else "unknown"
         )
     except Exception as e:
         app.logger.exception("Failed to view certificate")
@@ -2141,8 +2176,10 @@ def submit():
 
     # Save to database
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
-                     (subject_str, actual_serial, cert_pem, current_user.id))
+        conn.execute(
+            "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
+            (subject_str, actual_serial, cert_pem, current_user.id, 'ui')
+        )
     
     flash(f"Certificate signed successfully! Serial: {actual_serial}", "success")
     return redirect("/")
@@ -2211,8 +2248,10 @@ def submit_q():
     serial_hex = hex(x509.random_serial_number())
     from flask_login import current_user
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
-                     (subject_str, serial_hex, full_chain_pem, current_user.id))
+        conn.execute(
+            "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
+            (subject_str, serial_hex, full_chain_pem, current_user.id, 'ui')
+        )
     os.unlink(csr_filename)
     os.unlink(cert_filename)
     return redirect("/")
@@ -2783,8 +2822,8 @@ def est_enroll():
     
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         conn.execute(
-            "INSERT INTO certificates (subject, serial, cert_pem, user_id) VALUES (?, ?, ?, ?)",
-            (subject_str, actual_serial, cert_pem, user_id)
+            "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
+            (subject_str, actual_serial, cert_pem, user_id, 'est')
         )
 
     # 5) Write the signed cert to a file (for pkcs7 conversion)

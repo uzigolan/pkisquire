@@ -199,7 +199,28 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', initPagination);
+    let lastKeyState = null;
+
+    async function pollKeyState() {
+      try {
+        const res = await fetch('/keys/state', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (lastKeyState && (data.count !== lastKeyState.count || data.max_id !== lastKeyState.max_id)) {
+          window.location.reload();
+          return;
+        }
+        lastKeyState = data;
+      } catch (err) {
+        console.debug('key-state poll failed', err);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initPagination();
+      pollKeyState();
+      setInterval(pollKeyState, 7000);
+    });
   </script>
 {% endblock %}
 

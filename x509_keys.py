@@ -3,7 +3,7 @@ import io
 import subprocess
 import tempfile
 from datetime import datetime
-from flask import Blueprint, request, render_template, redirect, url_for, flash, send_file, make_response
+from flask import Blueprint, request, render_template, redirect, url_for, flash, send_file, make_response, jsonify
 from flask_login import login_required, current_user
 from extensions import db
 from openssl_utils import get_provider_args, is_pqc_available
@@ -225,6 +225,17 @@ def list_keys():
     return render_template("list_keys.html", keys=local_keys, is_admin=current_user.is_admin())
 
 
+@x509_keys_bp.route("/keys/state", methods=["GET"])
+@login_required
+def keys_state():
+    admin = current_user.is_authenticated and (current_user.is_admin() if callable(getattr(current_user, "is_admin", None)) else getattr(current_user, "is_admin", False))
+    query = Key.query
+    if not admin:
+        query = query.filter_by(user_id=current_user.id)
+    count = query.count()
+    max_id_row = query.order_by(Key.id.desc()).with_entities(Key.id).first()
+    max_id = max_id_row[0] if max_id_row else 0
+    return jsonify({"count": count, "max_id": max_id})
 
 
 @x509_keys_bp.route("/keys/<int:key_id>", methods=["GET"])

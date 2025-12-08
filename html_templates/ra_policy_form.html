@@ -1,15 +1,15 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">{{ 'Edit Policy' if mode == 'edit' else 'New Policy' }}</h1>
+  <h1 class="mb-4">{{ 'Edit Enrollment Policy' if mode == 'edit' else 'New Enrollment Policy' }}</h1>
   <form method="POST">
     {% if mode == 'new' %}
     <div class="form-group">
-      <label for="name">Policy Name</label>
+      <label for="name">Enrollment Policy Name</label>
       <input type="text" class="form-control" id="name" name="name" placeholder="my_policy" required>
     </div>
     {% else %}
     <div class="form-group">
-      <label>Policy Name</label>
+      <label>Enrollment Policy Name</label>
       <input type="text" class="form-control" value="{{ policy.name }}" disabled>
     </div>
     {% endif %}
@@ -22,7 +22,7 @@
     {% if is_admin %}
     <div class="form-check mb-3">
       <input class="form-check-input" type="checkbox" id="is_system" name="is_system" {% if policy and policy.type == 'system' %}checked{% endif %} {% if policy and policy.type == 'system' %}{% endif %}>
-      <label class="form-check-label" for="is_system">System policy (visible to all)</label>
+      <label class="form-check-label" for="is_system">System enrollment policy (visible to all)</label>
     </div>
     <div class="form-check mb-2">
       <input class="form-check-input" type="checkbox" id="is_est_default" name="is_est_default" {% if policy and policy.is_est_default %}checked{% endif %}>
@@ -35,10 +35,10 @@
     {% endif %}
 
     <div class="form-group">
-      <label for="profile_name">Load extension from profile (optional)</label>
+      <label for="profile_name">Load extension from certificate template (optional)</label>
       <div class="input-group mb-2">
         <select class="form-control" name="profile_name" id="profile_name">
-          <option value="">-- Select profile --</option>
+          <option value="">-- Select certificate template --</option>
           {% for p in profiles %}
             <option value="{{ p.name }}">{{ p.name }}</option>
           {% endfor %}

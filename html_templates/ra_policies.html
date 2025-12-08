@@ -2,11 +2,11 @@
 {% block content %}
   <div class="d-flex align-items-center mb-3">
     <div>
-      <h1 class="mb-0">Signing Policies</h1>
+      <h1 class="mb-0">Enrollment Policies</h1>
       <p class="text-muted mb-0">Policies include extension config and validity; future fields like restrictions will appear here.</p>
     </div>
     <div class="ml-auto">
-      <a href="{{ url_for('ra_policy_new') }}" class="btn btn-primary">Generate New Policy</a>
+      <a href="{{ url_for('ra_policy_new') }}" class="btn btn-primary">Generate New Enrollment Policy</a>
     </div>
   </div>
   {% if policies %}
@@ -49,10 +49,10 @@
                 <span class="badge badge-dark">System</span>
               {% endif %}
               {% if p.is_est_default %}
-                <span class="badge badge-warning" style="color:#212529;">EST</span>
+                <span class="badge" style="background-color: green; color: white;">EST</span>
               {% endif %}
               {% if p.is_scep_default %}
-                <span class="badge badge-info">SCEP</span>
+                <span class="badge" style="background-color: purple; color: white;">SCEP</span>
               {% endif %}
             </td>
             {% if is_admin %}<td>{{ p.user_name if p.user_name else '-' }}</td>{% endif %}
@@ -88,6 +88,7 @@
     let allRows = [];
     let currentPage = 1;
     let pageSize = 10;
+    let lastPolicyState = null;
 
     function collectRows() {
       const tbody = document.querySelector('#policyTable tbody');
@@ -134,9 +135,26 @@
       }
     }
 
+    async function pollPolicyState() {
+      try {
+        const res = await fetch('/ra_policies/state', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (lastPolicyState && (data.count !== lastPolicyState.count || data.max_id !== lastPolicyState.max_id)) {
+          window.location.reload();
+          return;
+        }
+        lastPolicyState = data;
+      } catch (err) {
+        console.debug('policy-state poll failed', err);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
       collectRows();
       showPage(1);
+      pollPolicyState();
+      setInterval(pollPolicyState, 7000);
     });
   </script>
 {% endblock %}

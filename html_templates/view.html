@@ -1,6 +1,13 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">Certificate Details</h1>
+  {% set via = issued_via|default("unknown") %}
+  {% set via_color = 'green' if via=='est' else ('purple' if via=='scep' else '#0d6efd') %}
+  <h1 class="mb-4 d-flex align-items-center">
+    <span class="mr-3">Certificate Details</span>
+    <span class="badge" style="background-color: {{ via_color }}; color: white;">
+      Issued via: {{ via|upper }}
+    </span>
+  </h1>
   <div class="row">
     <div class="col-md-6">
       <h4>Certificate Summary</h4>

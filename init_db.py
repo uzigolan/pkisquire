@@ -35,6 +35,7 @@ def main():
         subject TEXT,
         serial TEXT,
         cert_pem TEXT,
+        issued_via TEXT CHECK(issued_via IN ('ui','scep','est','manual','unknown')) DEFAULT 'unknown',
         revoked INTEGER DEFAULT 0,
         user_id INTEGER
     )''')

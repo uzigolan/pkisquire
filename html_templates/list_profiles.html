@@ -1,8 +1,8 @@
 {% extends "layout.html" %}
 {% block content %}
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Profile Files</h2>
-    <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-success">Generate New Profile</a>
+    <h2>Certificate Templates</h2>
+    <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-success">Generate New Certificate Template</a>
   </div>
   {% if profiles %}
   <div class="d-flex justify-content-between align-items-center mb-3">
@@ -26,7 +26,7 @@
       id="filterInput"
       class="form-control mb-3"
       onkeyup="filterTable()"
-      placeholder="Filter by Profile Name, Template, Type, or Date">
+      placeholder="Filter by Template Name, Source, Type, or Date">
   </div>
   <table id="profileTable" class="table table-hover">
     <thead class="thead-dark">
@@ -199,7 +199,28 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', initPagination);
+    let lastProfileState = null;
+
+    async function pollProfileState() {
+      try {
+        const res = await fetch('/profiles/state', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (lastProfileState && (data.count !== lastProfileState.count || data.max_id !== lastProfileState.max_id)) {
+          window.location.reload();
+          return;
+        }
+        lastProfileState = data;
+      } catch (err) {
+        console.debug('profile-state poll failed', err);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initPagination();
+      pollProfileState();
+      setInterval(pollProfileState, 7000);
+    });
   </script>
 {% endblock %}
 

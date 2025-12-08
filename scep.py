@@ -222,11 +222,12 @@ def scep():
       DB_PATH           = current_app.config['DB_PATH']
       with sqlite3.connect(DB_PATH) as conn:
         conn.execute(
-          "INSERT INTO certificates (subject, serial, cert_pem) VALUES (?,?,?)",
+          "INSERT INTO certificates (subject, serial, cert_pem, issued_via) VALUES (?,?,?,?)",
           (  # reuse your subject_str logic here if needed
             subject_str,
             actual_serial,
-            cert_pem
+            cert_pem,
+            'scep'
           )
         )
         conn.commit()

@@ -13,6 +13,41 @@ Get-Process python -ErrorAction SilentlyContinue |
 Get-Job -Name "FlaskServer" -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2
 
+function Get-ConfigValue {
+    param (
+        [string]$ConfigPath,
+        [string]$Section,
+        [string]$Key
+    )
+    $inSection = $false
+    foreach ($line in Get-Content $ConfigPath) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match "^\[" + [regex]::Escape($Section) + "\]") {
+            $inSection = $true
+            continue
+        }
+        if ($trimmed -match "^\[.*\]") {
+            $inSection = $false
+            continue
+        }
+        if ($inSection -and $trimmed -match "^" + [regex]::Escape($Key) + "\s*=\s*(.+)") {
+            return $matches[1].Trim()
+        }
+    }
+    return $null
+}
+
+$configFile = "config.ini"
+$httpPort    = Get-ConfigValue $configFile "DEFAULT" "http_port"
+$httpsPort   = Get-ConfigValue $configFile "HTTPS" "port"
+$trustedPort = Get-ConfigValue $configFile "TRUSTED_HTTPS" "trusted_port"
+$scepPort    = Get-ConfigValue $configFile "SCEP" "http_port"
+
+if (-not $httpPort)    { $httpPort = 5000 }
+if (-not $httpsPort)   { $httpsPort = 443 }
+if (-not $trustedPort) { $trustedPort = 4443 }
+if (-not $scepPort)    { $scepPort = $httpPort }
+
 # Clear Python cache to avoid stale .pyc files
 Write-Host "[*] Clearing Python cache..." -ForegroundColor Cyan
 Remove-Item -Recurse -Force __pycache__ -ErrorAction SilentlyContinue
@@ -40,7 +75,7 @@ if (Test-Path $logFile) {
 }
 
 # Start the server
-Write-Host "[*] Starting Flask server on port 8090..." -ForegroundColor Cyan
+Write-Host "[*] Starting Flask server (HTTP $httpPort / HTTPS $httpsPort)..." -ForegroundColor Cyan
 $env:PATH = "C:\Program Files\OpenSSL-Win64\bin;" + $env:PATH
 $env:VAULT_ROLE_ID = "99e58006-875b-9d19-a591-1d69dcebea15"
 $env:VAULT_SECRET_ID = "a30235f6-3cd1-7080-d25a-bba644933d48"
@@ -60,6 +95,8 @@ Start-Job -Name "FlaskServer" -ScriptBlock {
 Start-Sleep -Seconds 3
 
 Write-Host "[+] Server started!" -ForegroundColor Green
-Write-Host "    SCEP endpoint: http://localhost:8090/scep" -ForegroundColor Yellow
-Write-Host "    Web UI: https://localhost:5000" -ForegroundColor Yellow
+Write-Host "    SCEP endpoint: http://localhost:$scepPort/scep" -ForegroundColor Yellow
+Write-Host "    Web UI (HTTP):  http://localhost:$httpPort" -ForegroundColor Yellow
+Write-Host "    Web UI (HTTPS): https://localhost:$httpsPort" -ForegroundColor Yellow
+Write-Host "    Trusted HTTPS:  https://localhost:$trustedPort" -ForegroundColor Yellow
 Write-Host ""

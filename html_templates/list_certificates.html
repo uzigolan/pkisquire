@@ -39,13 +39,14 @@
             <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">⇅</span></th>
             <th style="cursor:pointer;" onclick="sortTable(4)">Date (UTC) <span id="sort-4">⇅</span></th>
             <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">⇅</span></th>
-            {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(6)">User <span id="sort-6">⇅</span></th>{% endif %}
+            <th>Enrollment Method</th>
+            {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(7)">User <span id="sort-7">⇅</span></th>{% endif %}
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {# Now unpack in the same order you built the tuple: #}
-          {% for id, subject, serial, keycol, date, revoked, expired, username in certs %}
+          {% for id, subject, serial, keycol, date, revoked, expired, username, issued_via in certs %}
           <tr>
             <td>{{ id }}</td>
             <td>
@@ -75,6 +76,13 @@
               {% else %}
                 <span style="color: green;">Valid</span>
               {% endif %}
+            </td>
+            {% set via = issued_via|default('unknown') %}
+            {% set via_color = 'green' if via=='est' else ('purple' if via=='scep' else '#0d6efd') %}
+            <td>
+              <span class="badge" style="background-color: {{ via_color }}; color: white;">
+                {{ via|upper }}
+              </span>
             </td>
             {% if is_admin %}
               <td>{{ username if username else 'N/A' }}</td>
@@ -119,6 +127,7 @@
 
   <script>
     let sortDirections = {}; // Track sort direction for each column
+    let lastCertState = null;
 
     function copyToClipboard(text, element) {
       navigator.clipboard.writeText(text).then(() => {
@@ -308,6 +317,26 @@
 
     // Initialize pagination on page load
     window.addEventListener('DOMContentLoaded', initPagination);
+
+    async function pollCertState() {
+      try {
+        const res = await fetch('/certs/state', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (lastCertState && (data.count !== lastCertState.count || data.max_id !== lastCertState.max_id)) {
+          window.location.reload();
+          return;
+        }
+        lastCertState = data;
+      } catch (err) {
+        console.debug('cert-state poll failed', err);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      pollCertState();
+      setInterval(pollCertState, 7000);
+    });
 
     function handleRevoke(certId) {
       // 1) Confirm
