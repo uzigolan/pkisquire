@@ -32,12 +32,11 @@
       <option value="25" {% if page_size==25 %}selected{% endif %}>25</option>
       <option value="50" {% if page_size==50 %}selected{% endif %}>50</option>
     </select>
+    <span class="ml-2" id="pageInfo">Page {{ page }}</span>
   </form>
   <div>
-    {% if page > 1 %}
-      <a href="?{{ prev_query|urlencode }}" class="btn btn-sm btn-secondary mr-2">&lt; Previous</a>
-    {% endif %}
-    <a href="?{{ next_query|urlencode }}" class="btn btn-sm btn-secondary">Next &gt;</a>
+    <a href="?{{ prev_query|urlencode }}" class="btn btn-sm btn-outline-secondary mr-2" {% if page <= 1 %}disabled{% endif %}>&larr; Previous</a>
+    <a href="?{{ next_query|urlencode }}" class="btn btn-sm btn-outline-secondary" {% if events|length < page_size %}disabled{% endif %}>Next &rarr;</a>
   </div>
 </div>
 
