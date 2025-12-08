@@ -1,0 +1,131 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Manage Events</h2>
+
+<form method="get" class="form-inline mb-3">
+  <input type="text" name="resource_type" class="form-control mr-2" placeholder="Resource Type" value="{{ request.args.get('resource_type', '') }}">
+  <input type="text" name="event_type" class="form-control mr-2" placeholder="Event Type" value="{{ request.args.get('event_type', '') }}">
+  <input type="text" name="resource_name" class="form-control mr-2" placeholder="Resource Name" value="{{ request.args.get('resource_name', '') }}">
+  <button type="submit" class="btn btn-primary mr-2">Filter</button>
+  {% set has_filter = request.args.get('resource_type') or request.args.get('event_type') or request.args.get('resource_name') %}
+  <a href="?" class="btn btn-secondary{% if not has_filter %} disabled{% endif %}" {% if not has_filter %}aria-disabled="true" tabindex="-1"{% endif %}>Clear</a>
+</form>
+
+{% set base_query = request.args.to_dict() %}
+{% set _ = base_query.update({'sort': sort, 'direction': direction, 'page_size': page_size}) %}
+{% set prev_query = base_query.copy() %}
+{% set next_query = base_query.copy() %}
+{% set _ = prev_query.update({'page': page-1}) %}
+{% set _ = next_query.update({'page': page+1}) %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <form method="get" class="form-inline mb-0">
+    {% for k, v in base_query.items() %}
+      {% if k != 'page_size' %}
+        <input type="hidden" name="{{ k }}" value="{{ v }}">
+      {% endif %}
+    {% endfor %}
+    <input type="hidden" name="page" value="1">
+    <label for="pageSizeSelect" class="mr-2">Show:</label>
+    <select id="pageSizeSelect" name="page_size" class="form-control form-control-sm mr-2" onchange="this.form.submit();">
+      <option value="10" {% if page_size==10 %}selected{% endif %}>10</option>
+      <option value="25" {% if page_size==25 %}selected{% endif %}>25</option>
+      <option value="50" {% if page_size==50 %}selected{% endif %}>50</option>
+    </select>
+  </form>
+  <div>
+    {% if page > 1 %}
+      <a href="?{{ prev_query|urlencode }}" class="btn btn-sm btn-secondary mr-2">&lt; Previous</a>
+    {% endif %}
+    <a href="?{{ next_query|urlencode }}" class="btn btn-sm btn-secondary">Next &gt;</a>
+  </div>
+</div>
+
+<table class="table table-bordered table-striped">
+  <thead>
+    <tr>
+      {% set sort_icon = {'asc': '^', 'desc': 'v'} %}
+      {% set sortable_columns = [('timestamp', 'Time'), ('user_id', 'User'), ('event_type', 'Event Type'), ('resource_type', 'Resource Type'), ('resource_name', 'Resource Name'), ('details', 'Details')] %}
+      {% for col, label in sortable_columns %}
+        <th>
+          {% set header_query = request.args.to_dict() %}
+          {% set _ = header_query.pop('page', None) %}
+          {% set new_dir = 'desc' if sort == col and direction == 'asc' else 'asc' %}
+          {% set _ = header_query.update({'sort': col, 'direction': new_dir, 'page': 1}) %}
+          <a href="?{{ header_query|urlencode }}" style="text-decoration:none; color:inherit;">
+            {{ label }}
+            {% if sort == col %}<span style="font-size:0.9em;">{{ sort_icon[direction] }}</span>{% endif %}
+          </a>
+        </th>
+      {% endfor %}
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for event in events %}
+    <tr>
+      <td>{{ event[5] }}</td>
+      <td>{{ event[4] }}</td>
+      <td>
+        {% if event[1] == 'create' %}
+          <span class="badge badge-success">Create</span>
+        {% elif event[1] == 'delete' %}
+          <span class="badge badge-danger">Delete</span>
+        {% elif event[1] == 'revoke' %}
+          <span class="badge badge-warning">Revoke</span>
+        {% elif event[1] == 'update' %}
+          <span class="badge badge-info">Update</span>
+        {% else %}
+          <span class="badge badge-secondary">{{ event[1] }}</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if event[2] == 'certificate' %}
+          <span class="badge badge-primary">Certificate</span>
+        {% elif event[2] == 'policy' %}
+          <span class="badge badge-dark">Policy</span>
+        {% else %}
+          <span class="badge badge-secondary">{{ event[2] }}</span>
+        {% endif %}
+      </td>
+      <td><span style="font-family: monospace;">{{ event[3] }}</span></td>
+      <td>{{ event[6] }}</td>
+      <td><a href="{{ url_for('events.event_detail', event_id=event[0]) }}" class="btn btn-sm btn-outline-info">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="pagination mb-3">
+  {% if page > 1 %}
+    <a href="?{{ prev_query|urlencode }}" class="btn btn-secondary btn-sm mr-2">&lt; Previous</a>
+  {% endif %}
+  <span class="mr-2">Page {{ page }}</span>
+  <a href="?{{ next_query|urlencode }}" class="btn btn-secondary btn-sm mr-2">Next &gt;</a>
+</div>
+
+<div class="mt-3">
+  <div style="margin-bottom: 6px;"><strong>Legend:</strong></div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 12px 32px; max-width: 900px;">
+    <div>
+      <div style="font-weight: 600;">Event Types</div>
+      <div><span class="badge badge-success">Create</span> Create</div>
+      <div><span class="badge badge-danger">Delete</span> Delete</div>
+      <div><span class="badge badge-warning">Revoke</span> Revoke</div>
+      <div><span class="badge badge-info">Update</span> Update</div>
+    </div>
+    <div>
+      <div style="font-weight: 600;">Resource Types</div>
+      <div><span class="badge badge-primary">Certificate</span> Certificate</div>
+      <div><span class="badge badge-dark">Policy</span> Policy</div>
+      <div><span class="badge badge-info">Key</span> Key</div>
+      <div><span class="badge badge-warning">Profile</span> Profile</div>
+      <div><span class="badge badge-secondary">Challenge Password</span> Challenge Password</div>
+    </div>
+    <div>
+      <div style="font-weight: 600;">Other</div>
+      <div><span class="badge badge-secondary">Other</span> Other/Unknown</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

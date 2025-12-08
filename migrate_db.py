@@ -66,6 +66,19 @@ def migrate_db():
         revoked INTEGER DEFAULT 0,
         user_id INTEGER
     )''')
+
+    # Events table
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS events (
+        event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        resource_type TEXT NOT NULL,
+        resource_name TEXT,
+        user_id TEXT NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        details TEXT
+    )
+    ''')
     cur.execute('''CREATE TABLE IF NOT EXISTS profiles (
         id INTEGER NOT NULL,
         filename VARCHAR(255) NOT NULL,

@@ -54,6 +54,19 @@ def main():
         user_id INTEGER
     )''')
 
+    # Events table
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS events (
+        event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        resource_type TEXT NOT NULL,
+        resource_name TEXT,
+        user_id TEXT NOT NULL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        details TEXT
+    )
+    ''')
+
     # Profiles table
     cur.execute('''CREATE TABLE IF NOT EXISTS profiles (
         id INTEGER NOT NULL,

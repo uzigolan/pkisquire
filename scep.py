@@ -295,27 +295,43 @@ def scep():
       with sqlite3.connect(DB_PATH) as conn:
         # Store user_id if available
         if challenge_user_id is not None:
-          conn.execute(
-            "INSERT INTO certificates (subject, serial, cert_pem, issued_via, user_id) VALUES (?,?,?,?,?)",
-            (
-              subject_str,
-              actual_serial,
-              cert_pem,
-              'scep',
-              challenge_user_id
+            conn.execute(
+                "INSERT INTO certificates (subject, serial, cert_pem, issued_via, user_id) VALUES (?,?,?,?,?)",
+                (
+                    subject_str,
+                    actual_serial,
+                    cert_pem,
+                    'scep',
+                    challenge_user_id
+                )
             )
-          )
         else:
-          conn.execute(
-            "INSERT INTO certificates (subject, serial, cert_pem, issued_via) VALUES (?,?,?,?)",
-            (
-              subject_str,
-              actual_serial,
-              cert_pem,
-              'scep'
+            conn.execute(
+                "INSERT INTO certificates (subject, serial, cert_pem, issued_via) VALUES (?,?,?,?)",
+                (
+                    subject_str,
+                    actual_serial,
+                    cert_pem,
+                    'scep'
+                )
             )
-          )
         conn.commit()
+
+      # Log event for SCEP certificate issuance
+      try:
+        from events import log_event
+        log_event(
+          event_type="create",
+          resource_type="certificate",
+          resource_name=actual_serial,
+          user_id=challenge_user_id if challenge_user_id is not None else "scep",
+          details={
+            "subject": subject_str,
+            "issued_via": "scep"
+          }
+        )
+      except Exception as e:
+        current_app.logger.error(f"Failed to log SCEP certificate event: {e}")
 
       # cleanup CSR + cert files
       os.unlink(csr_tmp.name)
