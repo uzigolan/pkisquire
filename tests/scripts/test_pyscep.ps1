@@ -1,3 +1,8 @@
+$challengeEnabled = Get-ConfigValue $CONFIG_PATH "SCEP" "challenge_password_enabled"
+if ($challengeEnabled -eq $null -or $challengeEnabled.ToLower() -ne "false") {
+    Write-Host "[SKIP] challenge_password_enabled is not false in config.ini ([SCEP] challenge_password_enabled=$challengeEnabled)" -ForegroundColor Yellow
+    exit 0
+}
 # Python SCEP Testing Script - Core 3 Operations Only
 # Tests Python SCEP client with GetCaps, GetCA, and Enroll
 # All outputs go to tests folder

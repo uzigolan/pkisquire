@@ -67,9 +67,12 @@ def log_scep_request():
 @scep_app.route('/cgi-bin/pkiclient.exe', methods=['GET', 'POST'])
 @scep_app.route('/scep', methods=['GET', 'POST'])
 def scep():
+  # In-memory set for consumed challenge passwords (erased on server restart)
+  if not hasattr(scep, "_used_challenge_passwords"):
+      scep._used_challenge_passwords = set()
   if not current_app.config.get('SCEP_ENABLED', True):
-    current_app.logger.debug("SCEP disabled by configuration")
-    return abort(404)
+      current_app.logger.debug("SCEP disabled by configuration")
+      return abort(404)
   current_app.logger.debug("Entering SCEP endpoint")
   op = request.args.get('operation')
   current_app.logger.info("SCEP operation=%s, method=%s", op, request.method)
@@ -135,6 +138,7 @@ def scep():
       open(fn,'wb').write(raw)
       current_app.logger.debug("Dumped raw request to %s", fn)
 
+
     # 2) parse & decrypt to get the DER CSR
     req     = SCEPMessage.parse(raw)
     der_csr = req.get_decrypted_envelope_data(ca.certificate, ca.private_key)
@@ -145,6 +149,54 @@ def scep():
       fn = os.path.join(dump_dir, dump_prefix + '.csr')
       open(fn,'wb').write(der_csr)
       current_app.logger.debug("Dumped CSR to %s", fn)
+
+    # Challenge password validation using OpenSSL
+    challenge_enabled = current_app.config.get('SCEP_CHALLENGE_PASSWORD_ENABLED', False)
+    if challenge_enabled and req.message_type in (MessageType.PKCSReq, MessageType.RenewalReq):
+      import tempfile
+      with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as tmp_csr:
+        tmp_csr.write(der_csr)
+        temp_csr_path = tmp_csr.name
+      try:
+        openssl_cmd = [
+          "openssl", "req", "-in", temp_csr_path, "-inform", "DER", "-noout", "-text"
+        ]
+        result = subprocess.run(openssl_cmd, capture_output=True, text=True)
+        challenge_value = None
+        if result.returncode == 0:
+          for line in result.stdout.splitlines():
+            if "challengePassword" in line:
+              challenge_value = line.split(":", 1)[-1].strip()
+              current_app.logger.info(f"Extracted challengePassword via OpenSSL: {challenge_value}")
+              break
+        if not challenge_value:
+          current_app.logger.error("Failed to extract challengePassword from CSR using OpenSSL.")
+          os.unlink(temp_csr_path)
+          return abort(400, "Missing or invalid challengePassword in CSR")
+
+        # Require challenge password to match an available entry in CHALLENGE_PASSWORDS
+        import sys
+        challenge_passwords_list = getattr(sys.modules[current_app.import_name], "CHALLENGE_PASSWORDS", None)
+        found_entry = None
+        if challenge_passwords_list is not None:
+          for entry in challenge_passwords_list:
+            if entry.get('value') == challenge_value:
+              found_entry = entry
+              break
+        if not found_entry:
+          current_app.logger.error(f"Challenge password {challenge_value} not found in server list.")
+          os.unlink(temp_csr_path)
+          return abort(400, "Challenge password not recognized or expired")
+        if found_entry.get('consumed'):
+          current_app.logger.error(f"Challenge password {challenge_value} already consumed.")
+          os.unlink(temp_csr_path)
+          return abort(400, "Challenge password already used")
+        # Mark as consumed
+        found_entry['consumed'] = True
+        scep._used_challenge_passwords.add(challenge_value)
+      finally:
+        if os.path.exists(temp_csr_path):
+          os.unlink(temp_csr_path)
 
     # only handle PKCSReq or RenewalReq
     if req.message_type in (MessageType.PKCSReq, MessageType.RenewalReq):
@@ -307,4 +359,3 @@ def mobileconfig():
 
     data = plistlib.dumps(payload)
     return Response(data, content_type='application/x-apple-aspen-config')
-

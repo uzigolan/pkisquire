@@ -233,6 +233,13 @@ def template_form():
 @x509_profiles_bp.route("/profiles/", methods=["GET"])
 @login_required
 def list_profiles():
+    def ra_policies():
+        from flask import current_app
+        challenge_password_enabled = current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
+        # You may need to fetch policies and is_admin as in your actual route logic
+        policies = []  # Placeholder, replace with actual fetch
+        is_admin = current_user.is_admin() if current_user.is_authenticated else False
+        return render_template("ra_policies.html", policies=policies, is_admin=is_admin, challenge_password_enabled=challenge_password_enabled)
     if current_user.is_authenticated and current_user.is_admin():
         profiles = Profile.query.order_by(Profile.id.desc()).all()
         from user_models import get_user_by_id
@@ -244,7 +251,9 @@ def list_profiles():
         for p in profiles:
             p.user_obj = current_user
         is_admin = False
-    return render_template("list_profiles.html", profiles=profiles, is_admin=is_admin)
+    from flask import current_app
+    challenge_password_enabled = current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
+    return render_template("list_profiles.html", profiles=profiles, is_admin=is_admin, challenge_password_enabled=challenge_password_enabled)
 
 
 @x509_profiles_bp.route("/profiles/state", methods=["GET"])

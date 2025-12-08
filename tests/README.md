@@ -519,3 +519,15 @@ This test suite provides comprehensive validation of:
 - ✅ **OCSP Protocol**: Certificate status validation with known and unknown certificates
 
 All protocols support anonymous operations (no authentication required) for testing and automated enrollment scenarios.
+
+---
+
+## SCEP Challenge Password Support (Testing)
+
+- If `challenge_password_enabled = true` in `config.ini`, SCEP enrollment requires a valid, unconsumed challenge password generated via the CA web UI.
+- The test scripts `test_sscep.ps1` and `test_pyscep.ps1` will automatically skip execution if challenge password support is enabled, since they do not embed or manage challenge passwords.
+- To test SCEP enrollment with challenge passwords, use the web UI to generate a password, embed it in your CSR, and run the enrollment manually or with a custom script.
+- If `challenge_password_enabled = false`, the test scripts will run all SCEP operations as usual.
+- EST and OCSP tests are not affected by the challenge password setting.
+
+---

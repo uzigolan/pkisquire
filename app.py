@@ -290,6 +290,8 @@ vault_client = None
 app.config["SCEP_ENABLED"]   = _cfg.getboolean("SCEP", "enabled", fallback=True)
 app.config["SCEP_SERIAL_PATH"] = _cfg.get("SCEP", "serial_file", fallback=None)
 app.config["SCEPY_DUMP_DIR"]   = _cfg.get("SCEP", "dump_dir", fallback=None)
+app.config["SCEP_CHALLENGE_PASSWORD_ENABLED"] = _cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False)
+app.config["SCEP_CHALLENGE_PASSWORD_VALIDITY"] = _cfg.get("SCEP", "challenge_password_validity", fallback="60m")
 HTTP_SCEP_PORT                = _cfg.getint("SCEP", "http_port", fallback=9090)
 
 # —— HTTPS section —— 
@@ -715,6 +717,77 @@ def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
 
     # 5) ultimate fallback
     return algo or "Unknown"
+
+
+
+# --- In-memory challenge-password store (cleared on restart) ---
+CHALLENGE_PASSWORDS = []  # Each entry: {value, user, created_at, expires_at}
+
+
+
+# --- Challenge Passwords AJAX Data Route ---
+@app.route('/challenge_passwords/data', methods=['GET'])
+@login_required
+def challenge_passwords_data():
+    # Return the current challenge password list as JSON
+    return jsonify([{
+        'value': entry['value'],
+        'user': entry.get('user', ''),
+        'created_at': entry.get('created_at', ''),
+        'expires_at': entry.get('expires_at', ''),
+        'consumed': entry.get('consumed', False)
+    } for entry in CHALLENGE_PASSWORDS])
+
+
+
+# --- Challenge Password Management UI ---
+@app.route('/challenge_passwords', methods=['GET', 'POST'])
+@login_required
+def challenge_passwords():
+    import secrets, datetime
+    validity_str = app.config.get('SCEP_CHALLENGE_PASSWORD_VALIDITY', '60m')
+    # Parse validity string (e.g., 60m, 2h, 1d)
+    import re
+    m = re.match(r'^(\d+)([mhd])$', validity_str)
+    if m:
+        num, unit = int(m.group(1)), m.group(2)
+        if unit == 'm':
+            delta = datetime.timedelta(minutes=num)
+        elif unit == 'h':
+            delta = datetime.timedelta(hours=num)
+        elif unit == 'd':
+            delta = datetime.timedelta(days=num)
+        else:
+            delta = datetime.timedelta(minutes=60)
+    else:
+        delta = datetime.timedelta(minutes=60)
+    from flask import redirect, url_for, session
+    generated = None
+    if request.method == 'POST':
+        now = datetime.datetime.utcnow()
+        expires_at = now + delta
+        value = secrets.token_bytes(16).hex().upper()
+        entry = {
+            'value': value,
+            'user': current_user.username,
+            'created_at': now.strftime('%Y-%m-%d %H:%M:%S UTC'),
+            'expires_at': expires_at.strftime('%Y-%m-%d %H:%M:%S UTC'),
+        }
+        CHALLENGE_PASSWORDS.append(entry)
+        session['generated_challenge_password'] = entry
+        return redirect(url_for('challenge_passwords'))
+    generated = session.pop('generated_challenge_password', None)
+    # Add 'consumed' field to each entry if not present
+    for entry in CHALLENGE_PASSWORDS:
+        if 'consumed' not in entry:
+            entry['consumed'] = False
+    return render_template('challenge_passwords.html',
+        generated=generated,
+        challenge_passwords=CHALLENGE_PASSWORDS,
+        is_admin=current_user.is_admin())
+
+
+
 
 @app.route('/toggle_user_active/<int:user_id>', methods=['POST'])
 @login_required
@@ -1826,7 +1899,9 @@ def ra_policies_page():
         policies = mgr.list_all_policies()
     else:
         policies = mgr.list_policies_for_user(current_user.id, include_system=False)
-    return render_template("ra_policies.html", policies=policies, is_admin=current_user.is_admin())
+    from flask import current_app
+    challenge_password_enabled = current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
+    return render_template("ra_policies.html", policies=policies, is_admin=current_user.is_admin(), challenge_password_enabled=challenge_password_enabled)
 
 
 @app.route("/ra_policies/state")

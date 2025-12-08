@@ -2,7 +2,10 @@
 {% block content %}
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Certificate Templates</h2>
-    <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-success">Generate New Certificate Template</a>
+    <div>
+      <a href="/challenge_passwords" class="btn btn-warning mr-2{% if not challenge_password_enabled %} disabled text-muted{% endif %}" tabindex="{% if not challenge_password_enabled %}-1{% endif %}" aria-disabled="{% if not challenge_password_enabled %}true{% endif %}">Challenge Passwords</a>
+      <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-success">Generate New Certificate Template</a>
+    </div>
   </div>
   {% if profiles %}
   <div class="d-flex justify-content-between align-items-center mb-3">

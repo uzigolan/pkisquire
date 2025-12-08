@@ -139,7 +139,6 @@ tail -f logs/server.log | grep -i vault
 │                  │         │  ┌───────────────┐  │
 └──────────────────┘         │  │ pki-subca-ec  │  │
                              │  │  (EC keys)    │  │
-                             │  └───────────────┘  │
                              └─────────────────────┘
 ```
 
@@ -160,6 +159,26 @@ When Vault is enabled:
 For complete Vault setup, credential configuration, and troubleshooting, see:
 - **[scripts/README.md](scripts/README.md)** - Server management with Vault integration
 - **[scripts/VAULT_SCRIPTS_README.md](scripts/VAULT_SCRIPTS_README.md)** - Vault migration and setup scripts
+
+---
+
+## 🔑 SCEP Challenge Password Support
+
+Pikachu CA supports one-time challenge passwords for SCEP certificate enrollment. This feature is controlled by the `challenge_password_enabled` setting in the `[SCEP]` section of `config.ini`.
+
+- **When enabled (`challenge_password_enabled = true`)**:
+  - Only CSRs containing a valid, unconsumed challenge password (generated via the web UI) will be accepted for certificate issuance.
+  - Each challenge password can be used only once. After use, its status is marked as "Consumed" and it cannot be reused.
+  - The list of available challenge passwords is stored in server memory and is cleared on server restart.
+  - Attempts to use a missing, expired, or already consumed password will be rejected.
+  - This feature applies **only to SCEP**. EST and other protocols are not affected.
+
+- **When disabled (`challenge_password_enabled = false`)**:
+  - SCEP enrollment does not require a challenge password.
+
+**Note:**
+- Challenge password support is implemented entirely in-memory for simplicity. For persistent tracking, consider extending the implementation to use a database.
+- See `/challenge_passwords` in the web UI to generate and monitor challenge passwords.
 
 ---
 
