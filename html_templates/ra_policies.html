@@ -6,6 +6,7 @@
       <p class="text-muted mb-0">Policies include extension config and validity; future fields like restrictions will appear here.</p>
     </div>
     <div class="ml-auto">
+      <a href="/challenge_passwords" class="btn btn-warning mr-2{% if not challenge_password_enabled %} disabled text-muted{% endif %}" tabindex="{% if not challenge_password_enabled %}-1{% endif %}" aria-disabled="{% if not challenge_password_enabled %}true{% endif %}">Challenge Passwords</a>
       <a href="{{ url_for('ra_policy_new') }}" class="btn btn-primary">Generate New Enrollment Policy</a>
     </div>
   </div>

@@ -12,7 +12,7 @@ pki-https/*.key
 pki-https/*.pem
 pki-misc/*.pem
 pki-misc/*.conf
-pki-misc/*.cnf
+pki-misc/*
 pki-subca/*.key
 pki-subca/*.crt
 pki-subca/dumps/*
