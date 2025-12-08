@@ -93,6 +93,7 @@ def generate_key():
         with open(pub_path ) as f: pub_data  = f.read()
         os.unlink(priv_path); os.unlink(pub_path)
 
+
         # save to DB
         new_key = Key(
             name=key_name,
@@ -107,7 +108,18 @@ def generate_key():
         )
         db.session.add(new_key)
         db.session.commit()
-
+        # Event logging
+        try:
+            from events import log_event
+            log_event(
+                event_type="create",
+                resource_type="key",
+                resource_name=key_name,
+                user_id=current_user.id,
+                details={"key_type": key_type}
+            )
+        except Exception:
+            pass
         flash("Key generated successfully.", "success")
         return redirect(url_for("keys.list_keys"))
 
@@ -276,6 +288,18 @@ def delete_key(key_id):
         key_obj = Key.query.filter_by(id=key_id, user_id=current_user.id).first_or_404()
     db.session.delete(key_obj)
     db.session.commit()
+    # Event logging
+    try:
+        from events import log_event
+        log_event(
+            event_type="delete",
+            resource_type="key",
+            resource_name=key_obj.name,
+            user_id=current_user.id,
+            details={}
+        )
+    except Exception:
+        pass
     flash("Key deleted successfully.", "success")
     return redirect(url_for("keys.list_keys"))
 

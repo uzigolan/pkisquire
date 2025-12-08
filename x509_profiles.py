@@ -322,6 +322,18 @@ def edit_profile_file(name):
             new_content_normalized = re.sub(r'\n{3,}', '\n\n', new_content_normalized)
             prof.content = new_content_normalized
             db.session.commit()
+            # Event logging
+            try:
+                from events import log_event
+                log_event(
+                    event_type="update",
+                    resource_type="profile",
+                    resource_name=name,
+                    user_id=current_user.id,
+                    details={}
+                )
+            except Exception:
+                pass
             flash(f"Profile {name} updated.", "success")
         except Exception as e:
             flash(f"Failed to save: {e}", "error")
@@ -352,6 +364,18 @@ def delete_profile(name):
     
     db.session.delete(prof)
     db.session.commit()
+    # Event logging
+    try:
+        from events import log_event
+        log_event(
+            event_type="delete",
+            resource_type="profile",
+            resource_name=name,
+            user_id=current_user.id,
+            details={}
+        )
+    except Exception:
+        pass
     flash(f"Profile {name} deleted.", "success")
     return redirect(url_for("profiles.list_profiles"))
 
@@ -405,6 +429,18 @@ def new_profile_file():
             )
             db.session.add(prof)
             db.session.commit()
+            # Event logging
+            try:
+                from events import log_event
+                log_event(
+                    event_type="create",
+                    resource_type="profile",
+                    resource_name=name,
+                    user_id=current_user.id,
+                    details={"profile_type": profile_type}
+                )
+            except Exception:
+                pass
             flash(f"Profile {name} created.", "success")
             return redirect(url_for("profiles.view_profile", name=name))
         except Exception as e:

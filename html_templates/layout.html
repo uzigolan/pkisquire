@@ -59,6 +59,7 @@
           {% if current_user.is_authenticated and current_user.is_admin() %}
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/x509_templates') %} active{% endif %}" href="/x509_templates">Templates</a></li>
           {% endif %}
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/events') %} active{% endif %}" href="/events">Events</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/api') %} active{% endif %}" href="/api">APIs</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/inspect') %} active{% endif %}" href="/inspect">Inspect</a></li>
           {% if current_user.is_authenticated %}

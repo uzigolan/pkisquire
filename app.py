@@ -472,9 +472,12 @@ with app.app_context():
     db.create_all()
 
 # ---------- Register Blueprints ----------
+# Register events blueprint
+from events import bp as events_bp
 app.register_blueprint(x509_profiles_bp)
 app.register_blueprint(x509_keys_bp)
 app.register_blueprint(x509_requests_bp)
+app.register_blueprint(events_bp)
 if app.config["SCEP_ENABLED"]:
     app.register_blueprint(scep_app)
 # ---------- Helper Functions ----------
@@ -642,7 +645,17 @@ def get_certificate_textY(cert_pem):
         app.logger.error(f"Failed to run openssl: {str(e)}")
         return f"Failed to run openssl: {str(e)}"
 
+from flask import g
 # ---------- Main Routes ----------
+# Ensure g.user_role and g.user_id are set for all requests
+@app.before_request
+def set_user_context():
+    if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+        g.user_id = current_user.id
+        g.user_role = current_user.role if hasattr(current_user, 'role') else 'user'
+    else:
+        g.user_id = None
+        g.user_role = 'user'
 @app.context_processor
 def inject_ca_mode():
     # so every template gets a 'ca_mode' variable
@@ -766,6 +779,18 @@ def delete_challenge_password():
             return redirect(url_for('challenge_passwords'))
         conn.execute("DELETE FROM challenge_passwords WHERE value = ?", (value,))
         conn.commit()
+        # Event logging
+        try:
+            from events import log_event
+            log_event(
+                event_type="delete",
+                resource_type="challenge_password",
+                resource_name=value,
+                user_id=current_user.id,
+                details={}
+            )
+        except Exception:
+            pass
     flash('Challenge password deleted.', 'success')
     return redirect(url_for('challenge_passwords'))
 
@@ -810,6 +835,18 @@ def delete_all_expired_challenge_passwords():
         if to_delete:
             conn.executemany("DELETE FROM challenge_passwords WHERE value = ?", [(v,) for v in to_delete])
             conn.commit()
+            # Event logging
+            try:
+                from events import log_event
+                log_event(
+                    event_type="bulk_delete",
+                    resource_type="challenge_password",
+                    resource_name="bulk",
+                    user_id=current_user.id,
+                    details={"count": len(to_delete)}
+                )
+            except Exception:
+                pass
             flash(f"Deleted {len(to_delete)} expired challenge passwords.", "success")
         else:
             flash("No expired challenge passwords to delete.", "info")
@@ -916,6 +953,18 @@ def challenge_passwords():
                 (value, current_user.id, now.strftime('%Y-%m-%d %H:%M:%S UTC'), validity,)
             )
             conn.commit()
+        # Event logging
+        try:
+            from events import log_event
+            log_event(
+                event_type="create",
+                resource_type="challenge_password",
+                resource_name=value,
+                user_id=current_user.id,
+                details={"validity": validity}
+            )
+        except Exception:
+            pass
         session['generated_challenge_password'] = {
             'value': value,
             'user': current_user.username,
@@ -1203,6 +1252,18 @@ def add_user():
             return render_template('add_user.html')
         user_id = create_user_db(username, password, role, email)
         if user_id:
+            # Log event
+            try:
+                from events import log_event
+                log_event(
+                    event_type="create_user",
+                    resource_type="user",
+                    resource_name=username,
+                    user_id=current_user.id,
+                    details={"role": role, "email": email}
+                )
+            except Exception as e:
+                pass
             flash('User added successfully.', 'success')
             return redirect(url_for('manage_users'))
         else:
@@ -1220,6 +1281,19 @@ def delete_user(user_id):
         flash('You cannot delete your own account.', 'error')
         return redirect(url_for('manage_users'))
     from user_models import get_username_by_id
+    username = get_username_by_id(user_id)
+    # Log event
+    try:
+        from events import log_event
+        log_event(
+            event_type="delete_user",
+            resource_type="user",
+            resource_name=username,
+            user_id=current_user.id,
+            details={}
+        )
+    except Exception as e:
+        pass
     from datetime import datetime, timedelta
     challenge_passwords = []
     for row in rows:
@@ -2159,6 +2233,7 @@ def ra_policy_new():
             if prof and prof.content:
                 ext_config = prof.content
 
+
         try:
             mgr.upsert_policy(
                 name=name,
@@ -2170,6 +2245,18 @@ def ra_policy_new():
                 est_default=est_default,
                 scep_default=scep_default,
             )
+            # Event logging
+            try:
+                from events import log_event
+                log_event(
+                    event_type="create",
+                    resource_type="policy",
+                    resource_name=name,
+                    user_id=current_user.id,
+                    details={"policy_type": policy_type}
+                )
+            except Exception:
+                pass
             flash("Policy created", "success")
             return redirect(url_for("ra_policies_page"))
         except Exception as e:
@@ -2209,8 +2296,21 @@ def ra_policy_edit(policy_id):
             if prof and prof.content:
                 ext_config = prof.content
 
+
         try:
             mgr.update_policy(policy_id, ext_config=ext_config, validity_period=validity, policy_type=new_type, est_default=est_default, scep_default=scep_default)
+            # Event logging
+            try:
+                from events import log_event
+                log_event(
+                    event_type="update",
+                    resource_type="policy",
+                    resource_name=policy.get("name", str(policy_id)),
+                    user_id=current_user.id,
+                    details={}
+                )
+            except Exception:
+                pass
             flash("Policy updated", "success")
             return redirect(url_for("ra_policies_page"))
         except Exception as e:
@@ -2225,6 +2325,18 @@ def ra_policy_delete(policy_id):
     mgr, policy = _load_policy_for_edit(policy_id)
     try:
         mgr.delete_policy(policy_id)
+        # Event logging
+        try:
+            from events import log_event
+            log_event(
+                event_type="delete",
+                resource_type="policy",
+                resource_name=policy.get("name", str(policy_id)),
+                user_id=current_user.id,
+                details={}
+            )
+        except Exception:
+            pass
         flash("Policy deleted", "success")
     except Exception as e:
         flash(f"Error deleting policy: {e}", "danger")
@@ -2347,14 +2459,31 @@ def delete_certificate(cert_id):
         app.logger.warning(f"[DELETE] Wrong delete secret for certificate ID {cert_id}")
         return redirect("/certs")
 
+
     try:
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            # Fetch serial and subject before deletion
+            cur = conn.execute("SELECT serial, subject, issued_via FROM certificates WHERE id = ?", (cert_id,))
+            cert_row = cur.fetchone()
+            serial = cert_row[0] if cert_row else str(cert_id)
+            subject = cert_row[1] if cert_row else None
+            issued_via = cert_row[2] if cert_row else None
+            # Delete certificate
             if current_user.is_admin():
-                cur = conn.execute("DELETE FROM certificates WHERE id = ?", (cert_id,))
+                del_cur = conn.execute("DELETE FROM certificates WHERE id = ?", (cert_id,))
             else:
-                cur = conn.execute("DELETE FROM certificates WHERE id = ? AND user_id = ?", (cert_id, current_user.id))
+                del_cur = conn.execute("DELETE FROM certificates WHERE id = ? AND user_id = ?", (cert_id, current_user.id))
             conn.commit()
-            app.logger.info(f"[DELETE] Rows deleted for cert {cert_id}: {cur.rowcount}")
+            app.logger.info(f"[DELETE] Rows deleted for cert {cert_id}: {del_cur.rowcount}")
+            # Event logging
+            from events import log_event
+            log_event(
+                event_type="delete",
+                resource_type="certificate",
+                resource_name=serial,
+                user_id=current_user.id,
+                details={"subject": subject, "issued_via": issued_via, "rowcount": del_cur.rowcount} if subject else {"rowcount": del_cur.rowcount}
+            )
     except Exception as e:
         app.logger.error(f"[DELETE] Failed to delete certificate ID {cert_id}: {str(e)}")
 
@@ -2462,7 +2591,15 @@ def submit():
             "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
             (subject_str, actual_serial, cert_pem, current_user.id, 'ui')
         )
-    
+    # Event logging
+    from events import log_event
+    log_event(
+        event_type="create",
+        resource_type="certificate",
+        resource_name=actual_serial,
+        user_id=current_user.id,
+        details={"subject": subject_str}
+    )
     flash(f"Certificate signed successfully! Serial: {actual_serial}", "success")
     return redirect("/")
 
@@ -2534,6 +2671,15 @@ def submit_q():
             "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
             (subject_str, serial_hex, full_chain_pem, current_user.id, 'ui')
         )
+    # Event logging
+    from events import log_event
+    log_event(
+        event_type="create",
+        resource_type="certificate",
+        resource_name=serial_hex,
+        user_id=current_user.id,
+        details={"subject": subject_str}
+    )
     os.unlink(csr_filename)
     os.unlink(cert_filename)
     return redirect("/")
@@ -2554,6 +2700,20 @@ def revoke(cert_id):
             conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ? AND user_id = ?", (cert_id, current_user.id))
         conn.commit()
         app.logger.info(f"[REVOKE] Certificate {cert_id} revoked.")
+        # Event logging
+        from events import log_event
+        # Fetch the certificate serial number for logging
+        cur = conn.execute("SELECT serial, subject FROM certificates WHERE id = ?", (cert_id,))
+        cert_row = cur.fetchone()
+        serial = cert_row[0] if cert_row else str(cert_id)
+        subject = cert_row[1] if cert_row else None
+        log_event(
+            event_type="revoke",
+            resource_type="certificate",
+            resource_name=serial,
+            user_id=current_user.id,
+            details={"subject": subject} if subject else {}
+        )
     update_crl()
     return redirect("/certs")
 
@@ -2601,7 +2761,7 @@ def update_crl():
     with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
         ca_key = serialization.load_pem_private_key(f.read(), password=None)
     
-    now = datetime.utcnow()
+    now = datetime.datetime.utcnow()
     builder = x509.CertificateRevocationListBuilder()
     builder = builder.issuer_name(ca_cert.subject)
     builder = builder.last_update(now)
@@ -3107,6 +3267,19 @@ def est_enroll():
             "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
             (subject_str, actual_serial, cert_pem, user_id, 'est')
         )
+
+    # Event logging for EST enrollment
+    try:
+        from events import log_event
+        log_event(
+            event_type="create",
+            resource_type="certificate",
+            resource_name=actual_serial,
+            user_id=user_id if user_id is not None else "est",
+            details={"subject": subject_str}
+        )
+    except Exception as e:
+        app.logger.error(f"Failed to log EST certificate event: {e}")
 
     # 5) Write the signed cert to a file (for pkcs7 conversion)
     signed_cert_path = os.path.join("pki-misc", "est_signed_cert.pem")

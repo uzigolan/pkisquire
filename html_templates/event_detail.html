@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Event Details</h2>
+<table class="table table-bordered">
+  <tr><th>ID</th><td>{{ event[0] }}</td></tr>
+  <tr><th>Event Type</th><td>{{ event[1] }}</td></tr>
+  <tr><th>Resource Type</th><td>{{ event[2] }}</td></tr>
+  <tr><th>Resource Name</th><td>{{ event[3] }}</td></tr>
+  <tr><th>User</th><td>{{ event[4] }}</td></tr>
+  <tr><th>Timestamp</th><td>{{ event[5] }}</td></tr>
+  <tr><th>Details</th><td><pre>{{ event[6] }}</pre></td></tr>
+</table>
+<a href="{{ url_for('events.list_events') }}">Back to Events</a>
+{% endblock %}

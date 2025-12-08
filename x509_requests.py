@@ -94,6 +94,18 @@ def generate_csr():
         new_csr = CSR(name=csr_name, key_id=key_obj.id, profile_id=profile_obj.id, csr_pem=csr_pem, created_at=datetime.utcnow(), user_id=current_user.id)
         db.session.add(new_csr)
         db.session.commit()
+        # Event logging
+        try:
+            from events import log_event
+            log_event(
+                event_type="create",
+                resource_type="request",
+                resource_name=csr_name,
+                user_id=current_user.id,
+                details={"key_id": key_obj.id, "profile_id": profile_obj.id}
+            )
+        except Exception:
+            pass
         flash("CSR created successfully.", "success")
         return redirect(url_for("requests.list_csrs"))
     from x509_keys import Key
@@ -167,6 +179,18 @@ def delete_csr(csr_id):
     if current_user.is_admin or csr_obj.user_id == current_user.id:
         db.session.delete(csr_obj)
         db.session.commit()
+        # Event logging
+        try:
+            from events import log_event
+            log_event(
+                event_type="delete",
+                resource_type="request",
+                resource_name=csr_obj.name,
+                user_id=current_user.id,
+                details={}
+            )
+        except Exception:
+            pass
         flash("CSR deleted successfully.", "success")
     else:
         flash("Not authorized to delete this CSR.", "error")
