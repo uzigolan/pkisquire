@@ -10,19 +10,15 @@ import secrets
 import configparser
 import tempfile
 import base64
-
 import binascii
 import re
 import ssl
-
 from pathlib import Path
 from datetime import datetime,timezone, timedelta
-
 from threading import Thread
-
-
 from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session, abort, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from users import users_bp, register_login_signals, init_users_config
 from flask_sqlalchemy import SQLAlchemy
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization, hashes
@@ -55,7 +51,7 @@ from user_models import get_user_by_username, create_user_db, update_last_login
 
 
 # --- Manage Users (Admin Only) ---
-from user_models import get_all_users
+## User management helpers moved to users.py blueprint
 
 
 # --- API endpoint for AJAX login status polling ---
@@ -64,97 +60,30 @@ from flask import jsonify
 
 
 # --- Server-side session tracking for all logged-in users ---
-def ensure_sessions_table():
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS user_sessions (
-            session_id TEXT PRIMARY KEY,
-            user_id INTEGER,
-            login_time TEXT,
-            last_activity TEXT
-        )''')
-        # Ensure last_activity column exists if table was created earlier without it
-        cur = conn.cursor()
-        cur.execute("PRAGMA table_info(user_sessions)")
-        cols = [row[1] for row in cur.fetchall()]
-        if "last_activity" not in cols:
-            conn.execute("ALTER TABLE user_sessions ADD COLUMN last_activity TEXT")
-        # Backfill last_activity where missing
-        conn.execute("""
-            UPDATE user_sessions
-            SET last_activity = login_time
-            WHERE last_activity IS NULL OR last_activity = ''
-        """)
-        conn.commit()
+
+## ensure_sessions_table moved to users.py if needed
 
 
 
-import uuid
-from flask import session as flask_session
-from flask_login import user_logged_in, user_logged_out
-
-
-from flask_login import user_logged_in, user_logged_out
 
 
 
 app = Flask(__name__, template_folder="html_templates")
+import logging
+app.logger.info(f"[STARTUP] app.config['DB_PATH'] = {app.config.get('DB_PATH')}")
+register_login_signals(app)
+app.register_blueprint(users_bp)
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.jinja_env.auto_reload = True
 # Clear template cache on each load to avoid stale HTML in dev
 app.jinja_env.cache = {}
 
 
-@user_logged_in.connect_via(app)
-def track_user_logged_in(sender, user):
-    ensure_sessions_table()
-    sid = flask_session.get('sid')
-    if not sid:
-        sid = str(uuid.uuid4())
-        flask_session['sid'] = sid
-    now_str = _now_utc_str()
-    flask_session['last_activity'] = now_str
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time, last_activity) VALUES (?, ?, ?, ?)", (sid, user.id, now_str, now_str))
 
-@user_logged_out.connect_via(app)
-def track_user_logged_out(sender, user):
-    sid = flask_session.get('sid')
-    if sid:
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            conn.execute("DELETE FROM user_sessions WHERE session_id = ?", (sid,))
-        flask_session.pop('sid', None)
+## get_logged_in_user_ids moved to users.py
 
-def get_logged_in_user_ids():
-    ensure_sessions_table()
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        rows = conn.execute("SELECT DISTINCT user_id FROM user_sessions").fetchall()
-        return set(row[0] for row in rows)
 
-def get_user_idle_map():
-    """
-    Returns {user_id: 'HH:MM'} for users with a recorded last_activity/login_time.
-    """
-    ensure_sessions_table()
-    now = datetime.now(timezone.utc)
-    idle = {}
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        rows = conn.execute("""
-            SELECT user_id, MAX(COALESCE(last_activity, login_time)) AS last_ts
-            FROM user_sessions
-            GROUP BY user_id
-        """).fetchall()
-    for user_id, last_ts in rows:
-        parsed = _parse_ts_utc(last_ts)
-        if not parsed:
-            continue
-        delta = now - parsed
-        if delta.total_seconds() < 0:
-            continue
-        minutes = int(delta.total_seconds() // 60)
-        hours = minutes // 60
-        minutes = minutes % 60
-        idle[user_id] = f"{hours:02d}:{minutes:02d}"
-    return idle
+## get_user_idle_map moved to users.py
 
 # Track logged-in users by user_id in a set
 import threading
@@ -163,22 +92,6 @@ LOGGED_IN_USERS_LOCK = threading.Lock()
 LDAP_IMPORTED_USERS = set()  # runtime memory of users created via LDAP
 LDAP_SOURCE_CACHE = {}  # username -> 'ldap'|'local' for this runtime
 
-def parse_idle_time(value: str):
-    if not value:
-        return None
-    s = str(value).strip().lower()
-    try:
-        if s.endswith("h"):
-            num = float(s[:-1])
-            return timedelta(hours=num)
-        if s.endswith("d"):
-            num = float(s[:-1])
-            return timedelta(days=num)
-        # fallback: treat as days if numeric only
-        num = float(s)
-        return timedelta(days=num)
-    except Exception:
-        return None
 
 def _now_utc_str():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -218,11 +131,8 @@ def cleanup_idle_sessions():
     except Exception:
         pass
 
-def get_auth_source_for_username(username: str) -> str:
-    """Best-effort determination of user source without touching DB schema."""
-    key = (username or "").lower()
-    if not key:
-        return "local"
+
+## get_auth_source_for_username moved to users.py
     if key in LDAP_SOURCE_CACHE:
         return LDAP_SOURCE_CACHE[key]
     # Prefer DB value if user exists
@@ -251,12 +161,11 @@ _cfg = configparser.ConfigParser()
 _cfg.read(CONFIG_PATH)
 
 # — General Flask —
+
 app.config["SECRET_KEY"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
-app.config["MAX_IDLE_TIME"] = _cfg.get("DEFAULT", "max_idle_time", fallback="7d")
-app.config["IDLE_TIMEOUT"] = parse_idle_time(app.config.get("MAX_IDLE_TIME"))
-
+init_users_config(app, _cfg)
 
 ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
 if ca_mode not in ("EC", "RSA"):
@@ -352,7 +261,7 @@ db.init_app(app)
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'users.login'
 login_manager.login_message = 'Please log in to access this page.'
 
 @login_manager.user_loader
@@ -565,56 +474,6 @@ def certificate_to_dict(cert):
     return details
 
 
-def certificate_to_dictY(cert):
-    def get_oid_name(oid):
-        return getattr(oid, "_name", None) or oid.dotted_string
-
-    cert_details = {
-        "Subject": {get_oid_name(attr.oid): attr.value for attr in cert.subject},
-        "Issuer": {get_oid_name(attr.oid): attr.value for attr in cert.issuer},
-        "Serial Number": hex(cert.serial_number),
-        "Version": str(cert.version.name),
-        "Not Valid Before": cert.not_valid_before_utc.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "Not Valid After": cert.not_valid_after_utc.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "Signature Algorithm": get_oid_name(cert.signature_algorithm_oid),
-        "Extensions": {}
-    }
-    for ext in cert.extensions:
-        ext_name = get_oid_name(ext.oid)
-        cert_details["Extensions"][ext_name] = str(ext.value)
-    
-    # Add Public Key Information: algorithm, key size (for RSA) or curve (for EC)
-    public_key = cert.public_key()
-    if isinstance(public_key, rsa.RSAPublicKey):
-        cert_details["Public Key Algorithm"] = "RSA"
-        cert_details["Key Size"] = f"{public_key.key_size} bits"
-    elif isinstance(public_key, ec.EllipticCurvePublicKey):
-        cert_details["Public Key Algorithm"] = "EC"
-        cert_details["Curve"] = public_key.curve.name
-    else:
-        cert_details["Public Key Algorithm"] = type(public_key).__name__
-    
-    return cert_details
-
-
-def certificate_to_dictX(cert):
-    def get_oid_name(oid):
-        return getattr(oid, "_name", None) or oid.dotted_string
-
-    cert_details = {
-        "Subject": {get_oid_name(attr.oid): attr.value for attr in cert.subject},
-        "Issuer": {get_oid_name(attr.oid): attr.value for attr in cert.issuer},
-        "Serial Number": hex(cert.serial_number),
-        "Version": str(cert.version.name),
-        "Not Valid Before": cert.not_valid_before.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "Not Valid After": cert.not_valid_after.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "Signature Algorithm": get_oid_name(cert.signature_algorithm_oid),
-        "Extensions": {}
-    }
-    for ext in cert.extensions:
-        ext_name = get_oid_name(ext.oid)
-        cert_details["Extensions"][ext_name] = str(ext.value)
-    return cert_details
 
 
 def get_certificate_text(pem: str) -> str:
@@ -628,22 +487,6 @@ def get_certificate_text(pem: str) -> str:
         cmd.extend(["-in", f.name, "-noout", "-text"])
         p = subprocess.run(cmd, capture_output=True, text=True)
         return p.stdout or p.stderr
-
-
-
-def get_certificate_textY(cert_pem):
-    try:
-        proc = subprocess.Popen(
-            ["openssl", "x509", "-noout", "-text"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        stdout, stderr = proc.communicate(input=cert_pem.encode("utf-8"))
-        if proc.returncode != 0:
-            return f"Error: {stderr.decode('utf-8')}"
-        return stdout.decode("utf-8")
-    except Exception as e:
-        app.logger.error(f"Failed to run openssl: {str(e)}")
-        return f"Failed to run openssl: {str(e)}"
 
 from flask import g
 # ---------- Main Routes ----------
@@ -730,6 +573,8 @@ def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
 
     # 5) ultimate fallback
     return algo or "Unknown"
+
+
 
 
 # --- Individual Challenge Password Deletion Route ---
@@ -944,7 +789,7 @@ def challenge_passwords():
     from flask import redirect, url_for, session
     generated = None
     if request.method == 'POST':
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.UTC)
         value = secrets.token_bytes(16).hex().upper()
         validity = validity_str
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
@@ -1043,175 +888,8 @@ def challenge_passwords():
 
 
 
-@app.route('/toggle_user_active/<int:user_id>', methods=['POST'])
-@login_required
-def toggle_user_active(user_id):
-    if not current_user.is_admin():
-        flash('Access denied: Admins only.', 'error')
-        return redirect(url_for('manage_users'))
-    from user_models import get_user_by_id
-    user = get_user_by_id(user_id)
-    if not user:
-        flash('User not found.', 'error')
-        return redirect(url_for('manage_users'))
-    # Toggle between 'active' and 'deactivated'
-    import sqlite3
-    new_status = 'deactivated' if user.status == 'active' else 'active'
-    conn = sqlite3.connect(app.config["DB_PATH"])
-    cur = conn.cursor()
-    cur.execute("UPDATE users SET status = ? WHERE id = ?", (new_status, user_id))
-    conn.commit()
-    conn.close()
-    flash(f'User {"activated" if new_status == "active" else "deactivated"}.', 'success')
-    return redirect(url_for('manage_users'))
 
 
-@app.before_request
-def enforce_session_revocation():
-    from flask_login import current_user, logout_user
-    cleanup_idle_sessions()
-    app.logger.trace("revocation check path=%s user_id=%s", request.path, getattr(current_user, 'id', None))
-    if current_user.is_authenticated:
-        sid = session.get('sid')
-        if not sid:
-            # Defensive: generate a sid and reinsert session row instead of booting user
-            ensure_sessions_table()
-            sid = str(uuid.uuid4())
-            session['sid'] = sid
-            now_str = _now_utc_str()
-            session['last_activity'] = now_str
-            try:
-                with sqlite3.connect(app.config["DB_PATH"]) as conn:
-                    conn.execute(
-                        "INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time, last_activity) VALUES (?, ?, ?, ?)",
-                        (sid, current_user.id, now_str, now_str),
-                    )
-                    conn.commit()
-                app.logger.trace("Session revocation: sid missing, reinserted for user_id=%s sid=%s", current_user.id, sid)
-                return  # allow request
-            except Exception as e:
-                app.logger.warning("Session revocation recovery failed for user_id=%s: %s", current_user.id, e)
-                logout_user()
-                flash('Your session has expired or was revoked.', 'warning')
-                return redirect(url_for('login'))
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            row = conn.execute("SELECT 1 FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
-            if not row:
-                # Attempt to reinsert instead of hard logout (handles first-login race)
-                ensure_sessions_table()
-                now_str = _now_utc_str()
-                try:
-                    conn.execute(
-                        "INSERT OR REPLACE INTO user_sessions (session_id, user_id, login_time, last_activity) VALUES (?, ?, ?, ?)",
-                        (sid, current_user.id, now_str, now_str),
-                    )
-                    conn.commit()
-                    app.logger.trace("Session revocation: sid missing in DB, reinserted for user_id=%s sid=%s", current_user.id, sid)
-                except Exception as e:
-                    app.logger.warning("Session revocation reinsertion failed for user_id=%s sid=%s: %s", current_user.id, sid, e)
-                    logout_user()
-                    session.pop('sid', None)
-                    flash('Your session has expired or was revoked.', 'warning')
-                    return redirect(url_for('login'))
-
-@app.before_request
-def enforce_idle_timeout():
-    from flask_login import current_user, logout_user
-    idle_timeout = app.config.get("IDLE_TIMEOUT")
-    if not idle_timeout:
-        return
-
-    # Update last activity for authenticated users; logout if over threshold
-    now = datetime.now(timezone.utc)
-    if not current_user.is_authenticated:
-        session.pop('last_activity', None)
-        return
-
-    ensure_sessions_table()
-    sid = session.get('sid')
-    app.logger.trace("idle check path=%s user_id=%s sid=%s", request.path, getattr(current_user, 'id', None), sid)
-    if not sid:
-        app.logger.trace("Idle timeout: missing sid for user_id=%s", getattr(current_user, 'id', None))
-        logout_user()
-        session.pop('last_activity', None)
-        flash('Your session has expired or was revoked.', 'warning')
-        return redirect(url_for('login'))
-
-    last_ts = session.get("last_activity")
-    db_last = None
-    try:
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute("SELECT last_activity, login_time FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
-            if row:
-                db_last = row["last_activity"] or row["login_time"]
-                app.logger.trace("Idle timeout: sid=%s db_last=%s user_id=%s", sid, db_last, getattr(current_user, 'id', None))
-    except Exception:
-        pass
-
-    if not db_last:
-        # No DB row for this session, treat as invalid
-        app.logger.trace("Idle timeout: sid %s missing in DB; logging out user_id=%s", sid, getattr(current_user, 'id', None))
-        logout_user()
-        session.clear()
-        flash('Your session has expired or was revoked.', 'warning')
-        return redirect(url_for('login'))
-
-    if not last_ts:
-        last_ts = db_last
-        session["last_activity"] = last_ts
-
-    parsed = _parse_ts_utc(last_ts) or _parse_ts_utc(db_last)
-    if parsed and now - parsed > idle_timeout:
-        try:
-            with sqlite3.connect(app.config["DB_PATH"]) as conn:
-                conn.execute("DELETE FROM user_sessions WHERE session_id = ?", (sid,))
-                conn.commit()
-        except Exception:
-            pass
-        app.logger.info("Idle timeout exceeded for user_id=%s sid=%s; logging out.", getattr(current_user, 'id', None), sid)
-        logout_user()
-        session.clear()
-        flash('You have been logged out due to inactivity.', 'warning')
-        return redirect(url_for('login'))
-
-    # touch activity
-    now_str = _now_utc_str()
-    session["last_activity"] = now_str
-    try:
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            conn.execute("UPDATE user_sessions SET last_activity = ? WHERE session_id = ?", (now_str, sid))
-            conn.commit()
-    except Exception:
-        pass
-    app.logger.trace("Idle touch: user_id=%s sid=%s last_activity=%s", getattr(current_user, 'id', None), sid, now_str)
-
-
-
-
-# --- Approve User (Admin Only) ---
-@app.route('/approve_user/<int:user_id>', methods=['POST'])
-@login_required
-def approve_user(user_id):
-    if not current_user.is_admin():
-        flash('Access denied: Admins only.', 'error')
-        return redirect(url_for('manage_users'))
-    from user_models import get_user_by_id
-    user = get_user_by_id(user_id)
-    if not user:
-        flash('User not found.', 'error')
-        return redirect(url_for('manage_users'))
-    if user.status != 'pending':
-        flash('User is not pending approval.', 'info')
-        return redirect(url_for('manage_users'))
-    import sqlite3
-    conn = sqlite3.connect(app.config["DB_PATH"])
-    cur = conn.cursor()
-    cur.execute("UPDATE users SET status = 'active' WHERE id = ?", (user_id,))
-    conn.commit()
-    conn.close()
-    flash('User approved and activated.', 'success')
-    return redirect(url_for('manage_users'))
 
 
 
@@ -1228,277 +906,6 @@ def get_server_ext_content():
         return 'Policy not found', 404
     content = policy.get("ext_config") or "[ v3_ext ]\n# No additional extensions"
     return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
-
-
-
-# --- Add User (Admin Only) ---
-@app.route('/add_user', methods=['GET', 'POST'])
-@login_required
-def add_user():
-    if not current_user.is_admin():
-        flash('Access denied: Admins only.', 'error')
-        return redirect(url_for('manage_users'))
-    if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
-        role = request.form.get('role', 'user')
-        email = request.form.get('email', '').strip() or None
-        if not username or not password:
-            flash('Username and password are required.', 'error')
-            return render_template('add_user.html')
-        from user_models import get_user_by_username, create_user_db
-        if get_user_by_username(username):
-            flash('Username already exists.', 'error')
-            return render_template('add_user.html')
-        user_id = create_user_db(username, password, role, email)
-        if user_id:
-            # Log event
-            try:
-                from events import log_event
-                log_event(
-                    event_type="create_user",
-                    resource_type="user",
-                    resource_name=username,
-                    user_id=current_user.id,
-                    details={"role": role, "email": email}
-                )
-            except Exception as e:
-                pass
-            flash('User added successfully.', 'success')
-            return redirect(url_for('manage_users'))
-        else:
-            flash('Failed to add user.', 'error')
-    return render_template('add_user.html')
-
-# --- Delete User (Admin Only) ---
-@app.route('/delete_user/<int:user_id>', methods=['POST'])
-@login_required
-def delete_user(user_id):
-    if not current_user.is_admin():
-        flash('Access denied: Admins only.', 'error')
-        return redirect(url_for('manage_users'))
-    if user_id == current_user.id:
-        flash('You cannot delete your own account.', 'error')
-        return redirect(url_for('manage_users'))
-    from user_models import get_username_by_id
-    username = get_username_by_id(user_id)
-    # Log event
-    try:
-        from events import log_event
-        log_event(
-            event_type="delete_user",
-            resource_type="user",
-            resource_name=username,
-            user_id=current_user.id,
-            details={}
-        )
-    except Exception as e:
-        pass
-    from datetime import datetime, timedelta
-    challenge_passwords = []
-    for row in rows:
-        # Calculate expires_at
-        import re
-        expires_at = ''
-        if row['created_at'] and row['validity']:
-            m = re.match(r'^(\d+)([mhd])$', row['validity'])
-            if m:
-                num, unit = int(m.group(1)), m.group(2)
-                if unit == 'm':
-                    delta = timedelta(minutes=num)
-                elif unit == 'h':
-                    delta = timedelta(hours=num)
-                elif unit == 'd':
-                    delta = timedelta(days=num)
-                else:
-                    delta = timedelta(minutes=60)
-                try:
-                    created_dt = datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S UTC')
-                    expires_dt = created_dt + delta
-                    expires_at = expires_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-                except Exception:
-                    expires_at = ''
-        # Determine expired status
-        expired = False
-        if expires_at and not bool(row['consumed']):
-            try:
-                expires_dt = datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S UTC')
-                if datetime.utcnow() > expires_dt:
-                    expired = True
-            except Exception:
-                pass
-        challenge_passwords.append({
-            'value': row['value'],
-            'user': get_username_by_id(row['user_id']) if row['user_id'] else '',
-            'created_at': row['created_at'],
-            'validity': row['validity'],
-            'expires_at': expires_at,
-            'consumed': bool(row['consumed']),
-            'expired': expired
-        })
-    return render_template('manage_users.html', users=users)
-
-
-# --- API endpoint for AJAX user table (full user list with login status) ---
-@app.route('/api/users')
-@login_required
-def api_users():
-    if not current_user.is_admin():
-        return jsonify({'error': 'forbidden'}), 403
-    users = get_all_users()
-    logged_in_ids = get_logged_in_user_ids()
-    idle_map = get_user_idle_map()
-    user_list = []
-    for user in users:
-        user['auth_source'] = get_auth_source_for_username(user['username'])
-        user_list.append({
-            'id': user['id'],
-            'username': user['username'],
-            'role': user['role'],
-            'email': user.get('email', ''),
-            'status': user['status'],
-            'is_logged_in': user['id'] in logged_in_ids,
-            'auth_source': user.get('auth_source', 'local'),
-            'idle': idle_map.get(user['id'], '') if user['id'] in logged_in_ids else ''
-        })
-    return jsonify({'users': user_list, 'current_user_id': current_user.id})
-
-
-
-# Admin-forced logout action
-@app.route('/admin_logout/<int:user_id>', methods=['POST'])
-@login_required
-def admin_logout(user_id):
-    if not current_user.is_admin():
-        flash('Access denied: Admins only.', 'error')
-        return redirect(url_for('manage_users'))
-    # Remove all sessions for the user
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
-    # If admin logs out themselves, also call logout_user()
-    if user_id == current_user.id:
-        logout_user()
-        flash('You have been logged out.', 'success')
-        return redirect(url_for('login'))
-    else:
-        flash('User has been logged out from all sessions.', 'success')
-        return redirect(url_for('manage_users'))
-
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-        password_confirm = request.form.get("password_confirm", "").strip()
-        email = request.form.get("email", "").strip()
-        errors = []
-        if not username:
-            errors.append("Username is required.")
-        elif len(username) < 6:
-            errors.append("Username must be at least 6 characters.")
-        elif len(username) > 20:
-            errors.append("Username must not exceed 20 characters.")
-        elif not re.match(r'^[a-zA-Z0-9_]+$', username):
-            errors.append("Username can only contain letters, numbers, and underscores.")
-        if not password:
-            errors.append("Password is required.")
-        elif len(password) < 6:
-            errors.append("Password must be at least 6 characters.")
-        if password != password_confirm:
-            errors.append("Passwords do not match.")
-        if not email:
-            errors.append("Email is required.")
-        else:
-            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-            if not re.match(email_pattern, email):
-                errors.append("Invalid email format.")
-        if not errors:
-            existing_user = get_user_by_username(username)
-            if existing_user:
-                errors.append("Username already exists.")
-        if errors:
-            for error in errors:
-                flash(error, "error")
-            return render_template("register.html")
-        # Check if this is the first user (make them admin)
-        import sqlite3
-        conn = sqlite3.connect(app.config["DB_PATH"])
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users")
-        user_count = cur.fetchone()[0]
-        conn.close()
-        role = 'admin' if user_count == 0 else 'user'
-        user_id = create_user_db(username, password, role, email or None)
-        if user_id:
-            if role == 'admin':
-                flash("Account created successfully! You are the first user and have been granted admin privileges. You can now log in.", "success")
-            else:
-                flash("Account created and pending approval. Your registration is awaiting administrator review.", "info")
-            app.logger.info(f"New user registered: {username} with role: {role}")
-            return redirect(url_for('login'))
-        else:
-            flash("Registration failed. Please try again.", "error")
-            return render_template("register.html")
-    return render_template("register.html")
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('index'))
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-        if not username or not password:
-            flash("Username and password are required.", "error")
-            return render_template("login.html")
-        user = get_user_by_username(username)
-        if user:
-            if user.status == 'deactivated':
-                flash("User account is suspended. Contact administrator.", "error")
-                app.logger.warning(f"Login attempt for suspended user: {username}")
-            elif user.status == 'pending':
-                flash("User account is pending approval by administrator.", "error")
-                app.logger.warning(f"Login attempt for pending user: {username}")
-            elif user.status == 'active' and user.check_password(password):
-                login_user(user)
-                update_last_login(user.id)
-                app.logger.info(f"User {username} logged in")
-                return redirect(url_for('index'))
-            else:
-                flash("Invalid username or password.", "error")
-                app.logger.warning(f"Failed login attempt for: {username}")
-        else:
-            ldap_result = ldap_authenticate(username, password, app.config, app.logger)
-            if ldap_result:
-                # Auto-provision LDAP users locally as active standard users
-                user_id = create_user_db(username, password, role='user', email=ldap_result.get('email'), status='active', auth_source='ldap')
-                LDAP_IMPORTED_USERS.add(username.lower())
-                LDAP_SOURCE_CACHE[username.lower()] = "ldap"
-                user = get_user_by_username(username)
-                if user and user.status == 'active':
-                    login_user(user)
-                    update_last_login(user.id)
-                    app.logger.info(f"User {username} authenticated via LDAP and synced to local DB.")
-                    return redirect(url_for('index'))
-                else:
-                    flash("LDAP authentication succeeded but local user could not be activated. Contact administrator.", "error")
-                    app.logger.error(f"LDAP auth ok for {username} but local user creation/activation failed.")
-            else:
-                flash("Invalid username or password.", "error")
-                app.logger.warning(f"Failed login attempt for: {username} (local + LDAP)")
-    return render_template("login.html")
-
-@app.route("/logout")
-@login_required
-def logout():
-    app.logger.info(f"User {current_user.username} logged out")
-    logout_user()
-    flash("You have been logged out.", "info")
-    return redirect(url_for('login'))
-
 
 
 
@@ -2721,23 +2128,6 @@ def revoke(cert_id):
 
 
 
-#@app.route("/revoke/<int:cert_id>")
-
-def revokeY(cert_id):
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
-        conn.commit()
-    # Immediately update the CRL file.
-    update_crl()
-    return redirect("/")
-
-def revokeX(cert_id):
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
-    return redirect("/")
-
-
-
 # ---------- ZIP Download Endpoint ----------
 @app.route("/downloads/all_zip")
 def download_all_zip():
@@ -2761,7 +2151,7 @@ def update_crl():
     with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
         ca_key = serialization.load_pem_private_key(f.read(), password=None)
     
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.UTC)
     builder = x509.CertificateRevocationListBuilder()
     builder = builder.issuer_name(ca_cert.subject)
     builder = builder.last_update(now)
@@ -3057,59 +2447,6 @@ def ocsp():
 
 
 
-@app.route("/ocspX", methods=["POST", "GET"])
-def ocspX():
-
-    import datetime
-    app.logger.debug("OCSP endpoint called.")
-    try:
-        # Load the OCSP request data
-        request_data = request.data
-        ocsp_request = load_der_ocsp_request(request_data)
-        cert_serial = ocsp_request.serial_number
-
-        # Retrieve the certificate details from your database
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            row = conn.execute("SELECT cert_pem, revoked FROM certificates WHERE serial = ?", (hex(cert_serial),)).fetchone()
-            if not row:
-                raise ValueError("Certificate not found")
-            cert_pem, revoked_flag = row
-            target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-            revoked = (revoked_flag == 1)
-
-        now = datetime.utcnow()
-        next_update = now + datetime.timedelta(days=7)
-
-        # Load the CA certificate to use as the issuer for OCSP responses
-        with open(app.config["SUBCA_CERT_PATH"], "rb") as f:
-            ca_cert = x509.load_pem_x509_certificate(f.read(), default_backend())
-
-        # Build the OCSP response using the CA certificate as issuer
-        builder = OCSPResponseBuilder().add_response(
-            cert=target_cert,
-            issuer=ca_cert,  # Use the CA certificate as the issuer
-            algorithm=hashes.SHA1(),
-            cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
-            this_update=now,
-            next_update=next_update,
-            revocation_time=now if revoked else None,
-            revocation_reason=x509.ReasonFlags.unspecified if revoked else None
-        )
-        builder = builder.responder_id(OCSPResponderEncoding.HASH, ca_cert)
-
-        # Load the CA private key to sign the OCSP response
-        with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
-            private_key = serialization.load_pem_private_key(f.read(), password=None)
-        ocsp_response = builder.sign(private_key=private_key, algorithm=hashes.SHA256())
-        
-        return make_response(
-            ocsp_response.public_bytes(serialization.Encoding.DER),
-            200,
-            {"Content-Type": "application/ocsp-response"}
-        )
-    except Exception as e:
-        app.logger.error(f"OCSP request processing failed: {str(e)}")
-        return f"OCSP request processing failed: {str(e)}", 400
 
 
 # ---------- EST Endpoints ----------
@@ -3208,7 +2545,7 @@ def est_enroll():
         cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode()
         
     except Exception as e:
-        # Fallback to OpenSSL if CA class fails
+        # Fallback to OpenSSL command-line (legacy behavior)
         app.logger.warning(f"EST: CA class signing failed ({e}), falling back to OpenSSL command-line")
         
         # Write CSR DER to temp file

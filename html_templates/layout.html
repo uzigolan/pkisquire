@@ -88,7 +88,7 @@
         <span class="ml-2"><strong>Role:</strong> {{ 'admin' if current_user.is_admin() else 'user' }}</span>
         <a href="{{ url_for('account') }}" class="btn btn-sm btn-info ml-2">Account</a>
         {% if current_user.is_admin() %}
-          <a href="/manage_users" class="btn btn-sm btn-warning ml-2">Users</a>
+          <a href="/users/manage" class="btn btn-sm btn-warning ml-2">Users</a>
         {% endif %}
       </span>
     {% endif %}

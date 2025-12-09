@@ -2,7 +2,7 @@
 {% block content %}
 <div class="container mt-4">
     <h2>Login</h2>
-    <form method="POST" action="{{ url_for('login') }}">
+    <form method="POST" action="{{ url_for('users.login') }}">
         <div class="mb-3" style="max-width: 350px;">
             <label for="username" class="form-label">Username</label>
             <input type="text" class="form-control" id="username" name="username" required style="max-width: 300px;">
@@ -33,7 +33,7 @@
         });
         </script>
         <button type="submit" class="btn btn-primary">Login</button>
-        <a href="{{ url_for('register') }}" class="btn btn-link">Register</a>
+        <a href="{{ url_for('users.register') }}" class="btn btn-link">Register</a>
     </form>
 </div>
 <!-- FontAwesome CDN for eye icon -->
