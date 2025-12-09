@@ -40,7 +40,9 @@
         <select class="form-control" name="profile_name" id="profile_name">
           <option value="">-- Select certificate template --</option>
           {% for p in profiles %}
-            <option value="{{ p.name }}">{{ p.name }}</option>
+            {% if p.content and '[ v3_ext ]' in p.content %}
+              <option value="{{ p.name }}">{{ p.name }}</option>
+            {% endif %}
           {% endfor %}
         </select>
         <div class="input-group-append">
