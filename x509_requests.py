@@ -110,12 +110,13 @@ def generate_csr():
         return redirect(url_for("requests.list_csrs"))
     from x509_keys import Key
     from x509_profiles import Profile
+    # Only show profiles with [ req ] section in their content
     if current_user.is_authenticated and hasattr(current_user, 'is_admin') and current_user.is_admin():
         keys = Key.query.order_by(Key.created_at.desc()).all()
-        profiles = Profile.query.order_by(Profile.id.desc()).all()
+        profiles = [p for p in Profile.query.order_by(Profile.id.desc()).all() if p.content and '[ req ]' in p.content]
     else:
         keys = Key.query.filter_by(user_id=current_user.id).order_by(Key.created_at.desc()).all()
-        profiles = Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
+        profiles = [p for p in Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all() if p.content and '[ req ]' in p.content]
     return render_template("generate_csr.html", keys=keys, profiles=profiles)
 
 
@@ -195,4 +196,17 @@ def delete_csr(csr_id):
     else:
         flash("Not authorized to delete this CSR.", "error")
     return redirect(url_for("requests.list_csrs"))
+
+# AJAX endpoint for profile content preview
+@x509_requests_bp.route("/requests/profile_content", methods=["GET"])
+@login_required
+def profile_content():
+    profile_id = request.args.get("profile_id")
+    if not profile_id:
+        return "No profile ID provided", 400
+    from x509_profiles import Profile
+    profile = Profile.query.get(profile_id)
+    if not profile or not profile.content:
+        return "Profile not found or empty", 404
+    return profile.content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
 

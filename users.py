@@ -116,13 +116,13 @@ def enforce_tracked_session():
     except Exception:
         last_dt = now
     idle_seconds = (now - last_dt).total_seconds()
-    current_app.logger.debug(f"[IDLE] enforce_tracked_session: sid={sid}")
-    current_app.logger.debug(f"[IDLE] enforce_tracked_session: now_str={now_str}")
-    current_app.logger.debug(f"[IDLE] enforce_tracked_session: last_activity={last_activity}")
-    current_app.logger.debug(f"[IDLE] enforce_tracked_session: max_idle_str={max_idle_str} max_idle_seconds={max_idle_seconds}")
-    current_app.logger.debug(f"[IDLE] enforce_tracked_session: idle_seconds={idle_seconds}")
+    current_app.logger.trace(f"[IDLE] enforce_tracked_session: sid={sid}")
+    current_app.logger.trace(f"[IDLE] enforce_tracked_session: now_str={now_str}")
+    current_app.logger.trace(f"[IDLE] enforce_tracked_session: last_activity={last_activity}")
+    current_app.logger.trace(f"[IDLE] enforce_tracked_session: max_idle_str={max_idle_str} max_idle_seconds={max_idle_seconds}")
+    current_app.logger.trace(f"[IDLE] enforce_tracked_session: idle_seconds={idle_seconds}")
     if idle_seconds > max_idle_seconds:
-        current_app.logger.debug(f"[IDLE] enforce_tracked_session: FORCED LOGOUT due to idle (sid={sid}, idle_seconds={idle_seconds}, max_idle_seconds={max_idle_seconds})")
+        current_app.logger.trace(f"[IDLE] enforce_tracked_session: FORCED LOGOUT due to idle (sid={sid}, idle_seconds={idle_seconds}, max_idle_seconds={max_idle_seconds})")
         logout_user()
         flask_session.pop('sid', None)
         flash('You have been logged out due to inactivity.', 'warning')

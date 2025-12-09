@@ -24,8 +24,28 @@
         {% endfor %}
       </select>
     </div>
+    <div class="form-group">
+      <label>Template Content Preview:</label>
+      <pre id="profile-content-preview" style="background:#f8f9fa; border:1px solid #ccc; padding:1em; max-height:300px; overflow:auto;" readonly></pre>
+    </div>
     <button type="submit" class="btn btn-primary">Generate CSR</button>
   </form>
   <a href="{{ url_for('requests.list_csrs') }}" class="btn btn-link">Back to CSR List</a>
+  <script>
+    function loadProfileContent() {
+      var select = document.getElementById('profile_id');
+      var preview = document.getElementById('profile-content-preview');
+      var profileId = select.value;
+      if (!profileId) { preview.textContent = ''; return; }
+      fetch('/requests/profile_content?profile_id=' + encodeURIComponent(profileId))
+        .then(resp => resp.ok ? resp.text() : Promise.reject('Failed to load'))
+        .then(text => { preview.textContent = text; })
+        .catch(() => { preview.textContent = 'Error loading template content.'; });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+      loadProfileContent();
+      document.getElementById('profile_id').addEventListener('change', loadProfileContent);
+    });
+  </script>
 {% endblock %}
 

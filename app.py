@@ -1903,101 +1903,152 @@ def delete_certificate(cert_id):
 @app.route("/submit", methods=["POST"])
 @login_required
 def submit():
+    app.logger.debug("submit: Received CSR signing request")
     csr_pem = request.form["csr"]
+    app.logger.debug(f"submit: ext_block={request.form.get('ext_block', 'v3_ext')}")
     ext_block = request.form.get("ext_block", "v3_ext")
     policy_id = request.form.get("policy_id")
+    app.logger.debug(f"submit: policy_id={policy_id}")
     mgr, policy = _resolve_ra_policy(policy_id, current_user.id)
+    app.logger.debug(f"submit: Resolved policy={policy}")
     if not policy:
+        app.logger.error("submit: No RA policy available for signing.")
         flash("No RA policy available for signing.", "error")
         return redirect("/")
-    
     try:
+        app.logger.debug("submit: Attempting to parse CSR")
         csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
         subject_str = ", ".join([f"{attr.oid._name}={attr.value}" for attr in csr_obj.subject])
+        app.logger.debug(f"submit: Parsed CSR subject: {subject_str}")
     except Exception as e:
         subject_str = "Unknown Subject"
-        app.logger.error(f"Failed to parse CSR: {e}")
+        app.logger.error(f"submit: Failed to parse CSR: {e}")
         flash(f"Invalid CSR: {e}", "error")
         return redirect("/")
 
     # ...removed strict CN validation...
 
-    policy = mgr.get_protocol_default("est")
+    # Use selected policy if available, otherwise fallback to EST default
+    if not policy:
+        policy = mgr.get_protocol_default("est")
+        app.logger.debug(f"submit: No policy selected, using EST protocol default policy: {policy}")
+    else:
+        app.logger.debug(f"submit: Using selected enrollment policy: {policy}")
     validity_days = mgr.get_validity_days(policy)
+    app.logger.debug(f"submit: Validity days from policy: {validity_days}")
     try:
         validity_int = int(str(validity_days))
+        app.logger.debug(f"submit: Parsed validity_int={validity_int}")
     except Exception:
         validity_int = int(DEFAULT_VALIDITY_DAYS)
+        app.logger.debug(f"submit: Using DEFAULT_VALIDITY_DAYS={DEFAULT_VALIDITY_DAYS}")
 
-    # Try using CA class (supports both Vault and Legacy modes with debug logging)
-    try:
-        ca = get_ca_instance()
-        app.logger.debug(f"CA instance created: vault_enabled={ca._vault_enabled if hasattr(ca, '_vault_enabled') else 'N/A'}")
-        
-        # Sign the certificate using CA class (will show Vault/Legacy mode in logs)
-        cert_obj = ca.sign(csr_obj, days=validity_int)
-        
-        # Serialize to PEM
-        cert_pem = cert_obj.public_bytes(serialization.Encoding.PEM).decode('utf-8')
-        actual_serial = hex(cert_obj.serial_number)
-        
-        app.logger.info(f"Certificate signed successfully via CA class: serial={actual_serial}")
-        
-    except Exception as e:
-        # Fallback to OpenSSL command-line (legacy behavior)
-        app.logger.warning(f"CA class signing failed ({e}), falling back to OpenSSL command-line")
-
-        with mgr.temp_extfile(policy) as extfile_path:
-            if not extfile_path:
-                flash("No RA policy extension configuration available.", "error")
-                return redirect("/")
-
+    # Always log the OpenSSL command that would be used for signing
+    # Always log the OpenSSL command that would be used for signing
+    with mgr.temp_extfile(policy) as extfile_path:
+        openssl_cmd_preview = None
+        if extfile_path:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
                 csr_file.write(csr_pem.encode())
                 csr_filename = csr_file.name
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
                 cert_filename = cert_file.name
-
             custom_serial = secrets.randbits(64)
             custom_serial_str = hex(custom_serial)
-
+            openssl_cmd = ["openssl", "x509"]
+            openssl_cmd.extend(get_provider_args())
+            openssl_cmd.extend(["-req",
+                "-in", csr_filename,
+                "-CA", app.config["SUBCA_CERT_PATH"],
+                "-CAkey", app.config["SUBCA_KEY_PATH"],
+                "-set_serial", custom_serial_str, 
+                "-CAcreateserial",
+                "-days", str(validity_int),
+                "-out", cert_filename,
+                "-extfile", extfile_path,
+                "-extensions", ext_block
+            ])
+            openssl_cmd_preview = ' '.join(openssl_cmd)
+            app.logger.debug(f"[L1997] submit: OpenSSL command preview: {openssl_cmd_preview}")
+            # for tests4: do not unlink temp files so they can be used for manual OpenSSL testing
+            # os.unlink(csr_filename)
+            # os.unlink(cert_filename)
+    if app.config.get("VAULT_ENABLED", False):
+        try:
+            app.logger.debug("submit: Attempting to create CA instance (Vault enabled)")
+            ca = get_ca_instance()
+            app.logger.debug(f"submit: CA instance created: vault_enabled={ca._vault_enabled if hasattr(ca, '_vault_enabled') else 'N/A'}")
+            app.logger.debug("submit: Signing certificate using CA class")
+            cert_obj = ca.sign(csr_obj, days=validity_int)
+            app.logger.debug("submit: Certificate signed, serial=%s", hex(cert_obj.serial_number))
+            cert_pem = cert_obj.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+            actual_serial = hex(cert_obj.serial_number)
+            app.logger.info(f"Certificate signed successfully via CA class: serial={actual_serial}")
+        except Exception as e:
+            app.logger.error(f"submit: Vault CA signing failed: {e}")
+            flash(f"Vault CA signing failed: {e}", "error")
+            return redirect("/")
+    else:
+        with mgr.temp_extfile(policy) as extfile_path:
+            app.logger.trace(f"submit: Using extfile_path={extfile_path}")
+            if not extfile_path:
+                app.logger.error("submit: No RA policy extension configuration available.")
+                flash("No RA policy extension configuration available.", "error")
+                return redirect("/")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
+                csr_file.write(csr_pem.encode())
+                csr_filename = csr_file.name
+                app.logger.trace(f"submit: CSR written to temp file {csr_filename}")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
+                cert_filename = cert_file.name
+                app.logger.trace(f"submit: Cert will be written to temp file {cert_filename}")
+            custom_serial = secrets.randbits(64)
+            custom_serial_str = hex(custom_serial)
+            app.logger.trace(f"submit: Generated custom serial {custom_serial_str}")
+            cmd = ["openssl", "x509"]
+            cmd.extend(get_provider_args())
+            cmd.extend(["-req",
+                "-in", csr_filename,
+                "-CA", app.config["SUBCA_CERT_PATH"],
+                "-CAkey", app.config["SUBCA_KEY_PATH"],
+                "-set_serial", custom_serial_str, 
+                "-CAcreateserial",
+                "-days", str(validity_int),
+                "-out", cert_filename,
+                "-extfile", extfile_path,
+                "-extensions", ext_block
+            ])
+            app.logger.trace(f"[L2009] submit: OpenSSL command: {' '.join(cmd)}")
             try:
-                cmd = ["openssl", "x509"]
-                cmd.extend(get_provider_args())
-                cmd.extend(["-req",
-                    "-in", csr_filename,
-                    "-CA", app.config["SUBCA_CERT_PATH"],
-                    "-CAkey", app.config["SUBCA_KEY_PATH"],
-                    "-set_serial", custom_serial_str, 
-                    "-CAcreateserial",
-                    "-days", str(validity_int),
-                    "-out", cert_filename,
-                    "-extfile", extfile_path,
-                    "-extensions", ext_block
-                ])
                 subprocess.run(cmd, check=True, capture_output=True, text=True)
+                app.logger.trace(f"[L2011] submit: OpenSSL command executed successfully")
             except subprocess.CalledProcessError as e:
                 os.unlink(csr_filename)
                 os.unlink(cert_filename)
                 error_msg = f"Error during OpenSSL signing: {e.stderr}"
-                app.logger.error(error_msg)
+                app.logger.error(f"submit: {error_msg}")
                 flash(error_msg, "error")
                 return redirect("/")
-                
             with open(cert_filename, "r") as f:
                 cert_pem = f.read()
+                app.logger.trace(f"[L2016] submit: Read signed cert from {cert_filename}, length={len(cert_pem)}")
             cert_obj = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
             actual_serial = hex(cert_obj.serial_number)
-            
-            os.unlink(csr_filename)
-            os.unlink(cert_filename)
-
-    # Save to database
+            app.logger.trace(f"[L2018] submit: Loaded cert object, serial={actual_serial}")
+            # Copy extfile_path to a permanent location for manual inspection
+            import shutil
+            extfile_copy_path = extfile_path + ".copy.cnf"
+            shutil.copy(extfile_path, extfile_copy_path)
+            app.logger.info(f"[L2034] submit: extfile config copied for manual inspection: {extfile_copy_path}")
+            # Unlink extfile_path after copying for cleanup
+            os.unlink(extfile_path)
+    app.logger.debug(f"submit: Saving certificate to database, serial={actual_serial}")
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         conn.execute(
             "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
             (subject_str, actual_serial, cert_pem, current_user.id, 'ui')
         )
+    app.logger.debug(f"submit: Certificate saved to DB for user_id={current_user.id}")
     # Event logging
     from events import log_event
     log_event(
@@ -2007,7 +2058,9 @@ def submit():
         user_id=current_user.id,
         details={"subject": subject_str}
     )
+    app.logger.debug(f"submit: Event logged for certificate creation, serial={actual_serial}")
     flash(f"Certificate signed successfully! Serial: {actual_serial}", "success")
+    app.logger.debug("submit: Redirecting to home page after successful signing")
     return redirect("/")
 
 @app.route("/submit_q", methods=["POST"])
@@ -2531,64 +2584,58 @@ def est_enroll():
     except Exception:
         validity_int = int(DEFAULT_VALIDITY_DAYS)
 
-    # 3) Try signing with CA class (Vault or legacy mode)
-    try:
-        ca = get_ca_instance()
-        # Detect Vault mode by attribute or config
-        vault_mode = getattr(ca, '_vault_enabled', False)
-        if vault_mode:
+
+    ca = get_ca_instance()
+    vault_mode = getattr(ca, '_vault_enabled', False)
+    if vault_mode:
+        try:
             app.logger.debug(f"EST: Signing CSR with CA class (ttl={validity_int} hours) [Vault mode]")
             cert = ca.sign(csr_obj, ttl=validity_int)
-        else:
-            app.logger.debug(f"EST: Signing CSR with CA class (days={validity_int}) [Legacy mode]")
-            cert = ca.sign(csr_obj, days=validity_int)
-        cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode()
-        
-    except Exception as e:
-        # Fallback to OpenSSL command-line (legacy behavior)
-        app.logger.warning(f"EST: CA class signing failed ({e}), falling back to OpenSSL command-line")
-        
-        # Write CSR DER to temp file
+            cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode()
+        except Exception as e:
+            app.logger.error(f"EST: Vault CA signing failed: {e}")
+            return f"Vault CA signing failed: {e}", 500
+    else:
+        # Use OpenSSL CLI for signing
+        app.logger.debug("EST: Vault not enabled, using OpenSSL CLI for signing.")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
             csr_file.write(der_csr)
             csr_der_filename = csr_file.name
 
-        # Prepare temp file for the issued cert
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
             cert_filename = cert_file.name
 
-        # Generate serial
         custom_serial_str = hex(secrets.randbits(64))
 
-        # Sign CSR with OpenSSL
         with mgr.temp_extfile(policy) as extfile_path:
             if not extfile_path:
+                app.logger.error(f"EST: extfile_path is None. CSR file: {csr_der_filename}, Cert file: {cert_filename}")
                 return "No extension config available", 400
+            # Ensure all arguments are strings
             cmd = [
-                "openssl", "x509", "-req",
-                "-inform", "DER",
-                "-in", csr_der_filename,
-                "-CA", app.config["SUBCA_CERT_PATH"],
-                "-CAkey", app.config["SUBCA_KEY_PATH"],
-                "-set_serial", custom_serial_str,
-                "-days", validity_int,
-                "-out", cert_filename,
-                "-extfile", extfile_path,
-                "-extensions", ext_block
+                str("openssl"), str("x509"), str("-req"),
+                str("-inform"), str("DER"),
+                str("-in"), str(csr_der_filename),
+                str("-CA"), str(app.config["SUBCA_CERT_PATH"]),
+                str("-CAkey"), str(app.config["SUBCA_KEY_PATH"]),
+                str("-set_serial"), str(custom_serial_str),
+                str("-days"), str(validity_int),
+                str("-out"), str(cert_filename),
+                str("-extfile"), str(extfile_path),
+                str("-extensions"), str(ext_block)
             ]
+            app.logger.debug(f"EST: OpenSSL CLI command: {cmd}")
             subprocess.run(cmd, check=True, capture_output=True, text=True)
 
-        # Read the issued cert (PEM)
         with open(cert_filename, "r") as f:
             cert_pem = f.read()
-        
         cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
 
         # Cleanup temp files
         try:
             os.unlink(csr_der_filename)
             os.unlink(cert_filename)
-        except:
+        except Exception:
             pass
 
     # 4) Record in the database
@@ -2874,11 +2921,16 @@ def run_https():
     app.run(host="0.0.0.0", port=HTTPS_PORT, ssl_context=(SSL_CERT_PATH, SSL_KEY_PATH), use_reloader=False, use_debugger=True)
 
 def run_trusted_https():
-    context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-    context.load_cert_chain(certfile=TRUSTED_SSL_CERT_PATH, keyfile=TRUSTED_SSL_KEY_PATH)
-    context.load_verify_locations(cafile=app.config["CHAIN_FILE_PATH"])
-    context.verify_mode = ssl.CERT_REQUIRED  # Force client cert verification
-    app.run(host="0.0.0.0", port=TRUSTED_HTTPS_PORT, ssl_context=context, use_reloader=False, use_debugger=True)
+    try:
+        context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+        context.load_cert_chain(certfile=TRUSTED_SSL_CERT_PATH, keyfile=TRUSTED_SSL_KEY_PATH)
+        context.load_verify_locations(cafile=app.config["CHAIN_FILE_PATH"])
+        context.verify_mode = ssl.CERT_REQUIRED  # Force client cert verification
+        app.logger.info(f"Starting trusted HTTPS server on port {TRUSTED_HTTPS_PORT} with mTLS required.")
+        app.run(host="0.0.0.0", port=TRUSTED_HTTPS_PORT, ssl_context=context, use_reloader=False, use_debugger=True)
+    except Exception as e:
+        app.logger.error(f"Error starting trusted HTTPS server: {e}", exc_info=True)
+        print(f"Error starting trusted HTTPS server: {e}")
 
 
 # —— Vault Integration ——

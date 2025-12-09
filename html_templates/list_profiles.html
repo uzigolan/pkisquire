@@ -31,6 +31,10 @@
       onkeyup="filterTable()"
       placeholder="Filter by Template Name, Source, Type, or Date">
   </div>
+  <div class="mb-2">
+    <span class="badge" style="background-color: #ffc107; color: black;">ext</span> <b>X509 Extensions</b> &nbsp;|&nbsp;
+    <span class="badge badge-success">req</span> <b>Certificate DN (Distinguished Name)</b>
+  </div>
   <table id="profileTable" class="table table-hover">
     <thead class="thead-dark">
       <tr>
@@ -39,6 +43,7 @@
         <th style="cursor:pointer;" onclick="sortTable(2)">Profile Type <span id="sort-2">⇅</span></th>
         <th style="cursor:pointer;" onclick="sortTable(3)">Created At <span id="sort-3">⇅</span></th>
         {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(4)">User <span id="sort-4">⇅</span></th>{% endif %}
+        <th>Usage</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -58,6 +63,19 @@
         {% if is_admin %}
           <td>{{ profile.user_obj.username if profile.user_obj else 'N/A' }}</td>
         {% endif %}
+        <td>
+          {% if profile.content %}
+            {% if '[ v3_ext ]' in profile.content %}
+              <span class="badge" style="background-color: #ffc107; color: black;">ext</span>
+            {% elif '[ req ]' in profile.content %}
+              <span class="badge badge-success">req</span>
+            {% else %}
+              <span class="badge badge-secondary">?</span>
+            {% endif %}
+          {% else %}
+            <span class="badge badge-secondary">?</span>
+          {% endif %}
+        </td>
         <td>
           <a href="{{ url_for('profiles.view_profile', name=profile.name) }}"
              class="btn btn-sm btn-info">View</a>
