@@ -148,7 +148,7 @@ def list_events():
         # For non-admin, just pass events as-is (user_id column will be hidden in template)
         events_to_render = events
     try:
-        current_app.logger.info(f"[DEBUG /events] Retrieved {len(events_to_render)} events: {events_to_render}")
+        current_app.logger.debug(f"[DEBUG /events] Retrieved {len(events_to_render)} events: {events_to_render}")
     except Exception as e:
         current_app.logger.error(f"[DEBUG /events] Logging error: {e}")
     return render_template('events.html', events=events_to_render, page=page, page_size=page_size, sort=sort, direction=direction, show_user_column=show_user_column)
