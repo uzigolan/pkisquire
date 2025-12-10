@@ -35,8 +35,23 @@ def migrate_db():
     def column_exists(table, column):
         cur.execute(f"PRAGMA table_info({table})")
         return any(row[1] == column for row in cur.fetchall())
+
     if not column_exists('challenge_passwords', 'validity'):
         cur.execute("ALTER TABLE challenge_passwords ADD COLUMN validity TEXT")
+
+    # --- USER EVENTS TABLE LOGIC ---
+    cur.execute('''CREATE TABLE IF NOT EXISTS user_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        event_type TEXT,
+        actor_id INTEGER,
+        actor_username TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        details TEXT
+    )''')
+
+    # --- END USER EVENTS TABLE LOGIC ---
 
     # Helpers
     def ensure_column(table, column, coltype):
@@ -130,6 +145,9 @@ def migrate_db():
     )''')
 
     # Ensure missing columns on existing tables
+    ensure_column('user_events', 'actor_id', 'INTEGER')
+    ensure_column('user_events', 'actor_username', 'TEXT')
+    ensure_column('user_events', 'username', 'TEXT')
     ensure_column('users', 'auth_source', "TEXT DEFAULT 'local'")
     ensure_column('certificates', 'user_id', 'INTEGER')
     ensure_column('certificates', 'issued_via', "TEXT CHECK(issued_via IN ('ui','scep','est','manual','unknown')) DEFAULT 'unknown'")

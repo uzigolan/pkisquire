@@ -27,16 +27,19 @@
     </div>
   </div>
   {% endif %}
+  <div class="form-group">
+    <input type="text" id="filterInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Filter by any column">
+  </div>
   <div class="table-responsive">
     <table class="table table-striped table-sm" id="policyTable">
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Uses</th>
-          {% if is_admin %}<th>User</th>{% endif %}
-          <th>Validity (days)</th>
-          <th>Created (Updated)</th>
-          <th>Extension</th>
+          <th style="cursor:pointer;" onclick="sortTable(0)">Name <span id="sort-0">⇅</span></th>
+          <th style="cursor:pointer;" onclick="sortTable(1)">Uses <span id="sort-1">⇅</span></th>
+          {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(2)">User <span id="sort-2">⇅</span></th>{% endif %}
+          <th style="cursor:pointer;" onclick="sortTable({{ 3 if is_admin else 2 }})">Validity (days) <span id="sort-{{ 3 if is_admin else 2 }}">⇅</span></th>
+          <th style="cursor:pointer;" onclick="sortTable({{ 4 if is_admin else 3 }})">Created (Updated) <span id="sort-{{ 4 if is_admin else 3 }}">⇅</span></th>
+          <th style="cursor:pointer;" onclick="sortTable({{ 5 if is_admin else 4 }})">Extension <span id="sort-{{ 5 if is_admin else 4 }}">⇅</span></th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -87,13 +90,16 @@
   </div>
   <script>
     let allRows = [];
+    let masterRows = [];
     let currentPage = 1;
     let pageSize = 10;
     let lastPolicyState = null;
+    let sortDirections = {};
 
     function collectRows() {
       const tbody = document.querySelector('#policyTable tbody');
-      allRows = Array.from(tbody.querySelectorAll('tr'));
+      masterRows = Array.from(tbody.querySelectorAll('tr'));
+      allRows = masterRows.slice();
     }
 
     function showPage(page) {
@@ -134,6 +140,49 @@
       if (currentPage > 1) {
         showPage(currentPage - 1);
       }
+    }
+
+    function filterTable() {
+      const filterValue = document.getElementById('filterInput').value.toLowerCase();
+      const filterInput = document.getElementById('filterInput');
+      if (filterValue) {
+        filterInput.style.backgroundColor = '#fff3cd';
+      } else {
+        filterInput.style.backgroundColor = '';
+      }
+      allRows = masterRows.filter(function(row) {
+        let text = '';
+        for (let i = 0; i < row.cells.length - 1; ++i) { // skip Actions col
+          text += row.cells[i].textContent.trim().toLowerCase() + ' ';
+        }
+        return text.indexOf(filterValue) > -1;
+      });
+      // Hide all rows, then show only filtered rows in current page
+      masterRows.forEach(function(row) { row.style.display = 'none'; });
+      allRows.forEach(function(row) { row.style.display = ''; });
+      showPage(1);
+    }
+
+    function sortTable(columnIndex) {
+      // Sort masterRows, then re-filter and paginate
+      masterRows.sort(function(a, b) {
+        var aText = a.cells[columnIndex].textContent.trim().toLowerCase();
+        var bText = b.cells[columnIndex].textContent.trim().toLowerCase();
+        if (aText < bText) return -1;
+        if (aText > bText) return 1;
+        return 0;
+      });
+      // Toggle sort direction
+      if (sortDirections[columnIndex] === 'asc') {
+        masterRows.reverse();
+        sortDirections[columnIndex] = 'desc';
+      } else {
+        sortDirections[columnIndex] = 'asc';
+      }
+      // Update sort indicators
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+      document.getElementById('sort-' + columnIndex).textContent = sortDirections[columnIndex] === 'asc' ? '↑' : '↓';
+      filterTable();
     }
 
     async function pollPolicyState() {

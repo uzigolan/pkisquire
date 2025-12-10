@@ -2900,6 +2900,12 @@ def change_password():
     con.close()
     # Optionally update status to 'active' if needed (persistent logic)
     # cur.execute("UPDATE users SET status = 'active' WHERE id = ?", (current_user.id,))
+    # Log user event as 'reset_password' (for both user and admin resets)
+    try:
+        from events import log_user_event
+        log_user_event('reset_password', current_user.id, {'by': current_user.id, 'username': current_user.username, 'actor_username': current_user.username})
+    except Exception:
+        pass
     flash("Password changed successfully.", "success")
     app.logger.info(f"User {current_user.username} changed their password.")
     return redirect(url_for('account'))
