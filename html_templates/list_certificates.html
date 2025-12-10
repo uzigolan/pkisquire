@@ -35,7 +35,7 @@
           <tr>
             <th>ID</th>
             <th>Common Name</th>
-            <th>Serial <small style="color: #6c757d;">(click to copy if truncated)</small></th>
+            <th>Serial <small style="color: #6c757d;">(click to copy)</small></th>
             <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">⇅</span></th>
             <th style="cursor:pointer;" onclick="sortTable(4)">Date (UTC) <span id="sort-4">⇅</span></th>
             <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">⇅</span></th>
@@ -58,13 +58,18 @@
               {% endfor %}
             </td>
             <td>
-              {% if serial|length > 20 %}
-                <span title="{{ serial }}" style="cursor: pointer;" onclick="copyToClipboard('{{ serial }}', this)">
-                  {{ serial[:20] }}...
+              {% set serial_idx = loop.index0 %}
+              <span style="position: relative;">
+                <span title="{{ serial }}" style="cursor: pointer;" onclick="copyToClipboard('{{ serial }}', this, {{ serial_idx }})">
+                  <span class="d-none full-serial">{{ serial }}</span>
+                  {% if serial|length > 20 %}
+                    {{ serial[:20] }}...
+                  {% else %}
+                    {{ serial }}
+                  {% endif %}
                 </span>
-              {% else %}
-                {{ serial }}
-              {% endif %}
+                <span id="serial-copied-{{ serial_idx }}" style="display:none; color:green; font-weight:bold; position:absolute; left:105%; top:0;">Copied!</span>
+              </span>
             </td>
             <td>{{ keycol }}</td>
             <td>{{ date }}</td>
@@ -129,13 +134,14 @@
     let sortDirections = {}; // Track sort direction for each column
     let lastCertState = null;
 
-    function copyToClipboard(text, element) {
+    function copyToClipboard(text, element, idx) {
       navigator.clipboard.writeText(text).then(() => {
-        const originalTitle = element.title;
-        element.title = 'Copied!';
-        setTimeout(() => {
-          element.title = originalTitle;
-        }, 1000);
+        // Show green Copied! feedback
+        var copied = document.getElementById('serial-copied-' + idx);
+        if (copied) {
+          copied.style.display = 'inline';
+          setTimeout(function() { copied.style.display = 'none'; }, 1200);
+        }
       });
     }
 
@@ -186,14 +192,20 @@
       var tbody = table.getElementsByTagName('tbody')[0];
       var rows = tbody.getElementsByTagName('tr');
       
-      // Update allRows array based on filter
+      // Hide all rows first, then only show filtered
       allRows = [];
       for (var i = 0; i < rows.length; i++) {
+        rows[i].style.display = 'none';
         var commonNameText = rows[i].cells[1].textContent.trim().toLowerCase();
-        var serialText = rows[i].cells[2].textContent.trim().toLowerCase();
+        // If serial is truncated, get the hidden full serial for filtering
+        var serialCell = rows[i].cells[2];
+        var serialText = serialCell.textContent.trim().toLowerCase();
+        var fullSerialSpan = serialCell.querySelector('.full-serial');
+        if (fullSerialSpan) {
+          serialText += ' ' + fullSerialSpan.textContent.trim().toLowerCase();
+        }
         var keyText = rows[i].cells[3].textContent.trim().toLowerCase();
         var dateText = rows[i].cells[4].textContent.trim().toLowerCase();
-
         if (commonNameText.indexOf(filterValue) > -1 ||
             serialText.indexOf(filterValue) > -1 ||
             keyText.indexOf(filterValue) > -1 ||
@@ -201,8 +213,6 @@
           allRows.push(rows[i]);
         }
       }
-      
-      // Reset to page 1 and show filtered results
       showPage(1);
     }
 

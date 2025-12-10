@@ -3,6 +3,29 @@ import sqlite3
 from datetime import datetime
 
 def main():
+    # Load DB path from config.ini
+    import configparser
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    config_path = os.path.join(basedir, "config.ini")
+    cfg = configparser.ConfigParser()
+    cfg.read(config_path)
+    db_path = os.path.join(basedir, cfg.get("PATHS", "db_path"))
+
+    print(f"[init_db] Using DB: {db_path}")
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+
+    # User Events table
+    cur.execute('''CREATE TABLE IF NOT EXISTS user_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        event_type TEXT,
+        actor_id INTEGER,
+        actor_username TEXT,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        details TEXT
+    )''')
 
     # Load DB path from config.ini
     import configparser

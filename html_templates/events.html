@@ -44,7 +44,11 @@
   <thead>
     <tr>
       {% set sort_icon = {'asc': '^', 'desc': 'v'} %}
-      {% set sortable_columns = [('timestamp', 'Time'), ('user_id', 'User'), ('event_type', 'Event Type'), ('resource_type', 'Resource Type'), ('resource_name', 'Resource Name'), ('details', 'Details')] %}
+      {% if show_user_column %}
+        {% set sortable_columns = [('timestamp', 'Time'), ('user_id', 'User'), ('event_type', 'Event Type'), ('resource_type', 'Resource Type'), ('resource_name', 'Resource Name'), ('details', 'Details')] %}
+      {% else %}
+        {% set sortable_columns = [('timestamp', 'Time'), ('event_type', 'Event Type'), ('resource_type', 'Resource Type'), ('resource_name', 'Resource Name'), ('details', 'Details')] %}
+      {% endif %}
       {% for col, label in sortable_columns %}
         <th>
           {% set header_query = request.args.to_dict() %}
@@ -63,8 +67,10 @@
   <tbody>
     {% for event in events %}
     <tr>
-      <td>{{ event[5] }}</td>
-      <td>{{ event[4] }}</td>
+      <td>{% if event[5] %}{{ event[5][:16].replace('T', ' ') }}{% endif %}</td>
+      {% if show_user_column %}
+        <td>{{ event[4] }}</td>
+      {% endif %}
       <td>
         {% if event[1] == 'create' %}
           <span class="badge badge-success">Create</span>
@@ -87,7 +93,19 @@
           <span class="badge badge-secondary">{{ event[2] }}</span>
         {% endif %}
       </td>
-      <td><span style="font-family: monospace;">{{ event[3] }}</span></td>
+      <td>
+        <span style="position: relative;">
+          <span class="full-resource-name" style="display:none;">{{ event[3] }}</span>
+          <span title="{{ event[3] }}" style="cursor: pointer;" onclick="copyResourceName(this)">
+            {% if event[3]|length > 20 %}
+              {{ event[3][:20] }}...
+            {% else %}
+              {{ event[3] }}
+            {% endif %}
+          </span>
+          <span class="resource-copied" style="display:none; color:green; font-weight:bold; position:absolute; left:105%; top:0;">Copied!</span>
+        </span>
+      </td>
       <td>{{ event[6] }}</td>
       <td><a href="{{ url_for('events.event_detail', event_id=event[0]) }}" class="btn btn-sm btn-outline-info">View</a></td>
     </tr>
@@ -127,4 +145,76 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+function copyResourceName(element) {
+  var full = element.parentElement.querySelector('.full-resource-name').textContent;
+  navigator.clipboard.writeText(full).then(() => {
+    var copied = element.parentElement.querySelector('.resource-copied');
+    if (copied) {
+      copied.style.display = 'inline';
+      setTimeout(function() { copied.style.display = 'none'; }, 1200);
+    }
+  });
+}
+function renderEventRow(event) {
+  let eventType = '';
+  if (event[1] === 'create') eventType = '<span class="badge badge-success">Create</span>';
+  else if (event[1] === 'delete') eventType = '<span class="badge badge-danger">Delete</span>';
+  else if (event[1] === 'revoke') eventType = '<span class="badge badge-warning">Revoke</span>';
+  else if (event[1] === 'update') eventType = '<span class="badge badge-info">Update</span>';
+  else eventType = `<span class="badge badge-secondary">${event[1]}</span>`;
+
+  let resourceType = '';
+  if (event[2] === 'certificate') resourceType = '<span class="badge badge-primary">Certificate</span>';
+  else if (event[2] === 'policy') resourceType = '<span class="badge badge-dark">Policy</span>';
+  else resourceType = `<span class="badge badge-secondary">${event[2]}</span>`;
+
+  // event[5] is timestamp (UTC string)
+  let utcTime = '';
+  if (event[5]) {
+    const d = new Date(event[5] + 'Z');
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const h = String(d.getUTCHours()).padStart(2, '0');
+    const min = String(d.getUTCMinutes()).padStart(2, '0');
+    utcTime = `${y}-${m}-${day} ${h}:${min}`;
+  }
+  // show_user_column is injected as a global JS variable
+  if (typeof window.showUserColumn !== 'undefined' && window.showUserColumn) {
+    return `<tr>
+      <td>${utcTime}</td>
+      <td>${event[4]}</td>
+      <td>${eventType}</td>
+      <td>${resourceType}</td>
+      <td><span style=\"font-family: monospace;\">${event[3]}</span></td>
+      <td>${event[6]}</td>
+      <td><a href="/events/${event[0]}" class="btn btn-sm btn-outline-info">View</a></td>
+    </tr>`;
+  } else {
+    return `<tr>
+      <td>${utcTime}</td>
+      <td>${event[1]}</td>
+      <td>${resourceType}</td>
+      <td><span style=\"font-family: monospace;\">${event[3]}</span></td>
+      <td>${event[6]}</td>
+      <td><a href="/events/${event[0]}" class="btn btn-sm btn-outline-info">View</a></td>
+    </tr>`;
+  }
+}
+
+window.showUserColumn = {{ 'true' if show_user_column else 'false' }};
+function fetchAndUpdateEvents() {
+  fetch('/events/api')
+    .then(response => response.json())
+    .then(data => {
+      const tbody = document.querySelector('table.table tbody');
+      tbody.innerHTML = data.events.map(renderEventRow).join('');
+    });
+}
+setInterval(fetchAndUpdateEvents, 5000);
+window.addEventListener('DOMContentLoaded', fetchAndUpdateEvents);
+</script>
 {% endblock %}

@@ -98,36 +98,54 @@
 
       var tbody = table.getElementsByTagName('tbody')[0];
       rows.forEach(row => tbody.appendChild(row));
+      // Update masterRows to reflect new order after sort
+      masterRows = Array.from(tbody.getElementsByTagName('tr'));
+      // If a filter is active, re-apply it to the new order
+      if (document.getElementById('filterInput').value) {
+        filterTable();
+      } else {
+        allRows = masterRows.slice();
+        showPage(1);
+      }
     }
+
+    // Keep a master list of all rows for robust filtering
+    let masterRows = [];
 
     function filterTable() {
       var filterValue = document.getElementById('filterInput').value.toLowerCase();
       var filterInput = document.getElementById('filterInput');
-      
       if (filterValue) {
         filterInput.style.backgroundColor = '#fff3cd';
       } else {
         filterInput.style.backgroundColor = '';
       }
-      
-      var table = document.getElementById('csrTable');
-      var tbody = table.getElementsByTagName('tbody')[0];
-      var rows = tbody.getElementsByTagName('tr');
-      
-      allRows = [];
-      for (var i = 0; i < rows.length; i++) {
-        var nameText = rows[i].cells[1].textContent.trim().toLowerCase();
-        var keyText = rows[i].cells[2].textContent.trim().toLowerCase();
-        var profileText = rows[i].cells[3].textContent.trim().toLowerCase();
-        var dateText = rows[i].cells[4].textContent.trim().toLowerCase();
-
-        if (nameText.indexOf(filterValue) > -1 ||
-            keyText.indexOf(filterValue) > -1 ||
-            profileText.indexOf(filterValue) > -1 ||
-            dateText.indexOf(filterValue) > -1) {
-          allRows.push(rows[i]);
+      // Always filter from masterRows, not from allRows (which may be filtered/paginated)
+      allRows = masterRows.filter(function(row) {
+        var nameText = row.cells[1].textContent.trim().toLowerCase();
+        var keyText = row.cells[2].textContent.trim().toLowerCase();
+        var profileText = row.cells[3].textContent.trim().toLowerCase();
+        var dateText = row.cells[4].textContent.trim().toLowerCase();
+        var userText = '';
+        // If admin, user column exists at index 5
+        if (row.cells.length > 6) {
+          userText = row.cells[5].textContent.trim().toLowerCase();
         }
-      }
+        return (
+          nameText.indexOf(filterValue) > -1 ||
+          keyText.indexOf(filterValue) > -1 ||
+          profileText.indexOf(filterValue) > -1 ||
+          dateText.indexOf(filterValue) > -1 ||
+          userText.indexOf(filterValue) > -1
+        );
+      });
+      // Hide all rows, then show only filtered rows
+      masterRows.forEach(function(row) {
+        row.style.display = 'none';
+      });
+      allRows.forEach(function(row) {
+        row.style.display = '';
+      });
       showPage(1);
     }
 
@@ -139,7 +157,8 @@
     function initPagination() {
       var table = document.getElementById('csrTable');
       var tbody = table.getElementsByTagName('tbody')[0];
-      allRows = Array.from(tbody.getElementsByTagName('tr'));
+      masterRows = Array.from(tbody.getElementsByTagName('tr'));
+      allRows = masterRows.slice();
       showPage(1);
     }
 

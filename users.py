@@ -1,3 +1,4 @@
+import secrets
 from flask import Blueprint, render_template, redirect, url_for, flash, jsonify, request, session as flask_session, current_app
 from flask_login import login_required, current_user, logout_user, login_user, user_logged_in, user_logged_out
 import uuid
@@ -79,6 +80,32 @@ def parse_idle_time(s):
     else:
         raise ValueError(f"Unknown unit: {unit}")
 
+# --- User Events Page ---
+@users_bp.route('/events')
+@login_required
+def user_events():
+    from events import get_user_events
+    import json
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('page_size', 20))
+    user_id = request.args.get('user_id')
+    event_type = request.args.get('event_type')
+    events = get_user_events(user_id=user_id, event_type=event_type, page=page, page_size=page_size)
+    # Parse details JSON for each event
+    parsed_events = []
+    for event in events:
+        event = list(event)
+        details = event[4]
+        if isinstance(details, str):
+            try:
+                event[4] = json.loads(details)
+            except Exception:
+                event[4] = {}
+        elif details is None:
+            event[4] = {}
+        parsed_events.append(tuple(event))
+    current_app.logger.debug(f"[TRACE user_events] events: {parsed_events}")
+    return render_template('user_events.html', events=parsed_events, page=page, page_size=page_size)
 
 
 # --- Force logout if session missing from user_sessions table ---
@@ -96,6 +123,8 @@ def enforce_tracked_session():
     with sqlite3.connect(db_path) as conn:
         row = conn.execute("SELECT last_activity FROM user_sessions WHERE session_id = ?", (sid,)).fetchone()
     if not row:
+        # Only log force_logout if this is NOT due to admin action (i.e., session expired or removed for another reason)
+        # If you want to log only admin-initiated force_logout, skip logging here
         logout_user()
         flask_session.pop('sid', None)
         flash('You have been logged out by an administrator.', 'warning')
@@ -116,13 +145,15 @@ def enforce_tracked_session():
     except Exception:
         last_dt = now
     idle_seconds = (now - last_dt).total_seconds()
-    current_app.logger.trace(f"[IDLE] enforce_tracked_session: sid={sid}")
-    current_app.logger.trace(f"[IDLE] enforce_tracked_session: now_str={now_str}")
-    current_app.logger.trace(f"[IDLE] enforce_tracked_session: last_activity={last_activity}")
-    current_app.logger.trace(f"[IDLE] enforce_tracked_session: max_idle_str={max_idle_str} max_idle_seconds={max_idle_seconds}")
-    current_app.logger.trace(f"[IDLE] enforce_tracked_session: idle_seconds={idle_seconds}")
+    current_app.logger.log(5, f"[IDLE] enforce_tracked_session: sid={sid}")
+    current_app.logger.log(5, f"[IDLE] enforce_tracked_session: now_str={now_str}")
+    current_app.logger.log(5, f"[IDLE] enforce_tracked_session: last_activity={last_activity}")
+    current_app.logger.log(5, f"[IDLE] enforce_tracked_session: max_idle_str={max_idle_str} max_idle_seconds={max_idle_seconds}")
+    current_app.logger.log(5, f"[IDLE] enforce_tracked_session: idle_seconds={idle_seconds}")
     if idle_seconds > max_idle_seconds:
-        current_app.logger.trace(f"[IDLE] enforce_tracked_session: FORCED LOGOUT due to idle (sid={sid}, idle_seconds={idle_seconds}, max_idle_seconds={max_idle_seconds})")
+        current_app.logger.log(5, f"[IDLE] enforce_tracked_session: FORCED LOGOUT due to idle (sid={sid}, idle_seconds={idle_seconds}, max_idle_seconds={max_idle_seconds})")
+        from events import log_user_event
+        log_user_event('force_logout', current_user.id, {'username': current_user.username, 'by': current_user.id, 'actor_username': current_user.username})
         logout_user()
         flask_session.pop('sid', None)
         flash('You have been logged out due to inactivity.', 'warning')
@@ -132,6 +163,33 @@ def enforce_tracked_session():
         conn.execute("UPDATE user_sessions SET last_activity = ? WHERE session_id = ?", (now_str, sid))
 
 
+# --- User Events API for AJAX polling ---
+@users_bp.route('/events/api')
+@login_required
+def user_events_api():
+    from events import get_user_events
+    import json
+    page = int(request.args.get('page', 1))
+    page_size = int(request.args.get('page_size', 20))
+    user_id = request.args.get('user_id')
+    event_type = request.args.get('event_type')
+    events = get_user_events(user_id=user_id, event_type=event_type, page=page, page_size=page_size)
+    current_app.logger.debug(f"[AJAX /users/events/api] user_id={user_id} event_type={event_type} events_count={len(events)}")
+    # Parse details JSON for each event
+    parsed_events = []
+    for event in events:
+        event = list(event)
+        details = event[4]
+        if isinstance(details, str):
+            try:
+                event[4] = json.loads(details)
+            except Exception:
+                event[4] = {}
+        elif details is None:
+            event[4] = {}
+        parsed_events.append(event)
+    current_app.logger.debug(f"[AJAX /users/events/api] events: {parsed_events}")
+    return jsonify({'events': parsed_events})
 
 
 # --- Test endpoint to verify session DB writes ---
@@ -229,6 +287,12 @@ def approve_user(user_id):
     cur.execute("UPDATE users SET status = 'active' WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
+    # Log user event
+    try:
+        from events import log_user_event
+        log_user_event('approve', user_id, {'by': current_user.id, 'username': user.username, 'actor_username': current_user.username})
+    except Exception:
+        pass
     flash('User approved and activated.', 'success')
     return redirect(url_for('users.manage_users'))
 # --- Toggle User Active (Admin Only) ---
@@ -251,6 +315,12 @@ def toggle_user_active(user_id):
     cur.execute("UPDATE users SET status = ? WHERE id = ?", (new_status, user_id))
     conn.commit()
     conn.close()
+    # Log user event
+    try:
+        from events import log_user_event
+        log_user_event('suspend' if new_status == 'deactivated' else 'activate', user_id, {'by': current_user.id, 'username': user.username, 'actor_username': current_user.username})
+    except Exception:
+        pass
     flash(f'User {"activated" if new_status == "active" else "deactivated"}.', 'success')
     return redirect(url_for('users.manage_users'))
 
@@ -268,6 +338,12 @@ def change_role(user_id):
         return redirect(url_for('users.manage_users'))
     from user_models import update_user_role
     update_user_role(user_id, new_role)
+    # Log user event
+    try:
+        from events import log_user_event
+        log_user_event('change_role', user_id, {'by': current_user.id, 'role': new_role, 'username': get_username_by_id(user_id), 'actor_username': current_user.username})
+    except Exception:
+        pass
     flash('User role updated.', 'success')
     return redirect(url_for('users.manage_users'))
 
@@ -285,6 +361,33 @@ def manage_users():
         user['auth_source'] = get_auth_source_for_username(user['username'])
         user['idle'] = idle_map.get(user['id'], '') if user['is_logged_in'] else ''
     return render_template('manage_users.html', users=users)
+
+# --- Admin Reset Password ---
+@users_bp.route('/reset_password/<int:user_id>', methods=['POST'])
+@login_required
+def reset_password(user_id):
+    if not current_user.is_admin():
+        flash('Access denied: Admins only.', 'error')
+        return redirect(url_for('users.manage_users'))
+    from user_models import get_user_by_id
+    user = get_user_by_id(user_id)
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('users.manage_users'))
+    # Generate a new random password
+    new_password = secrets.token_urlsafe(10)
+    from werkzeug.security import generate_password_hash
+    db_path = current_app.config["DB_PATH"]
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (generate_password_hash(new_password), user_id))
+    # Log user event
+    try:
+        from events import log_user_event
+        log_user_event('reset_password', user_id, {'by': current_user.id, 'username': user.username, 'actor_username': current_user.username})
+    except Exception:
+        pass
+    flash(f"Password for user '{user.username}' has been reset. New password: {new_password}", 'success')
+    return redirect(url_for('users.manage_users'))
 
 @users_bp.route('/api')
 @login_required
@@ -316,8 +419,16 @@ def admin_logout(user_id):
         flash('Access denied: Admins only.', 'error')
         return redirect(url_for('users.manage_users'))
     db_path = current_app.config["DB_PATH"]
+    from user_models import get_username_by_id
+    target_username = get_username_by_id(user_id)
     with sqlite3.connect(db_path) as conn:
         conn.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
+    from events import log_user_event
+    log_user_event('force_logout', user_id, {
+        'username': target_username,
+        'by': current_user.id,
+        'actor_username': current_user.username
+    })
     if user_id == current_user.id:
         logout_user()
         flash('You have been logged out.', 'success')
@@ -346,16 +457,10 @@ def add_user():
             return render_template('add_user.html')
         user_id = create_user_db(username, password, role, email)
         if user_id:
-            # Log event
+            # Log only to user_events, not main events
             try:
-                from events import log_event
-                log_event(
-                    event_type="create_user",
-                    resource_type="user",
-                    resource_name=username,
-                    user_id=current_user.id,
-                    details={"role": role, "email": email}
-                )
+                from events import log_user_event
+                log_user_event('add', user_id, {'by': current_user.id, 'role': role, 'email': email, 'username': username, 'actor_username': current_user.username})
             except Exception as e:
                 pass
             flash('User added successfully.', 'success')
@@ -375,19 +480,16 @@ def delete_user(user_id):
         return redirect(url_for('users.manage_users'))
     from user_models import get_username_by_id
     username = get_username_by_id(user_id)
-    # Log event
+    # Log only to user_events, not main events
     try:
-        from events import log_event
-        log_event(
-            event_type="delete_user",
-            resource_type="user",
-            resource_name=username,
-            user_id=current_user.id,
-            details={}
-        )
+        from events import log_user_event
+        log_user_event('delete', user_id, {'by': current_user.id, 'username': username, 'actor_username': current_user.username})
     except Exception as e:
         pass
-    # You may want to add DB deletion logic here
+    # Actually delete user from DB
+    db_path = current_app.config["DB_PATH"]
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
     flash('User deleted.', 'success')
     return redirect(url_for('users.manage_users'))
 
@@ -472,7 +574,10 @@ def login():
             elif user.status == 'active' and user.check_password(password):
                 login_user(user)
                 update_last_login(user.id)
-                current_app.logger.info(f"User {username} logged in")
+                from events import log_user_event
+                ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
+                log_user_event('login', user.id, {'username': user.username, 'by': user.id, 'actor_username': user.username, 'ip': ip_addr})
+                current_app.logger.info(f"User {username} logged in from IP {ip_addr}")
                 return redirect(url_for('index'))
             else:
                 flash("Invalid username or password.", "error")
@@ -501,6 +606,8 @@ def login():
 @login_required
 def logout():
     current_app.logger.info(f"User {current_user.username} logged out")
+    from events import log_user_event
+    log_user_event('logout', current_user.id, {'username': current_user.username, 'by': current_user.id, 'actor_username': current_user.username})
     logout_user()
     flask_session.clear()
     flash("You have been logged out.", "info")

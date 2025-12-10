@@ -1,92 +1,117 @@
 {% extends "layout.html" %}
 {% block content %}
-<h2>Manage Users</h2>
-<table class="table table-bordered">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Username</th>
-            <th>Email</th>
-            <th style="width: 120px;">Idle</th>
-            <th style="width: 320px;">Settings/Status</th>
-            <th style="width: 520px;">Actions</th>
-        </tr>
-    </thead>
-    <tbody id="users-table-body">
-        {% for user in users %}
-        <!-- Initial render for non-JS fallback -->
-        <tr>
-            <td>{{ user.id }}</td>
-            <td>{{ user.username }}</td>
-            <td>{{ user.email or '' }}</td>
-            <td>{{ user.idle or '' }}</td>
-            <td>
-                <div>
-                    {% if user.role == 'admin' %}
-                        <span class="badge badge-dark">Admin</span>
-                    {% else %}
-                        <span class="badge" style="background-color: #007bff; color: white;">User</span>
-                    {% endif %}
-                    {% if user.auth_source == 'ldap' %}
-                        <span class="badge badge-primary">LDAP</span>
-                    {% else %}
-                        <span class="badge badge-secondary">Local</span>
-                    {% endif %}
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+    <h2 style="margin-bottom: 0;">Manage Users</h2>
+    <a href="{{ url_for('users.user_events') }}" class="btn btn-warning mr-2" style="min-width: 180px; font-size: 1.08em; font-weight: 500;">User Events</a>
+</div>
+<div class="form-group">
+    <input type="text" id="filterInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Filter by any column">
+</div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="form-inline">
+        <label for="pageSizeSelect" class="mr-2">Show:</label>
+        <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+        </select>
+        <span id="pageInfo" class="mr-3"></span>
+    </div>
+    <div>
+        <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
+        <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
+    </div>
+</div>
+<div class="table-responsive">
+    <table class="table table-bordered" id="usersTable">
+        <thead>
+            <tr>
+                <th style="cursor:pointer;" onclick="sortTable(0)">ID <span id="sort-0">⇅</span></th>
+                <th style="cursor:pointer;" onclick="sortTable(1)">Username <span id="sort-1">⇅</span></th>
+                <th style="cursor:pointer;" onclick="sortTable(2)">Email <span id="sort-2">⇅</span></th>
+                <th style="cursor:pointer;" onclick="sortTable(3)">Idle <span id="sort-3">⇅</span></th>
+                <th style="cursor:pointer;" onclick="sortTable(4)">Settings/Status <span id="sort-4">⇅</span></th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="users-table-body">
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email or '' }}</td>
+                <td>{{ user.idle or '' }}</td>
+                <td>
+                    <div>
+                        {% if user.role == 'admin' %}
+                            <span class="badge badge-dark">Admin</span>
+                        {% else %}
+                            <span class="badge" style="background-color: #007bff; color: white;">User</span>
+                        {% endif %}
+                        {% if user.auth_source == 'ldap' %}
+                            <span class="badge badge-primary">LDAP</span>
+                        {% else %}
+                            <span class="badge badge-secondary">Local</span>
+                        {% endif %}
+                        {% if user.status == 'active' %}
+                            <span class="badge badge-success">Active</span>
+                        {% elif user.status == 'pending' %}
+                            <span class="badge badge-warning">Pending</span>
+                        {% else %}
+                            <span class="badge badge-secondary">Suspended</span>
+                        {% endif %}
+                        {% if user.is_logged_in %}
+                            <span class="badge badge-info">In</span>
+                        {% else %}
+                            <span class="badge" style="background-color: #6f42c1; color: white;">Out</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td style="white-space: nowrap;">
+                    {% if user.id != current_user.id %}
+                    <form method="post" action="{{ url_for('users.delete_user', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+                    </form>
+                    <form method="post" action="{{ url_for('users.change_role', user_id=user.id) }}" style="display:inline;">
+                        <select name="role" class="form-control form-control-sm d-inline-block w-auto" style="vertical-align:middle;">
+                            <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
+                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
+                    </form>
+                    <form method="post" action="{{ url_for('users.reset_password', user_id=user.id) }}" style="display:inline;">
+                        <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Reset password for this user?');">Reset Password</button>
+                    </form>
                     {% if user.status == 'active' %}
-                        <span class="badge badge-success">Active</span>
+                        <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
+                        </form>
+                    {% elif user.status == 'deactivated' %}
+                        <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-success">Activate</button>
+                        </form>
                     {% elif user.status == 'pending' %}
-                        <span class="badge badge-warning">Pending</span>
-                    {% else %}
-                        <span class="badge badge-secondary">Suspended</span>
+                        <form method="post" action="{{ url_for('users.approve_user', user_id=user.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                        </form>
+                        <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
+                        </form>
                     {% endif %}
                     {% if user.is_logged_in %}
-                        <span class="badge badge-info">Yes</span>
-                    {% else %}
-                        <span class="badge" style="background-color: #6f42c1; color: white;">No</span>
+                        <form method="post" action="{{ url_for('users.admin_logout', user_id=user.id) }}" style="display:inline; margin-left: 2px;">
+                            <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
+                        </form>
                     {% endif %}
-                </div>
-            </td>
-            <td style="white-space: nowrap;">
-                {% if user.id != current_user.id %}
-                <form method="post" action="{{ url_for('users.delete_user', user_id=user.id) }}" style="display:inline;">
-                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
-                </form>
-                <form method="post" action="{{ url_for('users.change_role', user_id=user.id) }}" style="display:inline;">
-                    <select name="role" class="form-control form-control-sm d-inline-block w-auto" style="vertical-align:middle;">
-                        <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
-                        <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
-                    </select>
-                    <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
-                </form>
-                {% if user.status == 'active' %}
-                    <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
-                    </form>
-                {% elif user.status == 'deactivated' %}
-                    <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-success">Activate</button>
-                    </form>
-                {% elif user.status == 'pending' %}
-                    <form method="post" action="{{ url_for('users.approve_user', user_id=user.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-success">Approve</button>
-                    </form>
-                    <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                        <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
-                    </form>
-                {% endif %}
-                {% if user.is_logged_in %}
-                    <form method="post" action="{{ url_for('users.admin_logout', user_id=user.id) }}" style="display:inline; margin-left: 2px;">
-                        <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
-                    </form>
-                {% endif %}
-                {% else %}
-                <span class="text-muted">(You)</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                    {% else %}
+                    <span class="text-muted">(You)</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 <a href="{{ url_for('users.add_user') }}" class="btn btn-success">Add User</a>
 
 <div class="mt-3">
@@ -113,8 +138,8 @@
         </div>
         <div>
             <div style="font-weight: 600;">Login Status</div>
-            <div><span class="badge badge-info">Yes</span> Logged in</div>
-            <div><span class="badge" style="background-color: #6f42c1; color: white;">No</span> Not logged in</div>
+            <div><span class="badge badge-info">In</span> Logged in</div>
+            <div><span class="badge" style="background-color: #6f42c1; color: white;">Out</span> Logged out</div>
         </div>
     </div>
 </div>
@@ -125,27 +150,29 @@ function renderUserRow(user, currentUserId) {
     if (user.status === 'active') statusBadge = '<span class="badge badge-success">Active</span>';
     else if (user.status === 'pending') statusBadge = '<span class="badge badge-warning">Pending</span>';
     let loggedInBadge = user.is_logged_in
-        ? '<span class="badge badge-info">Yes</span>'
-        : '<span class="badge" style="background-color: #6f42c1; color: white;">No</span>';
+        ? '<span class="badge badge-info">In</span>'
+        : '<span class="badge" style="background-color: #6f42c1; color: white;">Out</span>';
     const sourceBadge = user.auth_source === 'ldap'
         ? '<span class="badge badge-primary">LDAP</span>'
         : '<span class="badge badge-secondary">Local</span>';
     const roleBadge = user.role === 'admin'
         ? '<span class="badge badge-dark">Admin</span>'
         : '<span class="badge" style="background-color: #007bff; color: white;">User</span>';
-    const settings = `${roleBadge} ${sourceBadge} ${statusBadge} ${loggedInBadge}`;
     let actions = '';
     if (user.id !== currentUserId) {
         actions += `<form method="post" action="/users/delete/${user.id}" style="display:inline;">
             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
         </form>`;
-        actions += `<form method="post" action="/users/change_role/${user.id}" style="display:inline;">
+        actions += `<form method="post" action="/users/change_role/${user.id}" style="display:inline;" oninput="this.querySelector('button[type=submit]').disabled = this.querySelector('select').value === '${user.role}'">
             <select name="role" class="form-control form-control-sm d-inline-block w-auto" style="vertical-align:middle;">
                 <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
                 <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
             </select>
-            <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
+            <button type="submit" class="btn btn-sm btn-primary" ${user.role === (user.role === 'admin' ? 'admin' : 'user') ? 'disabled' : ''}>Change Role</button>
         </form>`;
+            actions += `<form method="post" action="/users/reset_password/${user.id}" style="display:inline;">
+                <button type="submit" class="btn btn-sm" style="background-color: #6c757d; color: white;" onclick="return confirm('Reset password for this user?');">Reset Password</button>
+            </form>`;
         if (user.status === 'active') {
             actions += `<form method="post" action="/users/toggle_active/${user.id}" style="display:inline;">
                 <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
@@ -155,7 +182,7 @@ function renderUserRow(user, currentUserId) {
                 <button type="submit" class="btn btn-sm btn-success">Activate</button>
             </form>`;
         } else if (user.status === 'pending') {
-            actions += `<form method="post" action="/approve_user/${user.id}" style="display:inline;">
+            actions += `<form method="post" action="/users/approve_user/${user.id}" style="display:inline;">
                 <button type="submit" class="btn btn-sm btn-success">Approve</button>
             </form>`;
             actions += `<form method="post" action="/users/toggle_active/${user.id}" style="display:inline;">
@@ -175,9 +202,99 @@ function renderUserRow(user, currentUserId) {
         <td>${user.username}</td>
         <td>${user.email || ''}</td>
         <td>${user.idle || ''}</td>
-        <td>${settings}</td>
+        <td><div>${roleBadge} ${sourceBadge} ${statusBadge} ${loggedInBadge}</div></td>
         <td style="white-space: nowrap;">${actions}</td>
     </tr>`;
+}
+let masterRows = [];
+let allRows = [];
+let currentPage = 1;
+let pageSize = 10;
+let sortDirections = {};
+
+function collectRows() {
+    const tbody = document.getElementById('users-table-body');
+    masterRows = Array.from(tbody.querySelectorAll('tr'));
+    allRows = masterRows.slice();
+}
+
+function showPage(page) {
+    currentPage = page;
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    const tbody = document.getElementById('users-table-body');
+    tbody.innerHTML = '';
+    allRows.slice(start, end).forEach(row => tbody.appendChild(row));
+    updatePaginationInfo();
+}
+
+function updatePaginationInfo() {
+    const totalPages = Math.ceil(allRows.length / pageSize) || 1;
+    const start = (currentPage - 1) * pageSize + 1;
+    const end = Math.min(currentPage * pageSize, allRows.length);
+    const pageInfo = document.getElementById('pageInfo');
+    if (pageInfo) {
+        pageInfo.textContent = `Showing ${start}-${end} of ${allRows.length}`;
+    }
+    document.getElementById('prevBtn').disabled = currentPage === 1;
+    document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+}
+
+function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+    showPage(1);
+}
+
+function nextPage() {
+    const totalPages = Math.ceil(allRows.length / pageSize);
+    if (currentPage < totalPages) {
+        showPage(currentPage + 1);
+    }
+}
+
+function previousPage() {
+    if (currentPage > 1) {
+        showPage(currentPage - 1);
+    }
+}
+
+function filterTable() {
+    const filterValue = document.getElementById('filterInput').value.toLowerCase();
+    const filterInput = document.getElementById('filterInput');
+    if (filterValue) {
+        filterInput.style.backgroundColor = '#fff3cd';
+    } else {
+        filterInput.style.backgroundColor = '';
+    }
+    allRows = masterRows.filter(function(row) {
+        let text = '';
+        for (let i = 0; i < row.cells.length - 1; ++i) { // skip Actions col
+            text += row.cells[i].textContent.trim().toLowerCase() + ' ';
+        }
+        return text.indexOf(filterValue) > -1;
+    });
+    showPage(1);
+}
+
+function sortTable(columnIndex) {
+    masterRows.sort(function(a, b) {
+        var aText = a.cells[columnIndex].textContent.trim().toLowerCase();
+        var bText = b.cells[columnIndex].textContent.trim().toLowerCase();
+        if (aText < bText) return -1;
+        if (aText > bText) return 1;
+        return 0;
+    });
+    // Toggle sort direction
+    if (sortDirections[columnIndex] === 'asc') {
+        masterRows.reverse();
+        sortDirections[columnIndex] = 'desc';
+    } else {
+        sortDirections[columnIndex] = 'asc';
+    }
+    // Update sort indicators
+    document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+    document.getElementById('sort-' + columnIndex).textContent = sortDirections[columnIndex] === 'asc' ? '↑' : '↓';
+    filterTable();
 }
 
 function fetchAndUpdateUsers() {
@@ -186,9 +303,15 @@ function fetchAndUpdateUsers() {
         .then(data => {
             const tbody = document.getElementById('users-table-body');
             tbody.innerHTML = data.users.map(user => renderUserRow(user, data.current_user_id)).join('');
+            collectRows();
+            filterTable();
         });
 }
 setInterval(fetchAndUpdateUsers, 5000);
-window.addEventListener('DOMContentLoaded', fetchAndUpdateUsers);
+window.addEventListener('DOMContentLoaded', function() {
+    fetchAndUpdateUsers();
+    collectRows();
+    showPage(1);
+});
 </script>
 {% endblock %}

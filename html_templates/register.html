@@ -2,7 +2,7 @@
 {% block content %}
 <div class="container mt-4">
     <h2>Register</h2>
-    <form method="POST" action="{{ url_for('register') }}">
+    <form method="POST" action="{{ url_for('users.register') }}">
         <div class="mb-3">
             <label for="username" class="form-label">Username</label>
             <input type="text" class="form-control" id="username" name="username" required minlength="6" maxlength="20" pattern="[a-zA-Z0-9_]+">
@@ -34,7 +34,7 @@
         });
         </script>
         <button type="submit" class="btn btn-primary">Register</button>
-        <a href="{{ url_for('login') }}" class="btn btn-link">Already have an account? Login</a>
+        <a href="{{ url_for('users.login') }}" class="btn btn-link">Already have an account? Login</a>
     </form>
 </div>
 {% endblock %}
