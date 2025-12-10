@@ -158,6 +158,8 @@ def migrate_db():
     ensure_column('csrs', 'user_id', 'INTEGER')
     ensure_column('ra_policies', 'user_id', 'INTEGER')
     ensure_column('ra_policies', 'ext_config', 'TEXT')
+    # Ensure last_activity column exists in user_sessions
+    ensure_column('user_sessions', 'last_activity', 'TEXT')
     ensure_column('ra_policies', 'restrictions', 'TEXT')
     ensure_column('ra_policies', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
     ensure_column('ra_policies', 'updated_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')

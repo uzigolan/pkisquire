@@ -203,20 +203,18 @@ Pikachu CA supports one-time challenge passwords for SCEP certificate enrollment
 
 ## 🗄️ Database Initialization & Migration
 
-### Initialize a New Database
+### Initialize or Migrate the Database
 
-To create a new database with all required tables and a default admin user:
+To create a new database or migrate an existing one to the latest schema (including all required tables, columns, and the default admin user):
 
 ```bash
-python init_db.py
+python migrate_db.py
 ```
 
 - Reads configuration from `config.ini` (including admin user credentials).
 - Creates all tables and the initial admin user if not present.
-
-### Migrate an Existing Database
-
-To migrate an old database (e.g., certs.db) to the latest schema, including user table and admin user:
+- Adds missing columns (e.g., user_id) to existing tables if needed.
+- Safe to run multiple times (idempotent).
 
 ```bash
 python migrate_db.py
