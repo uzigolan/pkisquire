@@ -11,33 +11,25 @@
   <a href="?" class="btn btn-secondary{% if not has_filter %} disabled{% endif %}" {% if not has_filter %}aria-disabled="true" tabindex="-1"{% endif %}>Clear</a>
 </form>
 
-{% set base_query = request.args.to_dict() %}
-{% set _ = base_query.update({'sort': sort, 'direction': direction, 'page_size': page_size}) %}
-{% set prev_query = base_query.copy() %}
-{% set next_query = base_query.copy() %}
-{% set _ = prev_query.update({'page': page-1}) %}
-{% set _ = next_query.update({'page': page+1}) %}
+
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <form method="get" class="form-inline mb-0">
-    {% for k, v in base_query.items() %}
-      {% if k != 'page_size' %}
-        <input type="hidden" name="{{ k }}" value="{{ v }}">
-      {% endif %}
-    {% endfor %}
-    <input type="hidden" name="page" value="1">
+  <div class="form-inline">
     <label for="pageSizeSelect" class="mr-2">Show:</label>
-    <select id="pageSizeSelect" name="page_size" class="form-control form-control-sm mr-2" onchange="this.form.submit();">
-      <option value="10" {% if page_size==10 %}selected{% endif %}>10</option>
-      <option value="25" {% if page_size==25 %}selected{% endif %}>25</option>
-      <option value="50" {% if page_size==50 %}selected{% endif %}>50</option>
+    <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
+      <option value="10" selected>10</option>
+      <option value="25">25</option>
+      <option value="50">50</option>
     </select>
-    <span class="ml-2" id="pageInfo">Page {{ page }}</span>
-  </form>
-  <div>
-    <a href="?{{ prev_query|urlencode }}" class="btn btn-sm btn-outline-secondary mr-2" {% if page <= 1 %}disabled{% endif %}>&larr; Previous</a>
-    <a href="?{{ next_query|urlencode }}" class="btn btn-sm btn-outline-secondary" {% if events|length < page_size %}disabled{% endif %}>Next &rarr;</a>
+    <span id="pageInfo" class="mr-3"></span>
   </div>
+  <div>
+    <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">&larr; Previous</button>
+    <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next &rarr;</button>
+  </div>
+</div>
+<div class="form-group">
+  <input type="text" id="filterInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Filter by Event Type, Resource, Name, or Details">
 </div>
 
 <table class="table table-bordered table-striped">
@@ -113,13 +105,95 @@
   </tbody>
 </table>
 
-<div class="pagination mb-3">
-  {% if page > 1 %}
-    <a href="?{{ prev_query|urlencode }}" class="btn btn-secondary btn-sm mr-2">&lt; Previous</a>
-  {% endif %}
-  <span class="mr-2">Page {{ page }}</span>
-  <a href="?{{ next_query|urlencode }}" class="btn btn-secondary btn-sm mr-2">Next &gt;</a>
-</div>
+
+
+<script>
+function copyResourceName(element) {
+  var full = element.parentElement.querySelector('.full-resource-name').textContent;
+  navigator.clipboard.writeText(full).then(() => {
+    var copied = element.parentElement.querySelector('.resource-copied');
+    if (copied) {
+      copied.style.display = 'inline';
+      setTimeout(function() { copied.style.display = 'none'; }, 1200);
+    }
+  });
+}
+let currentPage = 1;
+let pageSize = 10;
+let allRows = [];
+function initPagination() {
+  var table = document.querySelector('table.table');
+  var tbody = table.getElementsByTagName('tbody')[0];
+  allRows = Array.from(tbody.getElementsByTagName('tr'));
+  showPage(1);
+}
+function showPage(page) {
+  currentPage = page;
+  var start = (page - 1) * pageSize;
+  var end = start + pageSize;
+  allRows.forEach((row, index) => {
+    row.style.display = (index >= start && index < end) ? '' : 'none';
+  });
+  updatePaginationInfo();
+}
+function updatePaginationInfo() {
+  var totalPages = Math.ceil(allRows.length / pageSize);
+  var start = (currentPage - 1) * pageSize + 1;
+  var end = Math.min(currentPage * pageSize, allRows.length);
+  document.getElementById('pageInfo').textContent = `Showing ${start}-${end} of ${allRows.length}`;
+  document.getElementById('prevBtn').disabled = currentPage === 1;
+  document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+}
+function changePageSize() {
+  pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+  showPage(1);
+}
+function nextPage() {
+  var totalPages = Math.ceil(allRows.length / pageSize);
+  if (currentPage < totalPages) {
+    showPage(currentPage + 1);
+  }
+}
+function previousPage() {
+  if (currentPage > 1) {
+    showPage(currentPage - 1);
+  }
+}
+function filterTable() {
+  var filterValue = document.getElementById('filterInput').value.toLowerCase();
+  var filterInput = document.getElementById('filterInput');
+  if (filterValue) {
+    filterInput.style.backgroundColor = '#fff3cd';
+  } else {
+    filterInput.style.backgroundColor = '';
+  }
+  var table = document.querySelector('table.table');
+  var tbody = table.getElementsByTagName('tbody')[0];
+  var rows = tbody.getElementsByTagName('tr');
+  allRows = [];
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].style.display = 'none';
+    var timeText = rows[i].cells[0].textContent.trim().toLowerCase();
+    var userText = rows[i].cells.length > 6 ? rows[i].cells[1].textContent.trim().toLowerCase() : '';
+    var eventTypeText = rows[i].cells[rows[i].cells.length > 6 ? 2 : 1].textContent.trim().toLowerCase();
+    var resourceTypeText = rows[i].cells[rows[i].cells.length > 6 ? 3 : 2].textContent.trim().toLowerCase();
+    var resourceNameText = rows[i].cells[rows[i].cells.length > 6 ? 4 : 3].textContent.trim().toLowerCase();
+    var detailsText = rows[i].cells[rows[i].cells.length > 6 ? 5 : 4].textContent.trim().toLowerCase();
+    if (
+      timeText.indexOf(filterValue) > -1 ||
+      userText.indexOf(filterValue) > -1 ||
+      eventTypeText.indexOf(filterValue) > -1 ||
+      resourceTypeText.indexOf(filterValue) > -1 ||
+      resourceNameText.indexOf(filterValue) > -1 ||
+      detailsText.indexOf(filterValue) > -1
+    ) {
+      allRows.push(rows[i]);
+    }
+  }
+  showPage(1);
+}
+window.addEventListener('DOMContentLoaded', initPagination);
+</script>
 
 <div class="mt-3">
   <div style="margin-bottom: 6px;"><strong>Legend:</strong></div>
@@ -145,76 +219,4 @@
     </div>
   </div>
 </div>
-{% endblock %}
-{% block scripts %}
-<script>
-function copyResourceName(element) {
-  var full = element.parentElement.querySelector('.full-resource-name').textContent;
-  navigator.clipboard.writeText(full).then(() => {
-    var copied = element.parentElement.querySelector('.resource-copied');
-    if (copied) {
-      copied.style.display = 'inline';
-      setTimeout(function() { copied.style.display = 'none'; }, 1200);
-    }
-  });
-}
-function renderEventRow(event) {
-  let eventType = '';
-  if (event[1] === 'create') eventType = '<span class="badge badge-success">Create</span>';
-  else if (event[1] === 'delete') eventType = '<span class="badge badge-danger">Delete</span>';
-  else if (event[1] === 'revoke') eventType = '<span class="badge badge-warning">Revoke</span>';
-  else if (event[1] === 'update') eventType = '<span class="badge badge-info">Update</span>';
-  else eventType = `<span class="badge badge-secondary">${event[1]}</span>`;
-
-  let resourceType = '';
-  if (event[2] === 'certificate') resourceType = '<span class="badge badge-primary">Certificate</span>';
-  else if (event[2] === 'policy') resourceType = '<span class="badge badge-dark">Policy</span>';
-  else resourceType = `<span class="badge badge-secondary">${event[2]}</span>`;
-
-  // event[5] is timestamp (UTC string)
-  let utcTime = '';
-  if (event[5]) {
-    const d = new Date(event[5] + 'Z');
-    const y = d.getUTCFullYear();
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    const h = String(d.getUTCHours()).padStart(2, '0');
-    const min = String(d.getUTCMinutes()).padStart(2, '0');
-    utcTime = `${y}-${m}-${day} ${h}:${min}`;
-  }
-  // show_user_column is injected as a global JS variable
-  if (typeof window.showUserColumn !== 'undefined' && window.showUserColumn) {
-    return `<tr>
-      <td>${utcTime}</td>
-      <td>${event[4]}</td>
-      <td>${eventType}</td>
-      <td>${resourceType}</td>
-      <td><span style=\"font-family: monospace;\">${event[3]}</span></td>
-      <td>${event[6]}</td>
-      <td><a href="/events/${event[0]}" class="btn btn-sm btn-outline-info">View</a></td>
-    </tr>`;
-  } else {
-    return `<tr>
-      <td>${utcTime}</td>
-      <td>${event[1]}</td>
-      <td>${resourceType}</td>
-      <td><span style=\"font-family: monospace;\">${event[3]}</span></td>
-      <td>${event[6]}</td>
-      <td><a href="/events/${event[0]}" class="btn btn-sm btn-outline-info">View</a></td>
-    </tr>`;
-  }
-}
-
-window.showUserColumn = {{ 'true' if show_user_column else 'false' }};
-function fetchAndUpdateEvents() {
-  fetch('/events/api')
-    .then(response => response.json())
-    .then(data => {
-      const tbody = document.querySelector('table.table tbody');
-      tbody.innerHTML = data.events.map(renderEventRow).join('');
-    });
-}
-setInterval(fetchAndUpdateEvents, 5000);
-window.addEventListener('DOMContentLoaded', fetchAndUpdateEvents);
-</script>
 {% endblock %}

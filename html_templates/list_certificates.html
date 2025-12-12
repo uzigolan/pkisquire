@@ -37,7 +37,7 @@
             <th>Common Name</th>
             <th>Serial <small style="color: #6c757d;">(click to copy)</small></th>
             <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">⇅</span></th>
-            <th style="cursor:pointer;" onclick="sortTable(4)">Date (UTC) <span id="sort-4">⇅</span></th>
+            <th style="cursor:pointer;" onclick="sortTable(4)">Date <span id="sort-4">⇅</span></th>
             <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">⇅</span></th>
             <th>Enrollment Method</th>
             {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(7)">User <span id="sort-7">⇅</span></th>{% endif %}
@@ -217,30 +217,15 @@
     }
 
     function handleDelete(certId) {
-      // 1) Confirm
-      var sure = confirm('Are you sure you want to delete certificate ' + certId + '?');
-      if (!sure) {
+      var confirmText = prompt("Type 'delete' to confirm deletion of certificate " + certId + ":");
+      if (confirmText === null) return;
+      if (confirmText.trim().toLowerCase() !== 'delete') {
+        alert('Deletion cancelled. You must type delete to confirm.');
         return;
       }
-
-      // 2) Ask for secret
-      var secret = prompt('Please enter the delete secret:');
-      if (secret === null) {
-        // user pressed cancel
-        return;
-      }
-
-      // 3) Create hidden form and POST it
       var form = document.createElement('form');
       form.method = 'POST';
       form.action = '/delete/' + certId;
-
-      var input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'delete_secret';
-      input.value = secret;
-      form.appendChild(input);
-
       document.body.appendChild(form);
       form.submit();
     }
@@ -349,30 +334,15 @@
     });
 
     function handleRevoke(certId) {
-      // 1) Confirm
-      var sure = confirm('Are you sure you want to revoke certificate ' + certId + '?');
-      if (!sure) {
+      var confirmText = prompt("Type 'revoke' to confirm revocation of certificate " + certId + ":");
+      if (confirmText === null) return;
+      if (confirmText.trim().toLowerCase() !== 'revoke') {
+        alert('Revocation cancelled. You must type revoke to confirm.');
         return;
       }
-
-      // 2) Ask for secret
-      var secret = prompt('Please enter the delete secret:');
-      if (secret === null) {
-        // user pressed cancel
-        return;
-      }
-
-      // 3) Create hidden form and POST it
       var form = document.createElement('form');
       form.method = 'POST';
       form.action = '/revoke/' + certId;
-
-      var input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'delete_secret';
-      input.value = secret;
-      form.appendChild(input);
-
       document.body.appendChild(form);
       form.submit();
     }
