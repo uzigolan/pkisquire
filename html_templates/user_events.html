@@ -114,9 +114,16 @@
     fetch('/users/events/api')
       .then(response => response.json())
       .then(data => {
+        // Only update if data has changed
+        if (window._lastUserEventsJson && JSON.stringify(window._lastUserEventsJson) === JSON.stringify(data.events)) {
+          return;
+        }
+        window._lastUserEventsJson = data.events;
         const tbody = document.getElementById('eventsTable').getElementsByTagName('tbody')[0];
         tbody.innerHTML = data.events.map(renderEventRow).join('');
-        filterTable();
+        // Rebuild allRows and preserve current page
+        allRows = Array.from(tbody.getElementsByTagName('tr'));
+        showPage(currentPage);
       });
   }
   setInterval(fetchAndUpdateUserEvents, 5000);
@@ -163,8 +170,8 @@
     var table = document.getElementById('eventsTable');
     var tbody = table.getElementsByTagName('tbody')[0];
     var rows = tbody.getElementsByTagName('tr');
+    var prevAllRows = allRows ? allRows.slice() : [];
     allRows = [];
-    // Always hide all rows first
     for (var i = 0; i < rows.length; i++) {
       rows[i].style.display = 'none';
       var timeText = rows[i].cells[0].textContent.trim().toLowerCase();
@@ -180,7 +187,13 @@
         allRows.push(rows[i]);
       }
     }
-    showPage(1);
+    // Only reset to page 1 if filter value changed
+    if (filterTable.lastValue !== filterValue) {
+      filterTable.lastValue = filterValue;
+      showPage(1);
+    } else {
+      showPage(currentPage);
+    }
   }
 
   function showPage(page) {
@@ -228,10 +241,9 @@
     filterTable();
   });
   </script>
-  <div style="margin-bottom: 6px;"><strong>Legend:</strong></div>
+  <div style="margin-bottom: 6px;"><strong>Event Types Legend:</strong></div>
   <div style="display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 12px 32px; max-width: 600px;">
     <div>
-      <div style="font-weight: 600;">Event Types</div>
       <div><span class="badge badge-success">Add</span> Add User</div>
       <div><span class="badge badge-danger">Delete</span> Delete User</div>
       <div><span class="badge badge-warning">Pending</span> Pending</div>

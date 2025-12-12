@@ -1854,19 +1854,6 @@ def expired_certs():
 @app.route("/delete/<int:cert_id>", methods=["POST"])
 @login_required
 def delete_certificate(cert_id):
-    # Get the secret from the form and normalize it a bit
-    secret = request.form.get("delete_secret", "").strip()
-    expected = str(app.config.get("DELETE_SECRET", "")).strip()
-
-#    app.logger.info(f"[DELETE] Request to delete cert {cert_id}, "
-#                    f"provided_secret_len={len(secret)} given {secret} expected {expected}")
-
-    # Secret mismatch → log and go back to /certs
-    if secret != expected:
-        app.logger.warning(f"[DELETE] Wrong delete secret for certificate ID {cert_id}")
-        return redirect("/certs")
-
-
     try:
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
             # Fetch serial and subject before deletion
@@ -2148,11 +2135,6 @@ def submit_q():
 @app.route("/revoke/<int:cert_id>", methods=["POST"])
 @login_required
 def revoke(cert_id):
-    secret = request.form.get("delete_secret", "").strip()
-    expected = str(app.config.get("DELETE_SECRET", "")).strip()
-    if secret != expected:
-        app.logger.warning(f"[REVOKE] Wrong delete secret for certificate ID {cert_id}")
-        return redirect("/certs")
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         if current_user.is_admin():
             conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))

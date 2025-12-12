@@ -52,7 +52,7 @@
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/sign') %} active{% endif %}" href="/sign">RA(sign)</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/requests') %} active{% endif %}" href="/requests">CSRs</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/keys') %} active{% endif %}" href="/keys">Keys</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ra_policies') %} active{% endif %}" href="/ra_policies">Enrollment Policies</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ra_policies') %} active{% endif %}" href="/ra_policies">Enrollment</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/profiles') %} active{% endif %}" href="/profiles">Certificate Templates</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/va') %} active{% endif %}" href="/va">VA(crl)</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ca') %} active{% endif %}" href="/ca">CA ({{ ca_mode }})</a></li>

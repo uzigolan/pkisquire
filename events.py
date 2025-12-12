@@ -44,8 +44,9 @@ def get_events_query(filters, sort, direction, page, page_size, user_role, user_
         query += " ORDER BY timestamp DESC"
     # Pagination
     offset = (page - 1) * page_size
+    # Fetch one extra row to check if there is a next page
     query += " LIMIT ? OFFSET ?"
-    params.extend([page_size, offset])
+    params.extend([page_size + 1, offset])
     with sqlite3.connect(db_path) as conn:
         cur = conn.cursor()
         cur.execute(query, params)
@@ -125,11 +126,10 @@ def list_events():
             filters[key] = v
     sort = request.args.get('sort', 'timestamp')
     direction = request.args.get('direction', 'desc')
-    page = int(request.args.get('page', 1))
-    page_size = int(request.args.get('page_size', 10))
     user_role = getattr(g, 'user_role', 'user')
     user_id = getattr(g, 'user_id', None)
-    events = get_events_query(filters, sort, direction, page, page_size, user_role, user_id)
+    # Fetch ALL events for client-side pagination
+    events = get_events_query(filters, sort, direction, 1, 100000, user_role, user_id)
     show_user_column = user_role == 'admin'
     if show_user_column:
         from user_models import get_username_by_id
@@ -145,13 +145,12 @@ def list_events():
             events_with_usernames.append(tuple(event))
         events_to_render = events_with_usernames
     else:
-        # For non-admin, just pass events as-is (user_id column will be hidden in template)
         events_to_render = events
     try:
         current_app.logger.debug(f"[DEBUG /events] Retrieved {len(events_to_render)} events: {events_to_render}")
     except Exception as e:
         current_app.logger.error(f"[DEBUG /events] Logging error: {e}")
-    return render_template('events.html', events=events_to_render, page=page, page_size=page_size, sort=sort, direction=direction, show_user_column=show_user_column)
+    return render_template('events.html', events=events_to_render, show_user_column=show_user_column)
 
 
 @bp.route('/api', methods=['GET'])
@@ -168,6 +167,8 @@ def events_api():
     user_role = getattr(g, 'user_role', 'user')
     user_id = getattr(g, 'user_id', None)
     events = get_events_query(filters, sort, direction, page, page_size, user_role, user_id)
+    has_next = len(events) > page_size
+    events = events[:page_size]
     show_user_column = user_role == 'admin'
     current_app.logger.debug(f"[AJAX /events/api] role={user_role} user_id={user_id} events_count={len(events)}")
     if show_user_column:
@@ -186,7 +187,7 @@ def events_api():
     else:
         events_to_render = [list(event) for event in events]
     current_app.logger.debug(f"[AJAX /events/api] events_to_render: {events_to_render}")
-    return {'events': events_to_render}
+    return {'events': events_to_render, 'has_next': has_next}
 # --- User Events Logic ---
 
 
