@@ -40,6 +40,56 @@ This server provides tools for:
 
 ---
 
+## ⚙️ Configuration Options
+
+Pikachu CA is highly configurable via the `config.ini` file. Below is a summary of the main configuration sections. For full details and all available options, see [README_CONFIG.md](README_CONFIG.md).
+
+**[DEFAULT]**
+- `SECRET_KEY`: Flask session security key
+- `http_port`: OCSP HTTP port (default: 80)
+- `max_idle_time`: Auto-logout timeout (e.g., `10h`, `4d`, `20m`)
+
+**[LOGGING]**
+- `log_level`: Logging level (`TRACE`, `DEBUG`, `INFO`, etc.)
+- `log_file`: Log file path
+
+**[CA]**
+- `mode`: Default CA mode (`EC` or `RSA`)
+- `SUBCA_KEY_PATH_EC`/`RSA`: Sub-CA private key paths
+- `SUBCA_CERT_PATH_EC`/`RSA`: Sub-CA certificate paths
+- `CHAIN_FILE_PATH_EC`/`RSA`: Chain file paths
+- `ROOT_CERT_PATH`: Root CA certificate path
+
+**[VAULT]**
+- `enabled`: Enable HashiCorp Vault integration
+- `address`: Vault server address
+- `role_id`/`secret_id`: Vault AppRole credentials
+- `pki_rsa_path`/`pki_ec_path`: Vault PKI mount paths
+- `transit_path`: Vault transit engine path
+- `timeout`, `retry_attempts`, `verify_ssl`, `ca_cert_path`, `role_scep`, `role_est`, `role_default`
+
+**[LDAP]**
+- `LDAP_HOST`, `LDAP_PORT`, `BASE_DN`, `PEOPLE_DN`, `ADMIN_DN`, `ADMIN_PASSWORD`, `enabled`
+
+**[SCEP]**
+- `enabled`: Enable SCEP protocol
+- `serial_file`, `dump_dir`: SCEP data paths
+- `challenge_password_enabled`: One-time challenge password support
+- `challenge_password_validity`: Challenge password lifetime
+
+**[HTTPS]**
+- `ssl_cert`, `ssl_key`, `port`: HTTPS certificate, key, and port
+
+**[TRUSTED_HTTPS]**
+- `trusted_ssl_cert`, `trusted_ssl_key`, `trusted_port`: Trusted HTTPS settings
+
+**[PATHS]**
+- `crl_path`, `server_ext_cfg`, `validity_conf`, `db_path`: File/database paths
+
+---
+
+---
+
 ## 🛠️ Installation
 
 > **Requirements**: Rocky Linux 9.x, Python 3, Flask, OpenSSL, oqs-provider
