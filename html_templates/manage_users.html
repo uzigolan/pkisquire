@@ -44,12 +44,12 @@
                 <td>
                     <div>
                         {% if user.role == 'admin' %}
-                            <span class="badge badge-dark">Admin</span>
+                            <span class="badge" style="background-color: #ff4d4d; color: white;">Admin</span>
                         {% else %}
                             <span class="badge" style="background-color: #007bff; color: white;">User</span>
                         {% endif %}
                         {% if user.auth_source == 'ldap' %}
-                            <span class="badge badge-primary">LDAP</span>
+                            <span class="badge" style="background-color: #000; color: white;">LDAP</span>
                         {% else %}
                             <span class="badge badge-secondary">Local</span>
                         {% endif %}
@@ -79,9 +79,11 @@
                         </select>
                         <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
                     </form>
+                    {% if user.auth_source != 'ldap' %}
                     <form method="post" action="{{ url_for('users.reset_password', user_id=user.id) }}" style="display:inline;">
                         <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Reset password for this user?');">Reset Password</button>
                     </form>
+                    {% endif %}
                     {% if user.status == 'active' %}
                         <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
                             <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
@@ -122,12 +124,12 @@
     <div style="display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 8px 16px; max-width: 840px;">
         <div>
             <div style="font-weight: 600;">User Roles</div>
-            <div><span class="badge badge-dark">Admin</span> Admin</div>
+            <div><span class="badge" style="background-color: #ff4d4d; color: white;">Admin</span> Admin</div>
             <div><span class="badge" style="background-color: #007bff; color: white;">User</span> User</div>
         </div>
         <div>
             <div style="font-weight: 600;">Auth Source</div>
-            <div><span class="badge badge-primary">LDAP</span> LDAP</div>
+            <div><span class="badge" style="background-color: #000; color: white;">LDAP</span> LDAP</div>
             <div><span class="badge badge-secondary">Local</span> Local</div>
         </div>
         <div>
@@ -153,10 +155,10 @@ function renderUserRow(user, currentUserId) {
         ? '<span class="badge badge-info">In</span>'
         : '<span class="badge" style="background-color: #6f42c1; color: white;">Out</span>';
     const sourceBadge = user.auth_source === 'ldap'
-        ? '<span class="badge badge-primary">LDAP</span>'
+        ? '<span class="badge" style="background-color: #000; color: white;">LDAP</span>'
         : '<span class="badge badge-secondary">Local</span>';
     const roleBadge = user.role === 'admin'
-        ? '<span class="badge badge-dark">Admin</span>'
+        ? '<span class="badge" style="background-color: #ff4d4d; color: white;">Admin</span>'
         : '<span class="badge" style="background-color: #007bff; color: white;">User</span>';
     let actions = '';
     if (user.id !== currentUserId) {
@@ -170,9 +172,11 @@ function renderUserRow(user, currentUserId) {
             </select>
             <button type="submit" class="btn btn-sm btn-primary" ${user.role === (user.role === 'admin' ? 'admin' : 'user') ? 'disabled' : ''}>Change Role</button>
         </form>`;
-            actions += `<form method="post" action="/users/reset_password/${user.id}" style="display:inline;">
-                <button type="submit" class="btn btn-sm" style="background-color: #6c757d; color: white;" onclick="return confirm('Reset password for this user?');">Reset Password</button>
-            </form>`;
+            if (user.auth_source !== 'ldap') {
+                actions += `<form method="post" action="/users/reset_password/${user.id}" style="display:inline;">
+                    <button type="submit" class="btn btn-sm" style="background-color: #6c757d; color: white;" onclick="return confirm('Reset password for this user?');">Reset Password</button>
+                </form>`;
+            }
         if (user.status === 'active') {
             actions += `<form method="post" action="/users/toggle_active/${user.id}" style="display:inline;">
                 <button type="submit" class="btn btn-sm btn-warning">Suspend</button>

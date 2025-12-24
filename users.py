@@ -104,7 +104,7 @@ def user_events():
         elif details is None:
             event[4] = {}
         parsed_events.append(tuple(event))
-    current_app.logger.debug(f"[TRACE user_events] events: {parsed_events}")
+    current_app.logger.trace(f"[user_events] events: {parsed_events}")
     return render_template('user_events.html', events=parsed_events, page=page, page_size=page_size)
 
 
@@ -188,7 +188,7 @@ def user_events_api():
         elif details is None:
             event[4] = {}
         parsed_events.append(event)
-    current_app.logger.debug(f"[AJAX /users/events/api] events: {parsed_events}")
+    # current_app.logger.debug(f"[AJAX /users/events/api] events: {parsed_events}")
     return jsonify({'events': parsed_events})
 
 
@@ -358,7 +358,7 @@ def manage_users():
     idle_map = get_user_idle_map()
     for user in users:
         user['is_logged_in'] = user['id'] in logged_in_ids
-        user['auth_source'] = get_auth_source_for_username(user['username'])
+        # user['auth_source'] is already set from DB in get_all_users()
         user['idle'] = idle_map.get(user['id'], '') if user['is_logged_in'] else ''
     return render_template('manage_users.html', users=users)
 
@@ -373,6 +373,9 @@ def reset_password(user_id):
     user = get_user_by_id(user_id)
     if not user:
         flash('User not found.', 'error')
+        return redirect(url_for('users.manage_users'))
+    if user.auth_source == 'ldap':
+        flash('Cannot reset password for LDAP users. Passwords are managed by your LDAP/Active Directory administrator.', 'warning')
         return redirect(url_for('users.manage_users'))
     # Generate a new random password
     new_password = secrets.token_urlsafe(10)
@@ -399,7 +402,6 @@ def api_users():
     idle_map = get_user_idle_map()
     user_list = []
     for user in users:
-        user['auth_source'] = get_auth_source_for_username(user['username'])
         user_list.append({
             'id': user['id'],
             'username': user['username'],
@@ -497,6 +499,14 @@ def delete_user(user_id):
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('index'))
+    # Enforce allow_self_registration from config.ini
+    allow_self_registration = current_app.config.get('allow_self_registration', True)
+    # If config value is a string, normalize to bool
+    if isinstance(allow_self_registration, str):
+        allow_self_registration = allow_self_registration.lower() == 'true'
+    if not allow_self_registration:
+        flash('Self-registration is disabled by administrator.', 'error')
+        return redirect(url_for('users.login'))
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
@@ -571,6 +581,20 @@ def login():
             elif user.status == 'pending':
                 flash("User account is pending approval by administrator.", "error")
                 current_app.logger.warning(f"Login attempt for pending user: {username}")
+            elif user.status == 'active' and getattr(user, 'auth_source', 'local') == 'ldap':
+                from ldap_utils import ldap_authenticate
+                ldap_result = ldap_authenticate(username, password, current_app.config, current_app.logger)
+                if ldap_result:
+                    login_user(user)
+                    update_last_login(user.id)
+                    from events import log_user_event
+                    ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
+                    log_user_event('login', user.id, {'username': user.username, 'by': user.id, 'actor_username': user.username, 'ip': ip_addr})
+                    current_app.logger.info(f"User {username} authenticated via LDAP and synced to local DB.")
+                    return redirect(url_for('index'))
+                else:
+                    flash("Invalid username or password.", "error")
+                    current_app.logger.warning(f"Failed login attempt for: {username} (LDAP)")
             elif user.status == 'active' and user.check_password(password):
                 login_user(user)
                 update_last_login(user.id)
@@ -592,6 +616,9 @@ def login():
                 if user and user.status == 'active':
                     login_user(user)
                     update_last_login(user.id)
+                    from events import log_user_event
+                    ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
+                    log_user_event('login', user.id, {'username': user.username, 'by': user.id, 'actor_username': user.username, 'ip': ip_addr})
                     current_app.logger.info(f"User {username} authenticated via LDAP and synced to local DB.")
                     return redirect(url_for('index'))
                 else:

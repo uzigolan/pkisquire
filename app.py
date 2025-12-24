@@ -165,6 +165,7 @@ _cfg.read(CONFIG_PATH)
 app.config["SECRET_KEY"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
+app.config["allow_self_registration"] = _cfg.get("DEFAULT", "allow_self_registration", fallback="true")
 init_users_config(app, _cfg)
 
 ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
@@ -2862,6 +2863,9 @@ def account():
 @app.route("/change_password", methods=["POST"])
 @login_required
 def change_password():
+    if getattr(current_user, 'auth_source', 'local') == 'ldap':
+        flash('Cannot change password for LDAP users. Passwords are managed by your LDAP/Active Directory administrator.', 'warning')
+        return redirect(url_for('account'))
     current_password = request.form.get("current_password", "").strip()
     new_password = request.form.get("new_password", "").strip()
     confirm_password = request.form.get("confirm_password", "").strip()

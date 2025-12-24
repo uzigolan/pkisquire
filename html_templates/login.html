@@ -33,7 +33,10 @@
         });
         </script>
         <button type="submit" class="btn btn-primary">Login</button>
+        {% set allow_self_registration = config.get('allow_self_registration', True) %}
+        {% if allow_self_registration|string|lower == 'true' or allow_self_registration is sameas true %}
         <a href="{{ url_for('users.register') }}" class="btn btn-link">Register</a>
+        {% endif %}
     </form>
 </div>
 <!-- FontAwesome CDN for eye icon -->

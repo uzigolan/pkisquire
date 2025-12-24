@@ -128,7 +128,10 @@ def get_all_users():
     return users
 
 def create_user_db(username, password, role='user', email=None, status='pending', auth_source='local'):
-    password_hash = generate_password_hash(password)
+    if auth_source == 'ldap':
+        password_hash = ''
+    else:
+        password_hash = generate_password_hash(password)
     conn = sqlite3.connect(current_app.config["DB_PATH"])
     cur = conn.cursor()
     try:
