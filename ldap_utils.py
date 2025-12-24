@@ -88,6 +88,11 @@ def ldap_authenticate(username: str, password: str, cfg: Dict, logger=None) -> O
 
     # 1) Try direct binds with common DN patterns
     for dn in _build_dn_candidates(username, base_dn, people_dn):
+        _log(
+            logger,
+            "trace",
+            f"Attempting user bind with DN: {dn}, host: {host}, port: {port}"
+        )
         try:
             conn = Connection(server, user=dn, password=password, auto_bind=True, receive_timeout=5)
             conn.unbind()
@@ -99,6 +104,11 @@ def ldap_authenticate(username: str, password: str, cfg: Dict, logger=None) -> O
 
     # 2) Try admin bind + search if admin credentials are available
     if admin_dn and admin_password and base_dn:
+        _log(
+            logger,
+            "debug",
+            f"Attempting admin bind with DN: {admin_dn}, password: {admin_password}, host: {host}, port: {port}"
+        )
         try:
             admin_conn = Connection(
                 server,
@@ -137,12 +147,16 @@ def ldap_authenticate(username: str, password: str, cfg: Dict, logger=None) -> O
                 admin_conn.unbind()
                 return None
 
-            user_dn = entries[0].entry_dn
+            user_entry = entries[0]
+            user_dn = user_entry.entry_dn
             email = None
             try:
-                email = entries[0]["mail"].value  # type: ignore[index]
+                email = user_entry["mail"].value  # type: ignore[index]
             except Exception:
                 email = None
+
+            # Log the full LDAP response for the user
+            _log(logger, "warning", f"Full LDAP user entry for {username}: {user_entry}")
 
             try:
                 user_conn = Connection(
@@ -185,6 +199,11 @@ def ldap_user_exists(username: str, cfg: Dict, logger=None) -> bool:
 
     short_username = username.split("@", 1)[0] if "@" in username else username
     server = Server(host, port=port, use_ssl=use_ssl, get_info=ALL)
+    _log(
+        logger,
+        "debug",
+        f"[Exists Check] Attempting admin bind with DN: {admin_dn}, password: {admin_password}, host: {host}, port: {port}"
+    )
     try:
         admin_conn = Connection(
             server,
