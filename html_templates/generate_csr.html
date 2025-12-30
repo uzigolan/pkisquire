@@ -4,13 +4,13 @@
   <form method="POST" class="mb-4">
     <div class="form-group">
       <label for="csr_name">CSR Name:</label>
-      <input type="text" name="csr_name" id="csr_name" class="form-control" required>
+      <input type="text" name="csr_name" id="csr_name" class="form-control" required data-testid="input-csr-name">
     </div>
     <div class="form-group">
       <label for="key_id">Select Key:</label>
-      <select name="key_id" id="key_id" class="form-control" required>
+      <select name="key_id" id="key_id" class="form-control" required data-testid="select-key-id">
         {% for key in keys %}
-          <option value="{{ key.id }}">{{ key.name }} ({{ key.key_type }})</option>
+        <option value="{{ key.id }}">{{ key.name }} ({{ key.type }})</option>
         {% endfor %}
       </select>
     </div>
@@ -29,6 +29,7 @@
       <pre id="profile-content-preview" style="background:#f8f9fa; border:1px solid #ccc; padding:1em; max-height:300px; overflow:auto;" readonly></pre>
     </div>
     <button type="submit" class="btn btn-primary">Generate CSR</button>
+    <button type="submit" class="btn btn-primary" data-testid="btn-generate-csr">Generate CSR</button>
   </form>
   <a href="{{ url_for('requests.list_csrs') }}" class="btn btn-link">Back to CSR List</a>
   <script>

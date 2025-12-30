@@ -1,3 +1,5 @@
+# Debug route for test: returns current_user info
+from flask_login import current_user
 import os
 import sqlite3
 import logging
@@ -576,6 +578,19 @@ def extract_keycol_with_openssl(pem_bytes: bytes) -> str:
     return algo or "Unknown"
 
 
+# Debug route for test: returns current_user info
+@app.route('/debug_current_user')
+def debug_current_user():
+    from flask_login import current_user
+    if current_user.is_authenticated:
+        return {
+            'authenticated': True,
+            'username': current_user.username,
+            'role': getattr(current_user, 'role', None),
+            'is_admin': current_user.is_admin() if hasattr(current_user, 'is_admin') else False
+        }
+    else:
+        return {'authenticated': False}
 
 
 # --- Individual Challenge Password Deletion Route ---
@@ -2136,6 +2151,7 @@ def submit_q():
 @app.route("/revoke/<int:cert_id>", methods=["POST"])
 @login_required
 def revoke(cert_id):
+    from flask import flash
     with sqlite3.connect(app.config["DB_PATH"]) as conn:
         if current_user.is_admin():
             conn.execute("UPDATE certificates SET revoked = 1 WHERE id = ?", (cert_id,))
@@ -2157,6 +2173,7 @@ def revoke(cert_id):
             user_id=current_user.id,
             details={"subject": subject} if subject else {}
         )
+    flash("Certificate revoked", "success")
     update_crl()
     return redirect("/certs")
 

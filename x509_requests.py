@@ -7,6 +7,7 @@ from extensions import db
 from flask import send_file
 from openssl_utils import get_provider_args
 import io
+from datetime import timezone
 x509_requests_bp = Blueprint("requests", __name__, template_folder="html_templates")
 
 from flask_login import current_user, login_required
@@ -134,6 +135,15 @@ def list_csrs():
         for csr in csrs:
             csr.user_obj = current_user
         is_admin = False
+    # Attach local time for display
+    for csr in csrs:
+        dt = csr.created_at
+        if dt:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            csr.created_at_local = dt.astimezone()
+        else:
+            csr.created_at_local = None
     from x509_keys import Key
     from x509_profiles import Profile
     keys = Key.query.all()
@@ -170,6 +180,13 @@ def view_csr(csr_id):
     profile_content = ""
     if profile_obj and profile_obj.content:
         profile_content = profile_obj.content
+    dt = csr_obj.created_at
+    if dt:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        csr_obj.created_at_local = dt.astimezone()
+    else:
+        csr_obj.created_at_local = None
     return render_template("view_csr.html", csr=csr_obj, key=key_obj, profile=profile_obj, profile_content=profile_content)
 
 @x509_requests_bp.route("/requests/<int:csr_id>/delete", methods=["POST"])

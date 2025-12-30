@@ -4,12 +4,12 @@
   <form method="post" class="mb-4">
     <div class="form-group">
       <label for="key_name">Key Name:</label>
-      <input type="text" name="key_name" id="key_name" class="form-control" required>
+        <input type="text" name="key_name" id="key_name" class="form-control" required data-testid="input-key-name">
     </div>
 
     <div class="form-group">
       <label for="key_type">Key Type:</label>
-      <select name="key_type" id="key_type" class="form-control" required>
+        <select name="key_type" id="key_type" class="form-control" required data-testid="select-key-type">
         <option value="RSA">RSA</option>
         <option value="EC">EC</option>
         {% if pqc_available %}
@@ -47,6 +47,7 @@
     </div>
 
     <button type="submit" class="btn btn-primary">Generate Key</button>
+    <button type="submit" class="btn btn-primary" data-testid="btn-generate-key">Generate Key</button>
   </form>
 
   <script>

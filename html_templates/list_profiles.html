@@ -58,7 +58,7 @@
           {% endif %}
         </td>
         <td>{{ profile.profile_type }}</td>
-        <td>{{ profile.created_at.strftime('%Y-%m-%d %H:%M') if profile.created_at else '' }}</td>
+        <td>{{ profile.created_at_local.strftime('%Y-%m-%d %H:%M') if profile.created_at_local else '' }}</td>
         {% if is_admin %}
           <td>{{ profile.user_obj.username if profile.user_obj else 'N/A' }}</td>
         {% endif %}
