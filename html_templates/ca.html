@@ -3,7 +3,7 @@
   <h1 class="mb-4">Certificate Authority Details</h1>
 
   <div class="mb-4">
-    <a href="/downloads/chain"     class="btn btn-outline-secondary mr-2">Download CA Chain Cert</a>
+    <a href="/downloads/chain"     class="btn btn-outline-secondary mr-2" data-testid="btn-download-ca-chain">Download CA Chain Cert</a>
   </div>
 
   <h2>Root CA Certificate</h2>
@@ -21,6 +21,6 @@
   {% set cert_text = sub_cert_text %}
   {% include "_certificate_detail.html" %}
   
-  <a href="/" class="btn btn-secondary mt-3">Back to Dashboard</a>
+  <a href="/" class="btn btn-secondary mt-3" data-testid="btn-back-dashboard">Back to Dashboard</a>
 {% endblock %}
 

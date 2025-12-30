@@ -2,13 +2,38 @@ import logging
 import os
 import sqlite3
 import tempfile
+from datetime import datetime, timezone
 from contextlib import contextmanager
 from typing import Dict, List, Optional
 
 DEFAULT_VALIDITY_DAYS = "365"
 
 
+def _ts_to_local(ts) -> str:
+    """
+    Convert a DB timestamp (str or datetime) assumed UTC to local time string.
+    """
+    if not ts:
+        return ""
+    if isinstance(ts, str):
+        try:
+            dt = datetime.fromisoformat(ts)
+        except Exception:
+            try:
+                dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                return ts
+    else:
+        dt = ts
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    # Display as local without seconds/zone (e.g., 2025-12-30 18:03)
+    return dt.astimezone().strftime("%Y-%m-%d %H:%M")
+
+
 def _row_to_policy(row: sqlite3.Row) -> Dict:
+    created = row["created_at"]
+    updated = row["updated_at"]
     return {
         "id": row["id"],
         "name": row["name"],
@@ -18,8 +43,10 @@ def _row_to_policy(row: sqlite3.Row) -> Dict:
         "ext_config": row["ext_config"],
         "restrictions": row["restrictions"],
         "validity_period": row["validity_period"] or DEFAULT_VALIDITY_DAYS,
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
+        "created_at": created,
+        "created_at_local": _ts_to_local(created),
+        "updated_at": updated,
+        "updated_at_local": _ts_to_local(updated),
         "is_est_default": row["is_est_default"] if "is_est_default" in row.keys() else 0,
         "is_scep_default": row["is_scep_default"] if "is_scep_default" in row.keys() else 0,
     }

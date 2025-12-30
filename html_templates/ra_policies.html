@@ -62,8 +62,8 @@
             {% if is_admin %}<td>{{ p.user_name if p.user_name else '-' }}</td>{% endif %}
             <td>{{ p.validity_period }}</td>
             <td>
-              {% set created = p.created_at or '' %}
-              {% set updated = p.updated_at or '' %}
+              {% set created = p.created_at_local or p.created_at or '' %}
+              {% set updated = p.updated_at_local or p.updated_at or '' %}
               {% if created and updated and created != updated %}
                 <div>{{ created }}</div>
                 <div class="text-muted" style="font-size: 12px;">({{ updated }})</div>

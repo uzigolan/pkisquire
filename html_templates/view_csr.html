@@ -14,7 +14,7 @@
       <p>No configuration content available.</p>
     {% endif %}
   {% endif %}
-  <p><strong>Created At:</strong> {{ csr.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+  <p><strong>Created At:</strong> {{ csr.created_at_local.strftime('%Y-%m-%d %H:%M %Z') if csr.created_at_local else '' }}</p>
   <h2 class="mt-4">CSR (PEM)</h2>
   <pre>{{ csr.csr_pem }}</pre>
   <a href="{{ url_for('requests.list_csrs') }}" class="btn btn-secondary mt-3">Back to CSR List</a>

@@ -575,6 +575,9 @@ def login():
         from user_models import get_user_by_username, create_user_db, update_last_login
         user = get_user_by_username(username)
         if user:
+            current_app.logger.warning(f"[DEBUG LOGIN] user={user.username} role={user.role} status={user.status} auth_source={getattr(user, 'auth_source', None)}")
+            pw_ok = user.check_password(password)
+            current_app.logger.warning(f"[DEBUG LOGIN] check_password={pw_ok}")
             if user.status == 'deactivated':
                 flash("User account is suspended. Contact administrator.", "error")
                 current_app.logger.warning(f"Login attempt for suspended user: {username}")
@@ -595,7 +598,7 @@ def login():
                 else:
                     flash("Invalid username or password.", "error")
                     current_app.logger.warning(f"Failed login attempt for: {username} (LDAP)")
-            elif user.status == 'active' and user.check_password(password):
+            elif user.status == 'active' and pw_ok:
                 login_user(user)
                 update_last_login(user.id)
                 from events import log_user_event

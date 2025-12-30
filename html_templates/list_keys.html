@@ -30,7 +30,7 @@
       onkeyup="filterTable()"
       placeholder="Filter by Name, Type, Size, or Date">
   </div>
-  <table id="keyTable" class="table table-bordered table-hover">
+    <table id="keyTable" class="table table-bordered table-hover" data-testid="keys-table">
     <thead class="thead-light">
       <tr>
         <th>ID</th>
@@ -64,17 +64,17 @@
           <td>{{ key.user_obj.username if key.user_obj else 'N/A' }}</td>
         {% endif %}
         <td>
-          <a href="{{ url_for('keys.view_key', key_id=key.id) }}" 
-             class="btn btn-sm btn-info">View</a>
-          <a href="{{ url_for('keys.download_key', key_id=key.id) }}" 
-             class="btn btn-sm btn-success">Download</a>
-          <form action="{{ url_for('keys.delete_key', key_id=key.id) }}" 
-                method="post" style="display:inline;">
-            <button type="submit" class="btn btn-sm btn-danger"
-                    onclick="return confirm('Are you sure?');">
-              Delete
-            </button>
-          </form>
+            <a href="{{ url_for('keys.view_key', key_id=key.id) }}" 
+               class="btn btn-sm btn-info" data-testid="btn-view-key">View</a>
+            <a href="{{ url_for('keys.download_key', key_id=key.id) }}" 
+               class="btn btn-sm btn-success" data-testid="btn-download-key">Download</a>
+            <form action="{{ url_for('keys.delete_key', key_id=key.id) }}" 
+                  method="post" style="display:inline;">
+              <button type="submit" class="btn btn-sm btn-danger"
+                      onclick="return confirm('Are you sure?');" data-testid="btn-delete-key">
+                Delete
+              </button>
+            </form>
        </td>
       </tr>
       {% endfor %}

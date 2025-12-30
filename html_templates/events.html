@@ -3,12 +3,12 @@
 <h2>Manage Events</h2>
 
 <form method="get" class="form-inline mb-3">
-  <input type="text" name="resource_type" class="form-control mr-2" placeholder="Resource Type" value="{{ request.args.get('resource_type', '') }}">
-  <input type="text" name="event_type" class="form-control mr-2" placeholder="Event Type" value="{{ request.args.get('event_type', '') }}">
-  <input type="text" name="resource_name" class="form-control mr-2" placeholder="Resource Name" value="{{ request.args.get('resource_name', '') }}">
-  <button type="submit" class="btn btn-primary mr-2">Filter</button>
+  <input type="text" name="resource_type" class="form-control mr-2" placeholder="Resource Type" value="{{ request.args.get('resource_type', '') }}" data-testid="input-resource-type">
+  <input type="text" name="event_type" class="form-control mr-2" placeholder="Event Type" value="{{ request.args.get('event_type', '') }}" data-testid="input-event-type">
+  <input type="text" name="resource_name" class="form-control mr-2" placeholder="Resource Name" value="{{ request.args.get('resource_name', '') }}" data-testid="input-resource-name">
+  <button type="submit" class="btn btn-primary mr-2" data-testid="btn-filter">Filter</button>
   {% set has_filter = request.args.get('resource_type') or request.args.get('event_type') or request.args.get('resource_name') %}
-  <a href="?" class="btn btn-secondary{% if not has_filter %} disabled{% endif %}" {% if not has_filter %}aria-disabled="true" tabindex="-1"{% endif %}>Clear</a>
+  <a href="?" class="btn btn-secondary{% if not has_filter %} disabled{% endif %}" {% if not has_filter %}aria-disabled="true" tabindex="-1"{% endif %} data-testid="btn-clear-filter">Clear</a>
 </form>
 
 
@@ -32,7 +32,7 @@
   <input type="text" id="filterInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Filter by Event Type, Resource, Name, or Details">
 </div>
 
-<table class="table table-bordered table-striped">
+<table class="table table-bordered table-striped" data-testid="events-table">
   <thead>
     <tr>
       {% set sort_icon = {'asc': '^', 'desc': 'v'} %}

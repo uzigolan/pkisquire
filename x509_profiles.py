@@ -251,6 +251,19 @@ def list_profiles():
         for p in profiles:
             p.user_obj = current_user
         is_admin = False
+    # Add local time for created_at (inline, no external util)
+    try:
+        from zoneinfo import ZoneInfo
+    except ImportError:
+        from backports.zoneinfo import ZoneInfo
+    for p in profiles:
+        dt = p.created_at
+        if dt is not None:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=ZoneInfo("UTC"))
+            p.created_at_local = dt.astimezone()
+        else:
+            p.created_at_local = None
     from flask import current_app
     challenge_password_enabled = current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
     return render_template("list_profiles.html", profiles=profiles, is_admin=is_admin, challenge_password_enabled=challenge_password_enabled)

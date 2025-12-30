@@ -30,7 +30,7 @@
   <table id="csrTable" class="table table-bordered">
     <thead class="thead-light">
       <tr>
-        <th>ID</th>
+          <th data-testid="header-id">ID</th>
         <th>Name</th>
         <th>Key</th>
         <th>Profile</th>
@@ -46,7 +46,7 @@
         <td>{{ csr.name }}</td>
         <td>{{ key_dict[csr.key_id].name if csr.key_id in key_dict else "N/A" }}</td>
         <td>{{ profile_dict[csr.profile_id].filename if csr.profile_id in profile_dict else "N/A" }}</td>
-        <td>{{ csr.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td>{{ csr.created_at_local.strftime('%Y-%m-%d %H:%M') if csr.created_at_local else '' }}</td>
         {% if is_admin %}
           <td>{{ csr.user_obj.username if csr.user_obj else 'N/A' }}</td>
         {% endif %}
@@ -55,7 +55,7 @@
              class="btn btn-sm btn-secondary">Download</a>
           <a href="{{ url_for('requests.view_csr', csr_id=csr.id) }}"
              class="btn btn-sm btn-info">View</a>
-          <form action="{{ url_for('requests.delete_csr', csr_id=csr.id) }}"
+          <form action="{{ url_for('requests.delete_csr', csr_id=csr.id) }}" data-testid="form-delete-csr"
                 method="post" style="display:inline;">
             <button type="submit"
                     class="btn btn-sm btn-danger"
@@ -75,7 +75,7 @@
     function sortTable(columnIndex) {
       var table = document.getElementById('csrTable');
       var rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
-      var isAscending = sortDirections[columnIndex] !== 'asc';
+        var isAscending = sortDirections[columnIndex] !== 'asc';
       sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
 
       document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
