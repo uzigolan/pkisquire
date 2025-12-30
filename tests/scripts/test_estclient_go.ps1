@@ -100,17 +100,16 @@ Write-Host "`n[*] Step 3: Perform EST Enrollment with estclient (WSL) using a gi
 # Convert Windows paths to WSL paths dynamically
 function Convert-ToWSLPath {
     param([string]$winPath)
-    $drive, $rest = $winPath -split ':', 2
-    $drive = $drive.ToLower()
-    $rest = $rest.TrimStart('\')
-    $wslPath = "/mnt/$drive/$rest"
-    $wslPath = $wslPath -replace '\\', '/'
-    return $wslPath
+    $full = [IO.Path]::GetFullPath($winPath)
+    $full = $full -replace '\\', '/'
+    $drive = $full.Substring(0,1).ToLower()
+    $rest = $full.Substring(2)
+    return "/mnt/$drive/$rest"
 }
 
-$CSR_FILE_WSL = Convert-ToWSLPath (Resolve-Path $CSR_FILE).Path
-$KEY_FILE_WSL = Convert-ToWSLPath (Resolve-Path $KEY_FILE).Path
-$CERT_FILE_WSL = Convert-ToWSLPath (Resolve-Path $CERT_FILE).Path
+$CSR_FILE_WSL = Convert-ToWSLPath $CSR_FILE
+$KEY_FILE_WSL = Convert-ToWSLPath $KEY_FILE
+$CERT_FILE_WSL = Convert-ToWSLPath $CERT_FILE
 
  $enrollCmd = "wsl ~/go/bin/estclient enroll -server $SERVER -csr '$CSR_FILE_WSL' -key '$KEY_FILE_WSL' -out '$CERT_FILE_WSL' -insecure"
 Write-Host "    Command: $enrollCmd" -ForegroundColor Gray
