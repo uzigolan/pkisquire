@@ -40,6 +40,10 @@
           <span class="badge badge-success">Add</span>
         {% elif event.type == 'delete' %}
           <span class="badge badge-danger">Delete</span>
+        {% elif event.type == 'login' %}
+          <span class="badge badge-info">Login</span>
+        {% elif event.type == 'logout' %}
+          <span class="badge badge-purple" style="background-color:#6f42c1;color:white;">Logout</span>
         {% elif event.type == 'pending' %}
           <span class="badge badge-warning">Pending</span>
         {% elif event.type == 'activated' %}
@@ -50,6 +54,10 @@
           <span class="badge badge-dark">Force Logout</span>
         {% elif event.type == 'change_password' %}
           <span class="badge badge-primary">Change Password</span>
+        {% elif event.type == 'api_token_create' %}
+          <span class="badge badge-success">API Token Create</span>
+        {% elif event.type == 'api_token_delete' %}
+          <span class="badge badge-danger">API Token Delete</span>
         {% else %}
           <span class="badge badge-secondary">{{ event.type }}</span>
         {% endif %}
@@ -83,11 +91,15 @@
     let typeBadge = '';
     if (typeVal === 'add') typeBadge = '<span class="badge badge-success">Add</span>';
     else if (typeVal === 'delete') typeBadge = '<span class="badge badge-danger">Delete</span>';
+    else if (typeVal === 'login') typeBadge = '<span class="badge badge-info">Login</span>';
+    else if (typeVal === 'logout') typeBadge = '<span class="badge badge-purple" style="background-color:#6f42c1;color:white;">Logout</span>';
     else if (typeVal === 'pending') typeBadge = '<span class="badge badge-warning">Pending</span>';
     else if (typeVal === 'activated') typeBadge = '<span class="badge badge-info">Activated</span>';
     else if (typeVal === 'deactivated') typeBadge = '<span class="badge badge-secondary">Deactivated</span>';
     else if (typeVal === 'force_logout') typeBadge = '<span class="badge badge-dark">Force Logout</span>';
     else if (typeVal === 'change_password') typeBadge = '<span class="badge badge-primary">Change Password</span>';
+    else if (typeVal === 'api_token_create') typeBadge = '<span class="badge badge-success">API Token Create</span>';
+    else if (typeVal === 'api_token_delete') typeBadge = '<span class="badge badge-danger">API Token Delete</span>';
     else typeBadge = `<span class="badge badge-secondary">${typeVal || ''}</span>`;
     const excluded = ['username', 'by', 'actor_username'];
     let detailsStr = '';
@@ -243,11 +255,15 @@
     <div>
       <div><span class="badge badge-success">Add</span> Add User</div>
       <div><span class="badge badge-danger">Delete</span> Delete User</div>
+      <div><span class="badge badge-info">Login</span> Login</div>
+      <div><span class="badge badge-secondary">Logout</span> Logout</div>
       <div><span class="badge badge-warning">Pending</span> Pending</div>
       <div><span class="badge badge-info">Activated</span> Activated</div>
       <div><span class="badge badge-secondary">Deactivated</span> Deactivated</div>
       <div><span class="badge badge-dark">Force Logout</span> Force Logout</div>
       <div><span class="badge badge-primary">Change Password</span> Change Password</div>
+      <div><span class="badge badge-success">API Token Create</span> API token created</div>
+      <div><span class="badge badge-danger">API Token Delete</span> API token deleted</div>
     </div>
     <div>
       <div style="font-weight: 600;">Details</div>
