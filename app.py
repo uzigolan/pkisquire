@@ -613,30 +613,8 @@ def delete_challenge_password():
         if not current_user.is_admin() and row['user_id'] != current_user.id:
             flash('You do not have permission to delete this challenge password.', 'error')
             return redirect(url_for('challenge_passwords'))
-        # Only allow deleting expired challenge passwords
         if row['consumed']:
             flash('Consumed challenge passwords cannot be deleted.', 'error')
-            return redirect(url_for('challenge_passwords'))
-        expired = False
-        try:
-            m = re.match(r'^(\d+)([mhd])$', row['validity'] or '')
-            if m and row['created_at']:
-                num, unit = int(m.group(1)), m.group(2)
-                if unit == 'm':
-                    delta = timedelta(minutes=num)
-                elif unit == 'h':
-                    delta = timedelta(hours=num)
-                elif unit == 'd':
-                    delta = timedelta(days=num)
-                else:
-                    delta = timedelta(minutes=60)
-                created_dt = datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=timezone.utc)
-                expires_dt = created_dt + delta
-                expired = datetime.now(timezone.utc) > expires_dt
-        except Exception:
-            expired = False
-        if not expired:
-            flash('Only expired challenge passwords can be deleted.', 'error')
             return redirect(url_for('challenge_passwords'))
         conn.execute("DELETE FROM challenge_passwords WHERE value = ?", (value,))
         conn.commit()
@@ -737,7 +715,7 @@ def challenge_passwords_data():
         expires_at_utc = ""
         expires_at_local = ""
         expired_flag = False
-        allow_delete = False
+        allow_delete = not bool(row["consumed"])
         if row["created_at"] and row["validity"]:
             m = re.match(r"^(\d+)([mhd])$", row["validity"])
             if m:
@@ -756,7 +734,6 @@ def challenge_passwords_data():
                     expires_at_utc = expires_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
                     expires_at_local = expires_dt.astimezone().strftime("%Y-%m-%d %H:%M")
                     expired_flag = datetime.now(timezone.utc) > expires_dt
-                    allow_delete = expired_flag and not bool(row["consumed"])
                 except Exception:
                     pass
         result.append({
@@ -932,13 +909,12 @@ def challenge_passwords():
                     expires_at = ''
         # Determine expired status
         expired = False
-        allow_delete = False
+        allow_delete = not bool(row['consumed'])
         if expires_at and not bool(row['consumed']):
             try:
                 expires_dt = datetime.datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=datetime.timezone.utc)
                 if datetime.datetime.now(datetime.timezone.utc) > expires_dt:
                     expired = True
-                    allow_delete = True
             except Exception:
                 pass
         challenge_passwords.append({
@@ -1818,7 +1794,7 @@ def ra_policy_edit(policy_id):
 @app.route("/ra_policies/<int:policy_id>/delete", methods=["POST"])
 @login_required
 def ra_policy_delete(policy_id):
-    mgr, policy = _load_policy_for_edit(policy_id)
+    mgr, policy, _ = _load_policy_for_edit(policy_id)
     try:
         mgr.delete_policy(policy_id)
         # Event logging
