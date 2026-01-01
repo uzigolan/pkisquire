@@ -56,10 +56,12 @@
       </td>
       <td style="white-space:pre-line;">
         {% set excluded = ['username', 'by', 'actor_username'] %}
-        {% if event[4] %}
+        {% if event[4] is mapping %}
           {% for k, v in event[4].items() if k not in excluded %}
             {{ k }}: {{ v }}\n
           {% endfor %}
+        {% elif event[4] %}
+          {{ event[4] }}
         {% endif %}
       </td>
     </tr>
