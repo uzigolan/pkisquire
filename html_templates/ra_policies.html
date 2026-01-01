@@ -73,11 +73,14 @@
             </td>
             <td style="max-width: 320px; white-space: pre-wrap; font-size: 12px;">{{ (p.ext_config or '')[:200] }}{% if p.ext_config and p.ext_config|length > 200 %}...{% endif %}</td>
             <td class="text-nowrap">
-              <a class="btn btn-sm btn-secondary" href="{{ url_for('ra_policy_edit', policy_id=p.id) }}">Edit</a>
+              <a class="btn btn-sm btn-info" href="{{ url_for('ra_policy_edit', policy_id=p.id, view=1) }}">View</a>
               {% if is_admin or p.type != 'system' %}
-              <form method="POST" action="{{ url_for('ra_policy_delete', policy_id=p.id) }}" style="display:inline;" onsubmit="return confirm('Delete policy {{ p.name }}?');">
-                <button type="submit" class="btn btn-sm btn-danger ml-1">Delete</button>
-              </form>
+                <a class="btn btn-sm btn-secondary ml-1" href="{{ url_for('ra_policy_edit', policy_id=p.id) }}">Edit</a>
+                {% if is_admin or p.user_id == current_user.id %}
+                <form method="POST" action="{{ url_for('ra_policy_delete', policy_id=p.id) }}" style="display:inline;" onsubmit="return confirm('Delete policy {{ p.name }}?');">
+                  <button type="submit" class="btn btn-sm btn-danger ml-1">Delete</button>
+                </form>
+                {% endif %}
               {% endif %}
             </td>
           </tr>

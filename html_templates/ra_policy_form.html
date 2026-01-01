@@ -1,6 +1,12 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">{{ 'Edit Enrollment Policy' if mode == 'edit' else 'New Enrollment Policy' }}</h1>
+  <h1 class="mb-4">
+    {% if mode == 'edit' %}
+      {{ 'View Enrollment Policy' if view_only else 'Edit Enrollment Policy' }}
+    {% else %}
+      New Enrollment Policy
+    {% endif %}
+  </h1>
   <form method="POST">
     {% if mode == 'new' %}
     <div class="form-group">
@@ -16,44 +22,48 @@
 
     <div class="form-group">
       <label for="validity">Validity (days)</label>
-      <input type="text" class="form-control" id="validity" name="validity" value="{{ policy.validity_period if policy else '365' }}">
+      <input type="text" class="form-control" id="validity" name="validity" value="{{ policy.validity_period if policy else '365' }}" {% if view_only %}disabled{% endif %}>
     </div>
 
     {% if is_admin %}
     <div class="form-check mb-3">
-      <input class="form-check-input" type="checkbox" id="is_system" name="is_system" {% if policy and policy.type == 'system' %}checked{% endif %} {% if policy and policy.type == 'system' %}{% endif %}>
+      <input class="form-check-input" type="checkbox" id="is_system" name="is_system" {% if policy and policy.type == 'system' %}checked{% endif %} {% if view_only %}disabled{% endif %}>
       <label class="form-check-label" for="is_system">System enrollment policy (visible to all)</label>
     </div>
     <div class="form-check mb-2">
-      <input class="form-check-input" type="checkbox" id="is_est_default" name="is_est_default" {% if policy and policy.is_est_default %}checked{% endif %}>
+      <input class="form-check-input" type="checkbox" id="is_est_default" name="is_est_default" {% if policy and policy.is_est_default %}checked{% endif %} {% if view_only %}disabled{% endif %}>
       <label class="form-check-label" for="is_est_default">Use for EST</label>
     </div>
     <div class="form-check mb-4">
-      <input class="form-check-input" type="checkbox" id="is_scep_default" name="is_scep_default" {% if policy and policy.is_scep_default %}checked{% endif %}>
+      <input class="form-check-input" type="checkbox" id="is_scep_default" name="is_scep_default" {% if policy and policy.is_scep_default %}checked{% endif %} {% if view_only %}disabled{% endif %}>
       <label class="form-check-label" for="is_scep_default">Use for SCEP</label>
     </div>
     {% endif %}
 
     <div class="form-group">
-      <label for="profile_name">Load extension from certificate template (optional)</label>
-      <div class="input-group mb-2">
-        <select class="form-control" name="profile_name" id="profile_name">
-          <option value="">-- Select certificate template --</option>
-          {% for p in profiles %}
-            {% if p.content and '[ v3_ext ]' in p.content %}
-              <option value="{{ p.name }}">{{ p.name }}</option>
-            {% endif %}
-          {% endfor %}
-        </select>
-        <div class="input-group-append">
-          <button class="btn btn-outline-secondary" type="button" id="load_profile_btn">Load into form</button>
+      {% if not view_only %}
+        <label for="profile_name">Load extension from certificate template (optional)</label>
+        <div class="input-group mb-2">
+          <select class="form-control" name="profile_name" id="profile_name">
+            <option value="">-- Select certificate template --</option>
+            {% for p in profiles %}
+              {% if p.content and '[ v3_ext ]' in p.content %}
+                <option value="{{ p.name }}">{{ p.name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="button" id="load_profile_btn">Load into form</button>
+          </div>
         </div>
-      </div>
+      {% endif %}
       <label for="ext_config" class="font-weight-bold">Extension configuration</label>
-      <textarea class="form-control" id="ext_config" name="ext_config" rows="10" placeholder="Paste or edit extension config...">{{ policy.ext_config if policy else '' }}</textarea>
+      <textarea class="form-control" id="ext_config" name="ext_config" rows="16" placeholder="Paste or edit extension config..." {% if view_only %}readonly{% endif %}>{{ policy.ext_config if policy else '' }}</textarea>
     </div>
 
-    <button type="submit" class="btn btn-primary">{{ 'Save Changes' if mode == 'edit' else 'Create Policy' }}</button>
+    {% if not view_only %}
+      <button type="submit" class="btn btn-primary">{{ 'Save Changes' if mode == 'edit' else 'Create Policy' }}</button>
+    {% endif %}
     <a href="{{ url_for('ra_policies_page') }}" class="btn btn-secondary ml-2">Cancel</a>
   </form>
   <script>

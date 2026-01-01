@@ -163,35 +163,32 @@ def _generate_challenge_password():
     challenge_enabled = cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False)
     if not challenge_enabled:
         return ""
+    token = cfg.get("DEFAULT", "tests_api_token", fallback="").strip()
+    if not token:
+        return "NO_TOKEN"
 
     base_url = f"http://127.0.0.1:{http_port}"
-    sess = requests.Session()
-    # Login as admin (same creds as UI tests)
-    login_resp = sess.post(
-        f"{base_url}/users/login",
-        data={"username": "admin", "password": "pikachu"},
-        allow_redirects=True,
-    )
-    if login_resp.status_code not in (200, 302):
-        return f"LOGIN_FAILED:{login_resp.status_code}"
-    # Trigger generation
-    gen_resp = sess.post(f"{base_url}/challenge_passwords", data={}, allow_redirects=True)
-    if gen_resp.status_code not in (200, 302):
-        return f"GEN_FAILED:{gen_resp.status_code}"
-    data_resp = sess.get(f"{base_url}/challenge_passwords/data")
-    if data_resp.status_code != 200:
-        return f"DATA_FAILED:{data_resp.status_code}"
     try:
-        payload = data_resp.json()
-        if isinstance(payload, list) and payload:
-            return payload[0].get("value", "") or "EMPTY_PASSWORD"
-        if isinstance(payload, dict):
-            pw_list = payload.get("passwords") or []
-            if pw_list:
-                return pw_list[0].get("value", "") or "EMPTY_PASSWORD"
-        return "NO_PASSWORDS"
+        resp = requests.post(
+            f"{base_url}/api/challenge_passwords",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=20,
+        )
+    except Exception as e:
+        return f"REQ_FAILED:{e}"
+
+    if resp.status_code != 201:
+        return f"API_FAILED:{resp.status_code}:{resp.text[:200]}"
+
+    try:
+        data = resp.json()
     except Exception:
         return "PARSE_FAILED"
+
+    value = data.get("value")
+    if not value:
+        return "EMPTY_PASSWORD"
+    return value
 
 
 def test_sscep_with_challenge_password(request):
