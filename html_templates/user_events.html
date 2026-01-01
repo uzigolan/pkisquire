@@ -32,36 +32,34 @@
   <tbody>
     {% for event in events %}
     <tr>
-      <td>{{ event[3].replace('T', ' ')[:16] if event[3] }}</td>
-      <td>{{ event[5] }}</td>
-      <td>{{ event[7] }}</td>
+      <td>{{ event.time.replace('T', ' ')[:16] if event.time }}</td>
+      <td>{{ event.user }}</td>
+      <td>{{ event.actor }}</td>
       <td>
-        {% if event[1] == 'add' %}
+        {% if event.type == 'add' %}
           <span class="badge badge-success">Add</span>
-        {% elif event[1] == 'delete' %}
+        {% elif event.type == 'delete' %}
           <span class="badge badge-danger">Delete</span>
-        {% elif event[1] == 'pending' %}
+        {% elif event.type == 'pending' %}
           <span class="badge badge-warning">Pending</span>
-        {% elif event[1] == 'activated' %}
+        {% elif event.type == 'activated' %}
           <span class="badge badge-info">Activated</span>
-        {% elif event[1] == 'deactivated' %}
+        {% elif event.type == 'deactivated' %}
           <span class="badge badge-secondary">Deactivated</span>
-        {% elif event[1] == 'force_logout' %}
+        {% elif event.type == 'force_logout' %}
           <span class="badge badge-dark">Force Logout</span>
-        {% elif event[1] == 'change_password' %}
+        {% elif event.type == 'change_password' %}
           <span class="badge badge-primary">Change Password</span>
         {% else %}
-          <span class="badge badge-secondary">{{ event[1] }}</span>
+          <span class="badge badge-secondary">{{ event.type }}</span>
         {% endif %}
       </td>
       <td style="white-space:pre-line;">
         {% set excluded = ['username', 'by', 'actor_username'] %}
-        {% if event[4] is mapping %}
-          {% for k, v in event[4].items() if k not in excluded %}
+        {% if event.details %}
+          {% for k, v in event.details.items() if k not in excluded %}
             {{ k }}: {{ v }}\n
           {% endfor %}
-        {% elif event[4] %}
-          {{ event[4] }}
         {% endif %}
       </td>
     </tr>
@@ -71,42 +69,39 @@
 <div class="mt-3">
   <script>
   function renderEventRow(event) {
-    // event: [id, type, ..., time, details (object), user, ..., actor]
-    // event[3] = UTC time string
-    // event[5] = user, event[7] = actor, event[1] = type, event[4] = details (object)
+    // event can be dict ({time,user,actor,type,details}) or legacy array
+    const timeVal = event.time !== undefined ? event.time : (event[3] || '');
+    const userVal = event.user !== undefined ? event.user : (event[5] || '');
+    const actorVal = event.actor !== undefined ? event.actor : (event[7] || '');
+    const typeVal = event.type !== undefined ? event.type : (event[1] || '');
+    const detailsObj = event.details !== undefined ? event.details : (event[4] || {});
     let utcTime = '';
-    if (event[3]) {
-      const d = new Date(event[3] + 'Z');
-      const y = d.getUTCFullYear();
-      const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(d.getUTCDate()).padStart(2, '0');
-      const h = String(d.getUTCHours()).padStart(2, '0');
-      const min = String(d.getUTCMinutes()).padStart(2, '0');
-      utcTime = `${y}-${m}-${day} ${h}:${min}`;
+    if (timeVal) {
+      const d = new Date(timeVal.endsWith('Z') ? timeVal : timeVal + 'Z');
+      utcTime = d.toISOString().replace('T', ' ').slice(0, 16);
     }
     let typeBadge = '';
-    if (event[1] === 'add') typeBadge = '<span class="badge badge-success">Add</span>';
-    else if (event[1] === 'delete') typeBadge = '<span class="badge badge-danger">Delete</span>';
-    else if (event[1] === 'pending') typeBadge = '<span class="badge badge-warning">Pending</span>';
-    else if (event[1] === 'activated') typeBadge = '<span class="badge badge-info">Activated</span>';
-    else if (event[1] === 'deactivated') typeBadge = '<span class="badge badge-secondary">Deactivated</span>';
-    else if (event[1] === 'force_logout') typeBadge = '<span class="badge badge-dark">Force Logout</span>';
-    else if (event[1] === 'change_password') typeBadge = '<span class="badge badge-primary">Change Password</span>';
-    else typeBadge = `<span class="badge badge-secondary">${event[1]}</span>`;
-    // Only show allowed keys
+    if (typeVal === 'add') typeBadge = '<span class="badge badge-success">Add</span>';
+    else if (typeVal === 'delete') typeBadge = '<span class="badge badge-danger">Delete</span>';
+    else if (typeVal === 'pending') typeBadge = '<span class="badge badge-warning">Pending</span>';
+    else if (typeVal === 'activated') typeBadge = '<span class="badge badge-info">Activated</span>';
+    else if (typeVal === 'deactivated') typeBadge = '<span class="badge badge-secondary">Deactivated</span>';
+    else if (typeVal === 'force_logout') typeBadge = '<span class="badge badge-dark">Force Logout</span>';
+    else if (typeVal === 'change_password') typeBadge = '<span class="badge badge-primary">Change Password</span>';
+    else typeBadge = `<span class="badge badge-secondary">${typeVal || ''}</span>`;
     const excluded = ['username', 'by', 'actor_username'];
     let detailsStr = '';
-    if (event[4] && typeof event[4] === 'object') {
-      for (const k in event[4]) {
+    if (detailsObj && typeof detailsObj === 'object') {
+      for (const k in detailsObj) {
         if (!excluded.includes(k)) {
-          detailsStr += `${k}: ${event[4][k]}\n`;
+          detailsStr += `${k}: ${detailsObj[k]}\n`;
         }
       }
     }
     return `<tr>
       <td>${utcTime}</td>
-      <td>${event[5]}</td>
-      <td>${event[7]}</td>
+      <td>${userVal || ''}</td>
+      <td>${actorVal || ''}</td>
       <td>${typeBadge}</td>
       <td style=\"white-space:pre-line;\">${detailsStr}</td>
     </tr>`;
