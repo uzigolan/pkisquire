@@ -438,19 +438,27 @@ def user_events():
     user_id = request.args.get('user_id')
     event_type = request.args.get('event_type')
     events = get_user_events(user_id=user_id, event_type=event_type, page=page, page_size=page_size)
-    # Parse details JSON for each event
     parsed_events = []
-    for event in events:
-        event = list(event)
-        details = event[4]
+    for row in events:
+        details = row["details"] if isinstance(row, dict) else row[4]
         if isinstance(details, str):
             try:
-                event[4] = json.loads(details)
+                details = json.loads(details)
             except Exception:
-                event[4] = {}
-        elif details is None or not isinstance(details, dict):
-            event[4] = {}
-        parsed_events.append(tuple(event))
+                details = {}
+        if not isinstance(details, dict):
+            details = {}
+        time_str = row["timestamp"] if isinstance(row, dict) else (row[6] if len(row) > 6 else "")
+        username = row["username"] if isinstance(row, dict) else (row[2] if len(row) > 2 else "")
+        actor_username = row["actor_username"] if isinstance(row, dict) else (row[5] if len(row) > 5 else "")
+        event_type = row["event_type"] if isinstance(row, dict) else (row[3] if len(row) > 3 else "")
+        parsed_events.append({
+            "time": time_str,
+            "user": username,
+            "actor": actor_username,
+            "type": event_type,
+            "details": details,
+        })
     current_app.logger.trace(f"[user_events] events: {parsed_events}")
     return render_template('user_events.html', events=parsed_events, page=page, page_size=page_size)
 
@@ -522,20 +530,27 @@ def user_events_api():
     event_type = request.args.get('event_type')
     events = get_user_events(user_id=user_id, event_type=event_type, page=page, page_size=page_size)
     current_app.logger.debug(f"[AJAX /users/events/api] user_id={user_id} event_type={event_type} events_count={len(events)}")
-    # Parse details JSON for each event
     parsed_events = []
-    for event in events:
-        event = list(event)
-        details = event[4]
+    for row in events:
+        details = row["details"] if isinstance(row, dict) else row[4]
         if isinstance(details, str):
             try:
-                event[4] = json.loads(details)
+                details = json.loads(details)
             except Exception:
-                event[4] = {}
-        elif details is None:
-            event[4] = {}
-        parsed_events.append(event)
-    # current_app.logger.debug(f"[AJAX /users/events/api] events: {parsed_events}")
+                details = {}
+        if not isinstance(details, dict):
+            details = {}
+        time_str = row["timestamp"] if isinstance(row, dict) else (row[6] if len(row) > 6 else "")
+        username = row["username"] if isinstance(row, dict) else (row[2] if len(row) > 2 else "")
+        actor_username = row["actor_username"] if isinstance(row, dict) else (row[5] if len(row) > 5 else "")
+        event_type_val = row["event_type"] if isinstance(row, dict) else (row[3] if len(row) > 3 else "")
+        parsed_events.append({
+            "time": time_str,
+            "user": username,
+            "actor": actor_username,
+            "type": event_type_val,
+            "details": details,
+        })
     return jsonify({'events': parsed_events})
 
 

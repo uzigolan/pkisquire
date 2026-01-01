@@ -111,6 +111,7 @@ def get_user_events(user_id=None, event_type=None, page=1, page_size=20):
     query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
     params.extend([page_size, (page-1)*page_size])
     with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(query, params)
         return cur.fetchall()
