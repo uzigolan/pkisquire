@@ -5,6 +5,7 @@ import configparser
 from pathlib import Path
 
 PAUSE_SECONDS = 5
+CHALLENGE_PASSWORD_CACHE = {}
 def print_cert_lifecycle_steps():
 	print("Available certificate lifecycle test steps:")
 	print(" 1: Login as admin")
@@ -13,15 +14,17 @@ def print_cert_lifecycle_steps():
 	print(" 4: Create ext template")
 	print(" 5: Create CSR")
 	print(" 6: Create enrollment policy (1d)")
-	print(" 7: Sign CSR with policy")
-	print(" 8: Check certificate in list")
-	print(" 9: Download certificate")
-	print("10: Revoke certificate")
-	print("11: Delete certificate")
-	print("12: Delete enrollment policy")
-	print("13: Delete certificate request (CSR)")
-	print("14: Delete certificate templates (req/ext)")
-	print("15: Delete key")
+	print(" 7: Create challenge password")
+	print(" 8: Sign CSR with policy")
+	print(" 9: Check certificate in list")
+	print("10: Download certificate")
+	print("11: Revoke certificate")
+	print("12: Delete certificate")
+	print("13: Delete enrollment policy")
+	print("14: Delete challenge password")
+	print("15: Delete certificate request (CSR)")
+	print("16: Delete certificate templates (req/ext)")
+	print("17: Delete key")
 
 import os
 import re
@@ -86,10 +89,22 @@ def run_cert_lifecycle_step(client, step):
 			cert = Certificate.query.filter(Certificate.subject.contains(cn)).order_by(Certificate.id.desc()).first()
 			assert cert is not None, f"Certificate with CN '{cn}' not found!"
 			return cert.id
+	# Helper to fetch challenge password list (requires logged-in session)
+	def get_challenge_passwords():
+		resp = client.get('/challenge_passwords/data')
+		assert resp.status_code == 200
+		return resp.get_json() or []
+	# Helper to know if challenge passwords are enabled
+	def challenge_passwords_enabled():
+		cfg = configparser.ConfigParser()
+		cfg.read(Path(__file__).resolve().parents[1] / "config.ini")
+		return cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False)
 
 	if step == 6:
 		do_logout()
 		do_login()
+		cpw_enabled = challenge_passwords_enabled()
+		cpw_before = len(get_challenge_passwords()) if cpw_enabled else None
 		# Create enrollment policy using isotest_ext and validity 1 day
 		policy_name = 'isotest_policy_1d'
 		rv = client.post('/ra_policies/new', data={
@@ -102,11 +117,31 @@ def run_cert_lifecycle_step(client, step):
 			print('Step 6: Enrollment policy creation failed! Response:')
 			print(rv.data.decode(errors='ignore'))
 		assert b'isotest_policy_1d' in rv.data or b'Enrollment Policies' in rv.data
+		if cpw_enabled:
+			cpw_after = len(get_challenge_passwords())
+			assert cpw_after >= cpw_before, f"Challenge password count should not decrease after policy creation (before={cpw_before}, after={cpw_after})"
 		print("Step 6 complete: Enrollment policy created.")
 		do_logout()
 		return
 
 	if step == 7:
+		do_logout()
+		do_login()
+		# Create challenge password (requires feature enabled)
+		if not challenge_passwords_enabled():
+			pytest.skip("Challenge passwords disabled in config.")
+		cpw_before = len(get_challenge_passwords())
+		resp = client.post('/challenge_passwords', data={}, follow_redirects=True)
+		assert resp.status_code == 200
+		cpw_after = len(get_challenge_passwords())
+		assert cpw_after >= cpw_before + 1, f"Expected challenge password count to increase (before={cpw_before}, after={cpw_after})"
+		latest = get_challenge_passwords()[0]
+		CHALLENGE_PASSWORD_CACHE['last'] = latest.get("value")
+		print("Step 7 complete: Challenge password created.")
+		do_logout()
+		return
+
+	if step == 8:
 		do_logout()
 		do_login()
 		# Use the CSR and enrollment policy to sign the certificate
@@ -128,20 +163,20 @@ def run_cert_lifecycle_step(client, step):
 			'policy_id': policy_id
 		}, follow_redirects=True)
 		if not (b'Certificate issued' in rv.data or b'Certificates' in rv.data):
-			print('Step 7: Signing failed! URL: /submit')
+			print('Step 8: Signing failed! URL: /submit')
 			print(rv.data.decode(errors="ignore"))
 		assert b'Certificate issued' in rv.data or b'Certificates' in rv.data
-		print("Step 7 complete: Certificate signed.")
+		print("Step 8 complete: Certificate signed.")
 		do_logout()
 		return
 
-	if step == 8:
+	if step == 9:
 		do_logout()
 		do_login()
 		# Check certificate is in the list (by CN)
 		rv = client.get('/certs')
 		assert b'test-device-001' in rv.data, "Certificate with CN 'test-device-001' not found in list!"
-		print("Step 8 complete: Certificate found in list.")
+		print("Step 9 complete: Certificate found in list.")
 		do_logout()
 		return
 	"""
@@ -152,10 +187,18 @@ def run_cert_lifecycle_step(client, step):
 		3: Create req template
 		4: Create ext template
 		5: Create CSR
-		9: Download certificate
-		10: Revoke certificate
-		11: Delete CSR
-		12: Delete templates and key
+		6: Create enrollment policy
+		7: Create challenge password
+		8: Sign CSR
+		9: Check certificate in list
+		10: Download certificate
+		11: Revoke certificate
+		12: Delete certificate
+		13: Delete enrollment policy
+		14: Delete challenge password
+		15: Delete CSR
+		16: Delete templates
+		17: Delete key
 	"""
 	key_id = None
 	csr_id = None
@@ -326,7 +369,7 @@ def run_cert_lifecycle_step(client, step):
 		do_logout()
 		return
 
-	if step == 9:
+	if step == 10:
 		do_logout()
 		do_login()
 		rv = client.get('/certs')
@@ -336,11 +379,11 @@ def run_cert_lifecycle_step(client, step):
 		rv = client.get(f'/downloads/{cert_id}')
 		assert rv.status_code == 200
 		assert b'BEGIN CERTIFICATE' in rv.data
-		print("Step 9 complete: Certificate downloaded.")
+		print("Step 10 complete: Certificate downloaded.")
 		do_logout()
 		return
 
-	if step == 10:
+	if step == 11:
 		do_logout()
 		do_login()
 		rv = client.get('/certs')
@@ -349,11 +392,11 @@ def run_cert_lifecycle_step(client, step):
 		cert_id = cert_match.group(1).decode()
 		rv = client.post(f'/revoke/{cert_id}', data={'confirm': 'REVOKE'}, follow_redirects=True)
 		assert b'Certificate revoked' in rv.data or b'Revoked' in rv.data
-		print("Step 10 complete: Certificate revoked.")
+		print("Step 11 complete: Certificate revoked.")
 		do_logout()
 		return
 
-	if step == 11:
+	if step == 12:
 		do_logout()
 		do_login()
 		# Delete certificate (by CN)
@@ -364,13 +407,15 @@ def run_cert_lifecycle_step(client, step):
 		rv = client.post(f'/delete/{cert_id}', follow_redirects=True)
 		# The backend always redirects to /certs, so check for that
 		assert rv.request.path == '/certs' or rv.status_code == 200
-		print("Step 11 complete: Certificate deleted.")
+		print("Step 12 complete: Certificate deleted.")
 		do_logout()
 		return
 
-	if step == 12:
+	if step == 13:
 		do_logout()
 		do_login()
+		cpw_enabled = challenge_passwords_enabled()
+		cpw_before = len(get_challenge_passwords()) if cpw_enabled else None
 		# Delete enrollment policy
 		rv = client.get('/ra_policies')
 		import re as _re
@@ -379,11 +424,32 @@ def run_cert_lifecycle_step(client, step):
 		policy_id = policy_match.group(1).decode()
 		rv = client.post(f'/ra_policies/{policy_id}/delete', data={'confirm': 'DELETE'}, follow_redirects=True)
 		assert b'Policy deleted' in rv.data or b'Deleted' in rv.data or rv.status_code == 200
-		print("Step 12 complete: Enrollment policy deleted.")
+		if cpw_enabled:
+			cpw_after = len(get_challenge_passwords())
+			assert cpw_after <= cpw_before, f"Challenge password count should not increase after policy delete (before={cpw_before}, after={cpw_after})"
+		print("Step 13 complete: Enrollment policy deleted.")
 		do_logout()
 		return
 
-	if step == 13:
+	if step == 14:
+		do_logout()
+		do_login()
+		if not challenge_passwords_enabled():
+			pytest.skip("Challenge passwords disabled in config.")
+		cpw_before = len(get_challenge_passwords())
+		target = CHALLENGE_PASSWORD_CACHE.get('last')
+		if not target and cpw_before:
+			target = get_challenge_passwords()[0].get("value")
+		assert target, "No challenge password available to delete."
+		rv = client.post('/delete_challenge_password', data={'value': target}, follow_redirects=True)
+		assert rv.status_code == 200
+		cpw_after = len(get_challenge_passwords())
+		assert cpw_after <= max(0, cpw_before - 1), f"Expected challenge password count to drop (before={cpw_before}, after={cpw_after})"
+		print("Step 14 complete: Challenge password deleted.")
+		do_logout()
+		return
+
+	if step == 15:
 		do_logout()
 		do_login()
 		# Delete certificate request (CSR)
@@ -393,11 +459,11 @@ def run_cert_lifecycle_step(client, step):
 		csr_id = csr_match.group(1).decode()
 		rv = client.post(f'/requests/{csr_id}/delete', data={'confirm': 'DELETE'}, follow_redirects=True)
 		assert b'CSR deleted' in rv.data or b'Deleted' in rv.data or rv.status_code == 200
-		print("Step 13 complete: Certificate request deleted.")
+		print("Step 15 complete: Certificate request deleted.")
 		do_logout()
 		return
 
-	if step == 14:
+	if step == 16:
 		do_logout()
 		do_login()
 		# Delete certificate templates (req/ext) using correct endpoint
@@ -405,11 +471,11 @@ def run_cert_lifecycle_step(client, step):
 		assert b'Profile isotest_req deleted.' in rv.data or rv.status_code == 200
 		rv = client.post('/profiles/delete/isotest_ext', follow_redirects=True)
 		assert b'Profile isotest_ext deleted.' in rv.data or rv.status_code == 200
-		print("Step 14 complete: Certificate templates deleted.")
+		print("Step 16 complete: Certificate templates deleted.")
 		do_logout()
 		return
 
-	if step == 15:
+	if step == 17:
 		do_logout()
 		do_login()
 		# Delete key
@@ -419,7 +485,7 @@ def run_cert_lifecycle_step(client, step):
 		if key_id:
 			rv = client.post(f'/keys/{key_id}/delete', data={'confirm': 'DELETE'}, follow_redirects=True)
 			assert b'Key deleted' in rv.data or b'Keys' in rv.data or rv.status_code == 200
-		print("Step 15 complete: Key deleted.")
+		print("Step 17 complete: Key deleted.")
 		do_logout()
 		return
 
@@ -449,15 +515,17 @@ step_descriptions = {
 	4: "Create ext template",
 	5: "Create CSR",
 	6: "Create enrollment policy (1d)",
-	7: "Sign CSR with policy",
-	8: "Check certificate in list",
-	9: "Download certificate",
-	10: "Revoke certificate",
-	11: "Delete certificate",
-	12: "Delete enrollment policy",
-	13: "Delete certificate request (CSR)",
-	14: "Delete certificate templates (req/ext)",
-	15: "Delete key"
+	7: "Create challenge password",
+	8: "Sign CSR with policy",
+	9: "Check certificate in list",
+	10: "Download certificate",
+	11: "Revoke certificate",
+	12: "Delete certificate",
+	13: "Delete enrollment policy",
+	14: "Delete challenge password",
+	15: "Delete certificate request (CSR)",
+	16: "Delete certificate templates (req/ext)",
+	17: "Delete key"
 }
 
 # Build ids for nicer names in reports
@@ -484,27 +552,3 @@ def test_certificate_lifecycle_step(client, html_step_logger, step, desc):
 	except Exception as exc:
 		html_step_logger.append(f"Step {step}: {desc} - FAILED ({exc})")
 		pytest.fail(f"Step {step} ({desc}) failed: {exc}")
-
-
-def test_challenge_password_ui(client):
-	"""Generate a challenge password via the UI and ensure it appears."""
-	cfg = configparser.ConfigParser()
-	cfg.read(Path(__file__).resolve().parents[1] / "config.ini")
-	if not cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False):
-		pytest.skip("Challenge password feature disabled in config.ini")
-
-	# Login as admin
-	login_resp = login(client, 'admin', 'pikachu')
-	assert login_resp.status_code == 200
-
-	# Generate challenge password
-	resp = client.post('/challenge_passwords', data={}, follow_redirects=True)
-	assert resp.status_code == 200
-
-	# Fetch list and ensure entry exists
-	data_resp = client.get('/challenge_passwords/data')
-	assert data_resp.status_code == 200
-	payload = data_resp.get_json()
-	assert payload, "No challenge passwords returned"
-	first = payload[0]
-	assert first.get("value"), "Challenge password value missing"

@@ -10,6 +10,19 @@
       <a href="{{ url_for('ra_policy_new') }}" class="btn btn-primary">Generate New Enrollment Policy</a>
     </div>
   </div>
+  {% if generated_challenge_password %}
+  <div class="alert alert-info d-flex justify-content-between align-items-center">
+    <div>
+      <div class="font-weight-bold mb-1">Challenge-Password generated</div>
+      <div><code id="generated-cpw">{{ generated_challenge_password.value }}</code></div>
+      <div class="text-muted small">Expires {{ generated_challenge_password.expires_at_local or generated_challenge_password.expires_at }}</div>
+    </div>
+    <div class="text-nowrap">
+      <button class="btn btn-sm btn-outline-primary mr-2" type="button" onclick="copyChallengePassword('{{ generated_challenge_password.value }}')">Copy</button>
+      <a href="{{ url_for('challenge_passwords') }}" class="btn btn-sm btn-outline-secondary">Manage</a>
+    </div>
+  </div>
+  {% endif %}
   {% if policies %}
   <div class="d-flex justify-content-between align-items-center mb-3">
     <div class="form-inline">
@@ -103,6 +116,16 @@
       const tbody = document.querySelector('#policyTable tbody');
       masterRows = Array.from(tbody.querySelectorAll('tr'));
       allRows = masterRows.slice();
+    }
+
+    function copyChallengePassword(value) {
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(value);
+      const el = document.getElementById('generated-cpw');
+      if (el) {
+        el.classList.add('text-success');
+        setTimeout(() => el.classList.remove('text-success'), 1200);
+      }
     }
 
     function showPage(page) {
