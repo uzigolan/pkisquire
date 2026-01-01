@@ -448,7 +448,7 @@ def user_events():
                 event[4] = json.loads(details)
             except Exception:
                 event[4] = {}
-        elif details is None:
+        elif details is None or not isinstance(details, dict):
             event[4] = {}
         parsed_events.append(tuple(event))
     current_app.logger.trace(f"[user_events] events: {parsed_events}")
