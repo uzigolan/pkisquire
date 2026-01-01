@@ -20,7 +20,7 @@ from datetime import datetime,timezone, timedelta
 from threading import Thread
 from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session, abort, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from users import users_bp, register_login_signals, init_users_config
+from users import users_bp, register_login_signals, init_users_config, verify_api_token
 from flask_sqlalchemy import SQLAlchemy
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization, hashes
@@ -778,8 +778,70 @@ def challenge_passwords_data():
         })
     return jsonify(result)
 
+def _parse_validity_timedelta(validity_str):
+    import re, datetime
+    m = re.match(r"^(\d+)([mhd])$", (validity_str or "").strip())
+    if not m:
+        return datetime.timedelta(minutes=60), "60m"
+    num, unit = int(m.group(1)), m.group(2)
+    if unit == 'm':
+        return datetime.timedelta(minutes=num), validity_str
+    if unit == 'h':
+        return datetime.timedelta(hours=num), validity_str
+    if unit == 'd':
+        return datetime.timedelta(days=num), validity_str
+    return datetime.timedelta(minutes=60), "60m"
 
+@app.route("/api/challenge_passwords", methods=["POST"])
+def api_create_challenge_password():
+    """
+    Create a new challenge password using an API token.
+    Auth: Authorization: Bearer <token> (or token param/header).
+    """
+    raw_token = None
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.lower().startswith("bearer "):
+        raw_token = auth_header.split(" ", 1)[1].strip()
+    raw_token = raw_token or request.headers.get("X-API-Token") or request.args.get("token") or (request.json.get("token") if request.is_json else None)
+    if not raw_token:
+        return jsonify({"error": "API token required"}), 401
+    token_info = verify_api_token(raw_token)
+    if not token_info:
+        return jsonify({"error": "Invalid or expired API token"}), 401
+    if not app.config.get('SCEP_CHALLENGE_PASSWORD_ENABLED', False):
+        return jsonify({"error": "Challenge password feature is disabled"}), 400
 
+    validity_str = app.config.get('SCEP_CHALLENGE_PASSWORD_VALIDITY', '60m').strip()
+    delta, validity_str = _parse_validity_timedelta(validity_str)
+
+    import secrets, datetime
+    now = datetime.datetime.now(datetime.UTC)
+    value = secrets.token_bytes(16).hex().upper()
+    with sqlite3.connect(app.config["DB_PATH"]) as conn:
+        conn.execute(
+            "INSERT INTO challenge_passwords (value, user_id, created_at, validity, consumed) VALUES (?, ?, ?, ?, 0)",
+            (value, token_info["user_id"], now.strftime('%Y-%m-%d %H:%M:%S UTC'), validity_str,)
+        )
+        conn.commit()
+    expires_at = (now + delta).strftime('%Y-%m-%d %H:%M:%S UTC')
+    try:
+        from events import log_event
+        log_event(
+            event_type="create",
+            resource_type="challenge_password",
+            resource_name=value,
+            user_id=token_info["user_id"],
+            details={"validity": validity_str, "via": "api_token"}
+        )
+    except Exception:
+        pass
+    return jsonify({
+        "value": value,
+        "user_id": token_info["user_id"],
+        "validity": validity_str,
+        "created_at": now.strftime('%Y-%m-%d %H:%M:%S UTC'),
+        "expires_at": expires_at
+    }), 201
 
 # --- Challenge Password Management UI ---
 @app.route('/challenge_passwords', methods=['GET', 'POST'])
@@ -1602,7 +1664,7 @@ def ra_policies_page():
     if current_user.is_admin():
         policies = mgr.list_all_policies()
     else:
-        policies = mgr.list_policies_for_user(current_user.id, include_system=False)
+        policies = mgr.list_policies_for_user(current_user.id, include_system=True)
     from flask import current_app
     challenge_password_enabled = current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
     return render_template("ra_policies.html", policies=policies, is_admin=current_user.is_admin(), challenge_password_enabled=challenge_password_enabled)
@@ -1693,16 +1755,27 @@ def _load_policy_for_edit(policy_id: int):
     policy = mgr.get_policy(policy_id=policy_id)
     if not policy:
         abort(404)
+    view_only = False
     if not current_user.is_admin():
-        if policy["type"] == "system" or policy.get("user_id") != current_user.id:
+        if policy["type"] == "system":
+            if request.method == "GET":
+                view_only = True
+            else:
+                abort(403)
+        elif policy.get("user_id") != current_user.id:
             abort(403)
-    return mgr, policy
+    return mgr, policy, view_only
 
 
 @app.route("/ra_policies/<int:policy_id>/edit", methods=["GET", "POST"])
 @login_required
 def ra_policy_edit(policy_id):
-    mgr, policy = _load_policy_for_edit(policy_id)
+    mgr, policy, view_only = _load_policy_for_edit(policy_id)
+    # Allow explicit view-only mode via querystring
+    if request.args.get("view") == "1":
+        view_only = True
+    if request.method == "POST" and view_only:
+        abort(403)
     profiles = _get_profile_options()
     if request.method == "POST":
         validity = (request.form.get("validity") or policy.get("validity_period") or DEFAULT_VALIDITY_DAYS).strip()
@@ -1739,7 +1812,7 @@ def ra_policy_edit(policy_id):
         except Exception as e:
             flash(f"Error updating policy: {e}", "danger")
 
-    return render_template("ra_policy_form.html", profiles=profiles, is_admin=current_user.is_admin(), mode="edit", policy=policy)
+    return render_template("ra_policy_form.html", profiles=profiles, is_admin=current_user.is_admin(), mode="edit", policy=policy, view_only=view_only)
 
 
 @app.route("/ra_policies/<int:policy_id>/delete", methods=["POST"])

@@ -1,6 +1,8 @@
 import datetime
 import time
 import pytest
+import configparser
+from pathlib import Path
 
 PAUSE_SECONDS = 5
 def print_cert_lifecycle_steps():
@@ -482,3 +484,27 @@ def test_certificate_lifecycle_step(client, html_step_logger, step, desc):
 	except Exception as exc:
 		html_step_logger.append(f"Step {step}: {desc} - FAILED ({exc})")
 		pytest.fail(f"Step {step} ({desc}) failed: {exc}")
+
+
+def test_challenge_password_ui(client):
+	"""Generate a challenge password via the UI and ensure it appears."""
+	cfg = configparser.ConfigParser()
+	cfg.read(Path(__file__).resolve().parents[1] / "config.ini")
+	if not cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False):
+		pytest.skip("Challenge password feature disabled in config.ini")
+
+	# Login as admin
+	login_resp = login(client, 'admin', 'pikachu')
+	assert login_resp.status_code == 200
+
+	# Generate challenge password
+	resp = client.post('/challenge_passwords', data={}, follow_redirects=True)
+	assert resp.status_code == 200
+
+	# Fetch list and ensure entry exists
+	data_resp = client.get('/challenge_passwords/data')
+	assert data_resp.status_code == 200
+	payload = data_resp.get_json()
+	assert payload, "No challenge passwords returned"
+	first = payload[0]
+	assert first.get("value"), "Challenge password value missing"

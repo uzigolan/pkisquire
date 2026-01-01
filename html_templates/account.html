@@ -26,6 +26,13 @@
       {% endif %}
     </div>
   </div>
+  <div class="card mb-4">
+    <div class="card-header">API Tokens</div>
+    <div class="card-body">
+      <p class="mb-2">Create and manage personal API tokens for automated access.</p>
+      <a href="{{ url_for('users.api_tokens') }}" class="btn btn-primary">Manage API Tokens</a>
+    </div>
+  </div>
   <div class="card">
     <div class="card-header">Logout</div>
     <div class="card-body">

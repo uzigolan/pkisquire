@@ -52,7 +52,7 @@
 
       <!-- SCEP -->
       <tr>
-        <td rowspan="3">SCEP</td>
+        <td rowspan="4">SCEP</td>
         <td>SCEP GetCaps</td>
         <td>
           <pre>sscep getcaps -u http://localhost:8090/scep</pre>
@@ -82,6 +82,15 @@
   -S sha256</pre>
         </td>
         <td>Enroll certificate via SCEP. Options: -E (encryption: aes|3des), -S (signature: sha256|sha512)</td>
+      </tr>
+      <tr>
+        <td>Challenge Password (API Token)</td>
+        <td>
+          <pre>curl -X POST \
+  -H "Authorization: Bearer &lt;API_TOKEN&gt;" \
+  http://localhost:80/api/challenge_passwords</pre>
+        </td>
+        <td>Generates a challenge password tied to the token's user. Response: value, expires_at, validity, user_id.</td>
       </tr>
 
       <!-- EST -->

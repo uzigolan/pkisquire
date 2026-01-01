@@ -31,6 +31,18 @@ def migrate_db():
         validity TEXT,
         consumed INTEGER DEFAULT 0
     )''')
+    # API tokens table (hash-only storage)
+    cur.execute('''CREATE TABLE IF NOT EXISTS api_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        user_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME,
+        last_used_at DATETIME,
+        revoked INTEGER DEFAULT 0
+    )''')
+    cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_api_tokens_hash ON api_tokens(token_hash)")
     # Ensure validity column exists if table already created
     def column_exists(table, column):
         cur.execute(f"PRAGMA table_info({table})")
@@ -168,6 +180,14 @@ def migrate_db():
     ensure_column('ra_policies', 'name', 'TEXT')
     ensure_column('ra_policies', 'is_est_default', 'INTEGER DEFAULT 0')
     ensure_column('ra_policies', 'is_scep_default', 'INTEGER DEFAULT 0')
+    # Ensure api_tokens columns exist if table pre-dated these
+    ensure_column('api_tokens', 'name', 'TEXT')
+    ensure_column('api_tokens', 'token_hash', 'TEXT')
+    ensure_column('api_tokens', 'user_id', 'INTEGER')
+    ensure_column('api_tokens', 'created_at', 'DATETIME DEFAULT CURRENT_TIMESTAMP')
+    ensure_column('api_tokens', 'expires_at', 'DATETIME')
+    ensure_column('api_tokens', 'last_used_at', 'DATETIME')
+    ensure_column('api_tokens', 'revoked', 'INTEGER DEFAULT 0')
     # Backfill issuance source where we can infer it
     cur.execute("UPDATE certificates SET issued_via = 'ui' WHERE issued_via IS NULL AND user_id IS NOT NULL")
     cur.execute("UPDATE certificates SET issued_via = 'unknown' WHERE issued_via IS NULL")
@@ -221,6 +241,30 @@ def migrate_db():
         print("[migrate_db] Default admin user created: admin / pikachu")
     else:
         print("[migrate_db] Admin user already exists.")
+
+    # Seed tests API token for automated scripts
+    tests_api_token = cfg.get("DEFAULT", "tests_api_token", fallback="").strip()
+    if tests_api_token:
+        import hashlib
+        token_hash = hashlib.sha256(tests_api_token.encode("utf-8")).hexdigest()
+        cur.execute("SELECT id FROM users WHERE username = ?", ("admin",))
+        admin_row = cur.fetchone()
+        admin_id = admin_row[0] if admin_row else None
+        cur.execute("SELECT 1 FROM api_tokens WHERE token_hash = ?", (token_hash,))
+        exists = cur.fetchone()
+        if admin_id and not exists:
+            cur.execute(
+                """
+                INSERT INTO api_tokens (name, token_hash, user_id, revoked)
+                VALUES (?, ?, ?, 0)
+                """,
+                ("tests_api_token", token_hash, admin_id),
+            )
+            print("[migrate_db] Seeded tests_api_token for admin user.")
+        elif exists:
+            print("[migrate_db] tests_api_token already present; skipping insert.")
+        else:
+            print("[migrate_db] Warning: could not seed tests_api_token (admin user missing?)")
 
     # Ensure RA policies have sensible defaults
     cur.execute("UPDATE ra_policies SET type = 'system' WHERE type IS NULL")
