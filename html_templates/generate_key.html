@@ -46,8 +46,8 @@
       </select>
     </div>
 
-    <button type="submit" class="btn btn-primary">Generate Key</button>
     <button type="submit" class="btn btn-primary" data-testid="btn-generate-key">Generate Key</button>
+    <a href="{{ url_for('keys.list_keys') }}" class="btn btn-secondary ml-2">Cancel</a>
   </form>
 
   <script>

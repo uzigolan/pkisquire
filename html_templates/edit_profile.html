@@ -27,12 +27,13 @@
       <label for="file_content">Profile Content:</label>
       <textarea class="form-control" name="file_content" rows="20">{{ file_content }}</textarea>
     </div>
-    <button type="submit" class="btn btn-primary">
-      {% if not filename %}Create{% else %}Save{% endif %}
-    </button>
     <button type="submit" class="btn btn-primary" data-testid="btn-save-profile">
       {% if not filename %}Create{% else %}Save{% endif %}
     </button>
+    <a href="{% if filename %}{{ url_for('profiles.view_profile', name=filename) }}{% else %}{{ url_for('profiles.list_profiles') }}{% endif %}"
+       class="btn btn-secondary ml-2">
+      Cancel
+    </a>
   </form>
 {% endblock %}
 
