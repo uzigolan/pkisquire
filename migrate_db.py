@@ -9,6 +9,7 @@ def migrate_db():
     In-place schema upgrade for the configured DB:
     - Ensure tables exist.
     - Add missing columns (including auth_source) without dropping data.
+    - Ensure usernames are unique via index (warn if duplicates block it).
     - Ensure default admin user exists.
     """
     import configparser
@@ -75,7 +76,7 @@ def migrate_db():
     # Create tables if missing
     cur.execute('''CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY,
-        username TEXT,
+        username TEXT NOT NULL UNIQUE,
         password_hash TEXT,
         role TEXT,
         email TEXT,
@@ -188,6 +189,27 @@ def migrate_db():
     ensure_column('api_tokens', 'expires_at', 'DATETIME')
     ensure_column('api_tokens', 'last_used_at', 'DATETIME')
     ensure_column('api_tokens', 'revoked', 'INTEGER DEFAULT 0')
+
+    # Ensure unique usernames via index; warn if duplicates prevent creation
+    def ensure_unique_usernames(cursor):
+        try:
+            cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+            print("[migrate_db] Ensured unique index on users.username (idx_users_username).")
+        except sqlite3.IntegrityError as e:
+            print(f"[migrate_db] Warning: could not create unique index on users.username: {e}")
+            cursor.execute("""
+                SELECT username, COUNT(*) AS cnt
+                FROM users
+                GROUP BY username
+                HAVING cnt > 1
+            """)
+            duplicates = cursor.fetchall()
+            if duplicates:
+                print("[migrate_db] Duplicate usernames present; resolve manually before rerunning migration:")
+                for username, cnt in duplicates:
+                    print(f"  username='{username}' count={cnt}")
+
+    ensure_unique_usernames(cur)
     # Backfill issuance source where we can infer it
     cur.execute("UPDATE certificates SET issued_via = 'ui' WHERE issued_via IS NULL AND user_id IS NOT NULL")
     cur.execute("UPDATE certificates SET issued_via = 'unknown' WHERE issued_via IS NULL")
