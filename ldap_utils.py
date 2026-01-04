@@ -90,7 +90,7 @@ def ldap_authenticate(username: str, password: str, cfg: Dict, logger=None) -> O
     for dn in _build_dn_candidates(username, base_dn, people_dn):
         _log(
             logger,
-            "trace",
+            "debug",
             f"Attempting user bind with DN: {dn}, host: {host}, port: {port}"
         )
         try:
