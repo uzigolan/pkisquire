@@ -338,7 +338,12 @@ class ExcludeNoisyRequestsFilter(logging.Filter):
     def filter(self, record):
         # Get the full formatted message
         msg = record.getMessage()
-        # Filter out noisy requests
+        # Downgrade very chatty health/state polls to TRACE
+        noisy_to_trace = ("GET /users/tokens/state", "GET /users/events/api")
+        if any(segment in msg for segment in noisy_to_trace):
+            record.levelno = TRACE
+            record.levelname = "TRACE"
+        # Filter out noisy requests entirely
         if '/logs/last' in msg or '/static/favicon' in msg:
             return False
         # Strip ANSI color codes from the formatted message
