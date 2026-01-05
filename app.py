@@ -2494,6 +2494,7 @@ def ocsp():
                 if not row:
                     #raise ValueError(f"Certificate with serial {hex(serial_number)} not found")
                     # build an unsuccessful OCSP response and return it
+                    app.logger.debug(f"OCSP: serial {hex(serial_number)} not found; returning UNAUTHORIZED")
                     ocsp_resp = OCSPResponseBuilder.build_unsuccessful(
                         OCSPResponseStatus.UNAUTHORIZED
                     )
@@ -2506,6 +2507,8 @@ def ocsp():
                 cert_pem, revoked_flag = row
                 target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
                 revoked = (revoked_flag == 1)
+                status_str = "REVOKED" if revoked else "GOOD"
+                app.logger.debug(f"OCSP: serial {hex(serial_number)} status {status_str}")
 
                 builder = builder.add_response(
                     cert=target_cert,
