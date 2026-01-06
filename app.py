@@ -1137,13 +1137,27 @@ def sign():
         with sqlite3.connect(app.config["DB_PATH"]) as conn:
             if hasattr(current_user, 'is_admin') and current_user.is_admin():
                 csr_requests = conn.execute(
-                    "SELECT id, name, csr_pem, created_at FROM csrs"
+                    "SELECT id, name, csr_pem, created_at FROM csrs ORDER BY created_at DESC, id DESC"
                 ).fetchall()
             else:
                 csr_requests = conn.execute(
-                    "SELECT id, name, csr_pem, created_at FROM csrs WHERE user_id = ?",
+                    "SELECT id, name, csr_pem, created_at FROM csrs WHERE user_id = ? ORDER BY created_at DESC, id DESC",
                     (current_user.id,)
                 ).fetchall()
+
+        # Format timestamps to trim microseconds for display
+        def _fmt_created(ts_val):
+            if not ts_val:
+                return ""
+            try:
+                return datetime.fromisoformat(ts_val).strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                return str(ts_val).split(".")[0]
+
+        csr_requests = [
+            (row[0], row[1], row[2], _fmt_created(row[3]))
+            for row in csr_requests
+        ]
 
         mgr = get_ra_policy_manager()
         if current_user.is_admin():
