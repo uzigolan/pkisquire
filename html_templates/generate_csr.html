@@ -10,7 +10,7 @@
       <label for="key_id">Select Key:</label>
       <select name="key_id" id="key_id" class="form-control" required data-testid="select-key-id">
         {% for key in keys %}
-        <option value="{{ key.id }}">{{ key.name }} ({{ key.type }})</option>
+        <option value="{{ key.id }}">{{ key.name }}</option>
         {% endfor %}
       </select>
     </div>
