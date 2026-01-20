@@ -19,31 +19,35 @@
     <li class="nav-item">
       <a class="nav-link active" id="public-pkcs8-tab" data-toggle="tab" href="#public-pkcs8" role="tab" aria-controls="public-pkcs8" aria-selected="true">PKCS8</a>
     </li>
-    <li class="nav-item">
-      <a class="nav-link" id="public-rfc4716-tab" data-toggle="tab" href="#public-rfc4716" role="tab" aria-controls="public-rfc4716" aria-selected="false">SSH2</a>
-    </li>
-    <li class="nav-item">
-      <a class="nav-link" id="public-rfc4716-bare-tab" data-toggle="tab" href="#public-rfc4716-bare" role="tab" aria-controls="public-rfc4716-bare" aria-selected="false">SSH2 (bare)</a>
-    </li>
+    {% if key.key_type != "PQC" and key.curve_name != "secp256k1" %}
+      <li class="nav-item">
+        <a class="nav-link" id="public-rfc4716-tab" data-toggle="tab" href="#public-rfc4716" role="tab" aria-controls="public-rfc4716" aria-selected="false">SSH2</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="public-rfc4716-bare-tab" data-toggle="tab" href="#public-rfc4716-bare" role="tab" aria-controls="public-rfc4716-bare" aria-selected="false">SSH2 (bare)</a>
+      </li>
+    {% endif %}
   </ul>
   <div class="tab-content border border-top-0 p-3" id="publicKeyTabsContent">
     <div class="tab-pane fade show active" id="public-pkcs8" role="tabpanel" aria-labelledby="public-pkcs8-tab">
       <pre>{{ key.public_key }}</pre>
     </div>
-    <div class="tab-pane fade" id="public-rfc4716" role="tabpanel" aria-labelledby="public-rfc4716-tab">
-      {% if rfc4716_public %}
-        <pre>{{ rfc4716_public }}</pre>
-      {% else %}
-        <p><em>RFC4716 unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
-      {% endif %}
-    </div>
-    <div class="tab-pane fade" id="public-rfc4716-bare" role="tabpanel" aria-labelledby="public-rfc4716-bare-tab">
-      {% if rfc4716_public_bare %}
-        <pre>{{ rfc4716_public_bare }}</pre>
-      {% else %}
-        <p><em>RFC4716 (bare) unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
-      {% endif %}
-    </div>
+    {% if key.key_type != "PQC" and key.curve_name != "secp256k1" %}
+      <div class="tab-pane fade" id="public-rfc4716" role="tabpanel" aria-labelledby="public-rfc4716-tab">
+        {% if rfc4716_public %}
+          <pre>{{ rfc4716_public }}</pre>
+        {% else %}
+          <p><em>SSH2 unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
+        {% endif %}
+      </div>
+      <div class="tab-pane fade" id="public-rfc4716-bare" role="tabpanel" aria-labelledby="public-rfc4716-bare-tab">
+        {% if rfc4716_public_bare %}
+          <pre>{{ rfc4716_public_bare }}</pre>
+        {% else %}
+          <p><em>SSH2 (bare) unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
+        {% endif %}
+      </div>
+    {% endif %}
   </div>
 
   <h2 class="mt-4">Private Key</h2>

@@ -36,31 +36,35 @@
         <li class="nav-item">
           <a class="nav-link active" id="cert-public-pkcs8-tab" data-toggle="tab" href="#cert-public-pkcs8" role="tab" aria-controls="cert-public-pkcs8" aria-selected="true">PKCS8</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" id="cert-public-rfc4716-tab" data-toggle="tab" href="#cert-public-rfc4716" role="tab" aria-controls="cert-public-rfc4716" aria-selected="false">SSH2</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" id="cert-public-rfc4716-bare-tab" data-toggle="tab" href="#cert-public-rfc4716-bare" role="tab" aria-controls="cert-public-rfc4716-bare" aria-selected="false">SSH2 (bare)</a>
-        </li>
+        {% if not is_pqc_key and is_ssh2_key %}
+          <li class="nav-item">
+            <a class="nav-link" id="cert-public-rfc4716-tab" data-toggle="tab" href="#cert-public-rfc4716" role="tab" aria-controls="cert-public-rfc4716" aria-selected="false">SSH2</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="cert-public-rfc4716-bare-tab" data-toggle="tab" href="#cert-public-rfc4716-bare" role="tab" aria-controls="cert-public-rfc4716-bare" aria-selected="false">SSH2 (bare)</a>
+          </li>
+        {% endif %}
       </ul>
       <div class="tab-content border border-top-0 p-3" id="certPublicKeyTabsContent">
         <div class="tab-pane fade show active" id="cert-public-pkcs8" role="tabpanel" aria-labelledby="cert-public-pkcs8-tab">
           <pre>{{ public_key_pem }}</pre>
         </div>
-        <div class="tab-pane fade" id="cert-public-rfc4716" role="tabpanel" aria-labelledby="cert-public-rfc4716-tab">
-          {% if public_key_rfc4716 %}
-            <pre>{{ public_key_rfc4716 }}</pre>
-          {% else %}
-            <p><em>SSH2 unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
-          {% endif %}
-        </div>
-        <div class="tab-pane fade" id="cert-public-rfc4716-bare" role="tabpanel" aria-labelledby="cert-public-rfc4716-bare-tab">
-          {% if public_key_openssh %}
-            <pre>{{ public_key_openssh }}</pre>
-          {% else %}
-            <p><em>SSH2 (bare) unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
-          {% endif %}
-        </div>
+        {% if not is_pqc_key and is_ssh2_key %}
+          <div class="tab-pane fade" id="cert-public-rfc4716" role="tabpanel" aria-labelledby="cert-public-rfc4716-tab">
+            {% if public_key_rfc4716 %}
+              <pre>{{ public_key_rfc4716 }}</pre>
+            {% else %}
+              <p><em>SSH2 unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
+            {% endif %}
+          </div>
+          <div class="tab-pane fade" id="cert-public-rfc4716-bare" role="tabpanel" aria-labelledby="cert-public-rfc4716-bare-tab">
+            {% if public_key_openssh %}
+              <pre>{{ public_key_openssh }}</pre>
+            {% else %}
+              <p><em>SSH2 (bare) unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
+            {% endif %}
+          </div>
+        {% endif %}
       </div>
     </div>
     <div class="col-md-6">

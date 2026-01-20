@@ -1297,6 +1297,19 @@ def build_cert_public_key_formats(cert):
                 os.unlink(tmp_pub_path)
     return formats
 
+def is_pqc_public_key(cert_details):
+    algo = cert_details.get("Public Key Algorithm", "")
+    return algo not in ("RSA", "EC", "") and algo is not None
+
+def is_ssh2_supported(cert_details):
+    algo = cert_details.get("Public Key Algorithm", "")
+    params = cert_details.get("Public Key Parameters", "")
+    if algo not in ("RSA", "EC"):
+        return False
+    if algo == "EC" and str(params).lower() == "secp256k1":
+        return False
+    return True
+
 def convert_private_key_formats(pem_path):
     formats = {
         "pkcs1": None,
@@ -2014,6 +2027,8 @@ def view_root():
         raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
         cert_text = get_certificate_text(raw_cert)
         pub_formats = build_cert_public_key_formats(cert)
+        is_pqc_key = is_pqc_public_key(cert_details)
+        is_ssh2_key = is_ssh2_supported(cert_details)
         return render_template(
             "view.html",
             cert_details=cert_details,
@@ -2022,7 +2037,9 @@ def view_root():
             public_key_pem=pub_formats["public_pem"],
             public_key_openssh=pub_formats["openssh"],
             public_key_rfc4716=pub_formats["rfc4716"],
-            public_key_errors=pub_formats["errors"]
+            public_key_errors=pub_formats["errors"],
+            is_pqc_key=is_pqc_key,
+            is_ssh2_key=is_ssh2_key
         )
     except Exception as e:
         app.logger.error(f"Failed to view root certificate: {str(e)}")
@@ -2038,6 +2055,8 @@ def view_sub():
         raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
         cert_text = get_certificate_text(raw_cert)
         pub_formats = build_cert_public_key_formats(cert)
+        is_pqc_key = is_pqc_public_key(cert_details)
+        is_ssh2_key = is_ssh2_supported(cert_details)
         return render_template(
             "view.html",
             cert_details=cert_details,
@@ -2046,7 +2065,9 @@ def view_sub():
             public_key_pem=pub_formats["public_pem"],
             public_key_openssh=pub_formats["openssh"],
             public_key_rfc4716=pub_formats["rfc4716"],
-            public_key_errors=pub_formats["errors"]
+            public_key_errors=pub_formats["errors"],
+            is_pqc_key=is_pqc_key,
+            is_ssh2_key=is_ssh2_key
         )
     except Exception as e:
         app.logger.error(f"Failed to view subordinate certificate: {str(e)}")
@@ -2084,6 +2105,8 @@ def view_certificate(cert_id):
         ).decode("utf-8")
         cert_text = get_certificate_text(raw_cert)
         pub_formats = build_cert_public_key_formats(cert)
+        is_pqc_key = is_pqc_public_key(cert_details)
+        is_ssh2_key = is_ssh2_supported(cert_details)
         return render_template(
             "view.html",
             cert_details=cert_details,
@@ -2093,7 +2116,9 @@ def view_certificate(cert_id):
             public_key_pem=pub_formats["public_pem"],
             public_key_openssh=pub_formats["openssh"],
             public_key_rfc4716=pub_formats["rfc4716"],
-            public_key_errors=pub_formats["errors"]
+            public_key_errors=pub_formats["errors"],
+            is_pqc_key=is_pqc_key,
+            is_ssh2_key=is_ssh2_key
         )
     except Exception as e:
         app.logger.exception("Failed to view certificate")
