@@ -8,6 +8,7 @@ import tempfile
 import io
 import zipfile
 import configparser
+import shutil
 import secrets
 import configparser
 import tempfile
@@ -1209,6 +1210,70 @@ DER_TYPES = [
     ("Public Key",                     []),  # openssl pkey -pubin
 ]
 
+def convert_public_key_formats(pem_path):
+    formats = {
+        "openssh": None,
+        "rfc4716": None,
+        "errors": {}
+    }
+    if not shutil.which("ssh-keygen"):
+        formats["errors"]["openssh"] = "ssh-keygen is not available on PATH."
+        return formats
+    try:
+        openssh_pub = subprocess.run(
+            ["ssh-keygen", "-i", "-m", "PEM", "-f", pem_path],
+            check=True,
+            capture_output=True,
+            text=True
+        ).stdout.strip()
+        if openssh_pub:
+            formats["openssh"] = openssh_pub
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pub") as tmp_pub:
+                tmp_pub.write((openssh_pub + "\n").encode("utf-8"))
+                tmp_pub_path = tmp_pub.name
+            try:
+                rfc4716_pub = subprocess.run(
+                    ["ssh-keygen", "-e", "-m", "RFC4716", "-f", tmp_pub_path],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                ).stdout.strip()
+                if rfc4716_pub:
+                    formats["rfc4716"] = rfc4716_pub
+            finally:
+                os.unlink(tmp_pub_path)
+    except subprocess.CalledProcessError as e:
+        err = (e.stderr or e.stdout or "ssh-keygen failed").strip()
+        formats["errors"]["openssh"] = err
+    return formats
+
+def convert_private_key_formats(pem_path):
+    formats = {
+        "pkcs1": None,
+        "sec1": None,
+        "errors": {}
+    }
+    rsa_proc = subprocess.run(
+        ["openssl", "rsa", "-in", pem_path, "-traditional"],
+        capture_output=True,
+        text=True
+    )
+    if rsa_proc.returncode == 0 and rsa_proc.stdout.strip():
+        formats["pkcs1"] = rsa_proc.stdout.strip()
+        return formats
+    ec_proc = subprocess.run(
+        ["openssl", "ec", "-in", pem_path],
+        capture_output=True,
+        text=True
+    )
+    if ec_proc.returncode == 0 and ec_proc.stdout.strip():
+        formats["sec1"] = ec_proc.stdout.strip()
+        return formats
+    err = (rsa_proc.stderr or ec_proc.stderr or "OpenSSL failed").strip()
+    if err:
+        formats["errors"]["private_formats"] = err
+    return formats
+
 
 @app.route("/inspect", methods=["GET", "POST"])
 @login_required
@@ -1281,7 +1346,46 @@ def inspect():
                 if detected:
                     header = f"Detected as: {detected}"
                     cmd_line = f"$ {' '.join(detected_cmd)}"
-                    result = "\n".join([header, cmd_line, detected_out])
+                    extra_sections = []
+                    if detected == "Public Key":
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as tmp_pem:
+                            tmp_pem_path = tmp_pem.name
+                        try:
+                            subprocess.run(
+                                ["openssl", "pkey", "-pubin", "-inform", "DER", "-in", path, "-out", tmp_pem_path],
+                                check=True,
+                                capture_output=True,
+                                text=True
+                            )
+                            pub_formats = convert_public_key_formats(tmp_pem_path)
+                            if pub_formats["openssh"]:
+                                extra_sections.append("Converted Public Key (OpenSSH)\n" + pub_formats["openssh"])
+                            if pub_formats["rfc4716"]:
+                                extra_sections.append("Converted Public Key (RFC4716)\n" + pub_formats["rfc4716"])
+                            if not extra_sections and pub_formats["errors"].get("openssh"):
+                                extra_sections.append("Public Key format error\n" + pub_formats["errors"]["openssh"])
+                        finally:
+                            os.unlink(tmp_pem_path)
+                    elif detected == "Private Key":
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as tmp_pem:
+                            tmp_pem_path = tmp_pem.name
+                        try:
+                            subprocess.run(
+                                ["openssl", "pkey", "-inform", "DER", "-in", path, "-out", tmp_pem_path],
+                                check=True,
+                                capture_output=True,
+                                text=True
+                            )
+                            priv_formats = convert_private_key_formats(tmp_pem_path)
+                            if priv_formats["pkcs1"]:
+                                extra_sections.append("Converted Private Key (PKCS1)\n" + priv_formats["pkcs1"])
+                            if priv_formats["sec1"]:
+                                extra_sections.append("Converted Private Key (SEC1)\n" + priv_formats["sec1"])
+                            if not extra_sections and priv_formats["errors"].get("private_formats"):
+                                extra_sections.append("Private Key format error\n" + priv_formats["errors"]["private_formats"])
+                        finally:
+                            os.unlink(tmp_pem_path)
+                    result = "\n\n".join([header, cmd_line, detected_out] + extra_sections)
                 else:
                     # None succeeded: show all failures
                     lines = ["None of the DER options succeeded. Debug info:"]
@@ -1361,12 +1465,28 @@ def inspect():
                     proc = subprocess.run(cmd, capture_output=True, text=True)
                     out, err = proc.stdout, proc.stderr
 
-                os.remove(path)
-
                 header = f"Detected: {chosen}"
                 cmd_line = f"$ {' '.join(cmd)}"
                 body = out.strip() or err.strip()
-                result = "\n".join([header, cmd_line, body])
+                extra_sections = []
+                if chosen == "Public Key":
+                    pub_formats = convert_public_key_formats(path)
+                    if pub_formats["openssh"]:
+                        extra_sections.append("Converted Public Key (OpenSSH)\n" + pub_formats["openssh"])
+                    if pub_formats["rfc4716"]:
+                        extra_sections.append("Converted Public Key (RFC4716)\n" + pub_formats["rfc4716"])
+                    if not extra_sections and pub_formats["errors"].get("openssh"):
+                        extra_sections.append("Public Key format error\n" + pub_formats["errors"]["openssh"])
+                elif chosen == "Private Key":
+                    priv_formats = convert_private_key_formats(path)
+                    if priv_formats["pkcs1"]:
+                        extra_sections.append("Converted Private Key (PKCS1)\n" + priv_formats["pkcs1"])
+                    if priv_formats["sec1"]:
+                        extra_sections.append("Converted Private Key (SEC1)\n" + priv_formats["sec1"])
+                    if not extra_sections and priv_formats["errors"].get("private_formats"):
+                        extra_sections.append("Private Key format error\n" + priv_formats["errors"]["private_formats"])
+                os.remove(path)
+                result = "\n\n".join([header, cmd_line, body] + extra_sections)
 
     return render_template("inspect.html",
                            result=result,

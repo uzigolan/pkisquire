@@ -15,10 +15,62 @@
   <p><strong>Created At:</strong> {{ key.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
 
   <h2 class="mt-4">Public Key</h2>
-  <pre>{{ key.public_key }}</pre>
+  <ul class="nav nav-tabs" id="publicKeyTabs" role="tablist">
+    <li class="nav-item">
+      <a class="nav-link active" id="public-pkcs8-tab" data-toggle="tab" href="#public-pkcs8" role="tab" aria-controls="public-pkcs8" aria-selected="true">PKCS8</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" id="public-rfc4716-tab" data-toggle="tab" href="#public-rfc4716" role="tab" aria-controls="public-rfc4716" aria-selected="false">RFC4716</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" id="public-rfc4716-bare-tab" data-toggle="tab" href="#public-rfc4716-bare" role="tab" aria-controls="public-rfc4716-bare" aria-selected="false">RFC4716 (bare)</a>
+    </li>
+  </ul>
+  <div class="tab-content border border-top-0 p-3" id="publicKeyTabsContent">
+    <div class="tab-pane fade show active" id="public-pkcs8" role="tabpanel" aria-labelledby="public-pkcs8-tab">
+      <pre>{{ key.public_key }}</pre>
+    </div>
+    <div class="tab-pane fade" id="public-rfc4716" role="tabpanel" aria-labelledby="public-rfc4716-tab">
+      {% if rfc4716_public %}
+        <pre>{{ rfc4716_public }}</pre>
+      {% else %}
+        <p><em>RFC4716 unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
+      {% endif %}
+    </div>
+    <div class="tab-pane fade" id="public-rfc4716-bare" role="tabpanel" aria-labelledby="public-rfc4716-bare-tab">
+      {% if rfc4716_public_bare %}
+        <pre>{{ rfc4716_public_bare }}</pre>
+      {% else %}
+        <p><em>RFC4716 (bare) unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
+      {% endif %}
+    </div>
+  </div>
 
   <h2 class="mt-4">Private Key</h2>
-  <pre>{{ key.private_key }}</pre>
+  <ul class="nav nav-tabs" id="privateKeyTabs" role="tablist">
+    <li class="nav-item">
+      <a class="nav-link active" id="private-pkcs8-tab" data-toggle="tab" href="#private-pkcs8" role="tab" aria-controls="private-pkcs8" aria-selected="true">PKCS8</a>
+    </li>
+    {% if key.key_type == "RSA" %}
+      <li class="nav-item">
+        <a class="nav-link" id="private-pkcs1-tab" data-toggle="tab" href="#private-pkcs1" role="tab" aria-controls="private-pkcs1" aria-selected="false">PKCS1</a>
+      </li>
+    {% endif %}
+  </ul>
+  <div class="tab-content border border-top-0 p-3" id="privateKeyTabsContent">
+    <div class="tab-pane fade show active" id="private-pkcs8" role="tabpanel" aria-labelledby="private-pkcs8-tab">
+      <pre>{{ key.private_key }}</pre>
+    </div>
+    {% if key.key_type == "RSA" %}
+      <div class="tab-pane fade" id="private-pkcs1" role="tabpanel" aria-labelledby="private-pkcs1-tab">
+        {% if pkcs1_private %}
+          <pre>{{ pkcs1_private }}</pre>
+        {% else %}
+          <p><em>PKCS1 unavailable{% if format_errors.pkcs1_private %}: {{ format_errors.pkcs1_private }}{% endif %}</em></p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
 
   <a href="{{ url_for('keys.list_keys') }}" class="btn btn-secondary mt-3">Back to Keys List</a>
 {% endblock %}
