@@ -2,6 +2,8 @@ import os
 import io
 import subprocess
 import tempfile
+import shutil
+import getpass
 from datetime import datetime
 from flask import Blueprint, request, render_template, redirect, url_for, flash, send_file, make_response, jsonify
 from flask_login import login_required, current_user
@@ -205,6 +207,115 @@ def check_key_supported(key_obj):
             return False, "Unsupported (requires oqsprovider)"
     return True, None
 
+def build_key_formats(key_obj):
+    formats = {
+        "pkcs1_private": None,
+        "sec1_private": None,
+        "rfc4716_public": None,
+        "rfc4716_public_bare": None,
+        "errors": {}
+    }
+
+    def restrict_private_key(path):
+        if os.name != "nt":
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+            return
+        username = os.environ.get("USERNAME") or getpass.getuser()
+        try:
+            subprocess.run(
+                [
+                    "icacls",
+                    path,
+                    "/inheritance:r",
+                    "/grant:r",
+                    f"{username}:(R)"
+                ],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            subprocess.run(
+                [
+                    "icacls",
+                    path,
+                    "/remove:g",
+                    "Users",
+                    "Authenticated Users",
+                    "Everyone",
+                    "OWNER RIGHTS"
+                ],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+        except subprocess.CalledProcessError:
+            pass
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        priv_path = os.path.join(tmpdir, "key.pem")
+        pub_path = os.path.join(tmpdir, "key_pub.pem")
+        with open(priv_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(key_obj.private_key)
+        with open(pub_path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(key_obj.public_key)
+        restrict_private_key(priv_path)
+
+        if key_obj.key_type == "RSA":
+            pkcs1_path = os.path.join(tmpdir, "key_pkcs1.pem")
+            pkcs1_cmd = ["openssl", "rsa", "-in", priv_path, "-traditional"]
+            pkcs1_cmd.extend(get_provider_args())
+            pkcs1_cmd.extend(["-out", pkcs1_path])
+            try:
+                subprocess.run(pkcs1_cmd, check=True, capture_output=True, text=True)
+                with open(pkcs1_path, "r", encoding="utf-8") as f:
+                    formats["pkcs1_private"] = f.read()
+            except subprocess.CalledProcessError as e:
+                formats["errors"]["pkcs1_private"] = (e.stderr or "OpenSSL failed").strip()
+        elif key_obj.key_type == "EC":
+            sec1_path = os.path.join(tmpdir, "key_sec1.pem")
+            sec1_cmd = ["openssl", "ec", "-in", priv_path]
+            sec1_cmd.extend(get_provider_args())
+            sec1_cmd.extend(["-out", sec1_path])
+            try:
+                subprocess.run(sec1_cmd, check=True, capture_output=True, text=True)
+                with open(sec1_path, "r", encoding="utf-8") as f:
+                    formats["sec1_private"] = f.read()
+            except subprocess.CalledProcessError as e:
+                formats["errors"]["sec1_private"] = (e.stderr or "OpenSSL failed").strip()
+
+        if key_obj.key_type not in ("RSA", "EC"):
+            formats["errors"]["rfc4716_public"] = "RFC4716 is only supported for RSA/EC keys."
+        elif not shutil.which("ssh-keygen"):
+            formats["errors"]["rfc4716_public"] = "ssh-keygen is not available on PATH."
+        else:
+            try:
+                openssh_pub = subprocess.run(
+                    ["ssh-keygen", "-y", "-f", priv_path],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                ).stdout
+                openssh_path = os.path.join(tmpdir, "key_openssh.pub")
+                with open(openssh_path, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(openssh_pub)
+                rfc4716_pub = subprocess.run(
+                    ["ssh-keygen", "-e", "-m", "RFC4716", "-f", openssh_path],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                ).stdout
+                formats["rfc4716_public"] = rfc4716_pub
+                openssh_line = openssh_pub.strip()
+                formats["rfc4716_public_bare"] = f"{openssh_line}\n" if openssh_line else None
+            except subprocess.CalledProcessError as e:
+                err = (e.stderr or e.stdout or "ssh-keygen failed").strip()
+                formats["errors"]["rfc4716_public"] = err
+
+    return formats
+
 @x509_keys_bp.route("/keys", methods=["GET"])
 @login_required
 def list_keys():
@@ -257,7 +368,16 @@ def view_key(key_id):
         key_obj = Key.query.get_or_404(key_id)
     else:
         key_obj = Key.query.filter_by(id=key_id, user_id=current_user.id).first_or_404()
-    return render_template("view_key.html", key=key_obj)
+    key_formats = build_key_formats(key_obj)
+    return render_template(
+        "view_key.html",
+        key=key_obj,
+        pkcs1_private=key_formats["pkcs1_private"],
+        sec1_private=key_formats["sec1_private"],
+        rfc4716_public=key_formats["rfc4716_public"],
+        rfc4716_public_bare=key_formats["rfc4716_public_bare"],
+        format_errors=key_formats["errors"]
+    )
 
 
 @x509_keys_bp.route("/keys/<int:key_id>/download", methods=["GET"])
