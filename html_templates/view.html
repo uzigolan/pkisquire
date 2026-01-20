@@ -51,14 +51,14 @@
           {% if public_key_rfc4716 %}
             <pre>{{ public_key_rfc4716 }}</pre>
           {% else %}
-            <p><em>RFC4716 unavailable{% if public_key_errors.openssh %}: {{ public_key_errors.openssh }}{% endif %}</em></p>
+            <p><em>SSH2 unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
           {% endif %}
         </div>
         <div class="tab-pane fade" id="cert-public-rfc4716-bare" role="tabpanel" aria-labelledby="cert-public-rfc4716-bare-tab">
           {% if public_key_openssh %}
             <pre>{{ public_key_openssh }}</pre>
           {% else %}
-            <p><em>RFC4716 (bare) unavailable{% if public_key_errors.openssh %}: {{ public_key_errors.openssh }}{% endif %}</em></p>
+            <p><em>SSH2 (bare) unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
           {% endif %}
         </div>
       </div>
