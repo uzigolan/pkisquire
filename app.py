@@ -46,7 +46,7 @@ from openssl_utils import get_provider_args
 from ra_policies import RAPolicyManager, DEFAULT_VALIDITY_DAYS
 
 #from flask import render_template, current_app as app
-from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
 
 # --- User Registration, Login, Logout Routes ---
@@ -1220,12 +1220,19 @@ def convert_public_key_formats(pem_path):
         formats["errors"]["openssh"] = "ssh-keygen is not available on PATH."
         return formats
     try:
-        openssh_pub = subprocess.run(
-            ["ssh-keygen", "-i", "-m", "PEM", "-f", pem_path],
-            check=True,
+        openssh_proc = subprocess.run(
+            ["ssh-keygen", "-i", "-m", "PKCS8", "-f", pem_path],
             capture_output=True,
             text=True
-        ).stdout.strip()
+        )
+        openssh_pub = openssh_proc.stdout.strip()
+        if openssh_proc.returncode != 0 or not openssh_pub:
+            openssh_pub = subprocess.run(
+                ["ssh-keygen", "-i", "-m", "PEM", "-f", pem_path],
+                check=True,
+                capture_output=True,
+                text=True
+            ).stdout.strip()
         if openssh_pub:
             formats["openssh"] = openssh_pub
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pub") as tmp_pub:
@@ -1245,6 +1252,49 @@ def convert_public_key_formats(pem_path):
     except subprocess.CalledProcessError as e:
         err = (e.stderr or e.stdout or "ssh-keygen failed").strip()
         formats["errors"]["openssh"] = err
+    return formats
+
+def build_cert_public_key_formats(cert):
+    public_pem = cert.public_key().public_bytes(
+        Encoding.PEM,
+        PublicFormat.SubjectPublicKeyInfo
+    ).decode("utf-8")
+    formats = {
+        "public_pem": public_pem,
+        "openssh": None,
+        "rfc4716": None,
+        "errors": {}
+    }
+    try:
+        openssh_bytes = cert.public_key().public_bytes(
+            Encoding.OpenSSH,
+            PublicFormat.OpenSSH
+        )
+        formats["openssh"] = openssh_bytes.decode("utf-8")
+    except Exception as e:
+        formats["errors"]["openssh"] = f"OpenSSH conversion failed: {e}"
+
+    if formats["openssh"]:
+        if not shutil.which("ssh-keygen"):
+            formats["errors"]["openssh"] = "ssh-keygen is not available on PATH."
+        else:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pub") as tmp_pub:
+                tmp_pub.write((formats["openssh"] + "\n").encode("utf-8"))
+                tmp_pub_path = tmp_pub.name
+            try:
+                rfc4716_pub = subprocess.run(
+                    ["ssh-keygen", "-e", "-m", "RFC4716", "-f", tmp_pub_path],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                ).stdout.strip()
+                if rfc4716_pub:
+                    formats["rfc4716"] = rfc4716_pub
+            except subprocess.CalledProcessError as e:
+                err = (e.stderr or e.stdout or "ssh-keygen failed").strip()
+                formats["errors"]["openssh"] = err
+            finally:
+                os.unlink(tmp_pub_path)
     return formats
 
 def convert_private_key_formats(pem_path):
@@ -1963,7 +2013,17 @@ def view_root():
         cert_details = certificate_to_dict(cert)
         raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
         cert_text = get_certificate_text(raw_cert)
-        return render_template("view.html", cert_details=cert_details, raw_cert=raw_cert, cert_text=cert_text)
+        pub_formats = build_cert_public_key_formats(cert)
+        return render_template(
+            "view.html",
+            cert_details=cert_details,
+            raw_cert=raw_cert,
+            cert_text=cert_text,
+            public_key_pem=pub_formats["public_pem"],
+            public_key_openssh=pub_formats["openssh"],
+            public_key_rfc4716=pub_formats["rfc4716"],
+            public_key_errors=pub_formats["errors"]
+        )
     except Exception as e:
         app.logger.error(f"Failed to view root certificate: {str(e)}")
         return f"Failed to view root certificate: {str(e)}", 500
@@ -1977,7 +2037,17 @@ def view_sub():
         cert_details = certificate_to_dict(cert)
         raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
         cert_text = get_certificate_text(raw_cert)
-        return render_template("view.html", cert_details=cert_details, raw_cert=raw_cert, cert_text=cert_text)
+        pub_formats = build_cert_public_key_formats(cert)
+        return render_template(
+            "view.html",
+            cert_details=cert_details,
+            raw_cert=raw_cert,
+            cert_text=cert_text,
+            public_key_pem=pub_formats["public_pem"],
+            public_key_openssh=pub_formats["openssh"],
+            public_key_rfc4716=pub_formats["rfc4716"],
+            public_key_errors=pub_formats["errors"]
+        )
     except Exception as e:
         app.logger.error(f"Failed to view subordinate certificate: {str(e)}")
         return f"Failed to view subordinate certificate: {str(e)}", 500
@@ -2013,12 +2083,17 @@ def view_certificate(cert_id):
             encoding=serialization.Encoding.PEM
         ).decode("utf-8")
         cert_text = get_certificate_text(raw_cert)
+        pub_formats = build_cert_public_key_formats(cert)
         return render_template(
             "view.html",
             cert_details=cert_details,
             raw_cert=raw_cert,
             cert_text=cert_text,
-            issued_via=row["issued_via"] if row and "issued_via" in row.keys() else "unknown"
+            issued_via=row["issued_via"] if row and "issued_via" in row.keys() else "unknown",
+            public_key_pem=pub_formats["public_pem"],
+            public_key_openssh=pub_formats["openssh"],
+            public_key_rfc4716=pub_formats["rfc4716"],
+            public_key_errors=pub_formats["errors"]
         )
     except Exception as e:
         app.logger.exception("Failed to view certificate")
