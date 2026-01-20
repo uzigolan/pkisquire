@@ -27,14 +27,47 @@
           {% endif %}
         {% endfor %}
       </ul>
+
+      <h4 class="mt-4">Raw Certificate (PEM Format)</h4>
+      <pre>{{ raw_cert }}</pre>
+
+      <h4 class="mt-4">Public Key</h4>
+      <ul class="nav nav-tabs" id="certPublicKeyTabs" role="tablist">
+        <li class="nav-item">
+          <a class="nav-link active" id="cert-public-pkcs8-tab" data-toggle="tab" href="#cert-public-pkcs8" role="tab" aria-controls="cert-public-pkcs8" aria-selected="true">PKCS8</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="cert-public-rfc4716-tab" data-toggle="tab" href="#cert-public-rfc4716" role="tab" aria-controls="cert-public-rfc4716" aria-selected="false">SSH2</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="cert-public-rfc4716-bare-tab" data-toggle="tab" href="#cert-public-rfc4716-bare" role="tab" aria-controls="cert-public-rfc4716-bare" aria-selected="false">SSH2 (bare)</a>
+        </li>
+      </ul>
+      <div class="tab-content border border-top-0 p-3" id="certPublicKeyTabsContent">
+        <div class="tab-pane fade show active" id="cert-public-pkcs8" role="tabpanel" aria-labelledby="cert-public-pkcs8-tab">
+          <pre>{{ public_key_pem }}</pre>
+        </div>
+        <div class="tab-pane fade" id="cert-public-rfc4716" role="tabpanel" aria-labelledby="cert-public-rfc4716-tab">
+          {% if public_key_rfc4716 %}
+            <pre>{{ public_key_rfc4716 }}</pre>
+          {% else %}
+            <p><em>RFC4716 unavailable{% if public_key_errors.openssh %}: {{ public_key_errors.openssh }}{% endif %}</em></p>
+          {% endif %}
+        </div>
+        <div class="tab-pane fade" id="cert-public-rfc4716-bare" role="tabpanel" aria-labelledby="cert-public-rfc4716-bare-tab">
+          {% if public_key_openssh %}
+            <pre>{{ public_key_openssh }}</pre>
+          {% else %}
+            <p><em>RFC4716 (bare) unavailable{% if public_key_errors.openssh %}: {{ public_key_errors.openssh }}{% endif %}</em></p>
+          {% endif %}
+        </div>
+      </div>
     </div>
     <div class="col-md-6">
       <h4>Detailed Certificate Text</h4>
       <pre>{{ cert_text }}</pre>
     </div>
   </div>
-  <h4 class="mt-4">Raw Certificate (PEM Format)</h4>
-  <pre>{{ raw_cert }}</pre>
   <a href="/" class="btn btn-secondary mt-3">← Back to Home</a>
 {% endblock %}
 
