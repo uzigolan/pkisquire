@@ -1,4 +1,4 @@
-# Debug route for test: returns current_user info
+﻿# Debug route for test: returns current_user info
 from flask_login import current_user
 import os
 import sqlite3
@@ -32,6 +32,7 @@ from cryptography.x509.ocsp import OCSPResponseBuilder, OCSPCertStatus, load_der
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
 from cryptography.hazmat.primitives import serialization 
 from markupsafe import escape
+import inspect_logic
 from asn1crypto import x509 as asn1_x509
 
 from ldap_utils import ldap_authenticate, ldap_user_exists
@@ -1220,6 +1221,7 @@ def convert_public_key_formats(pem_path):
         formats["errors"]["openssh"] = "ssh-keygen is not available on PATH."
         return formats
     try:
+        fallback_err = None
         openssh_proc = subprocess.run(
             ["ssh-keygen", "-i", "-m", "PKCS8", "-f", pem_path],
             capture_output=True,
@@ -1227,12 +1229,36 @@ def convert_public_key_formats(pem_path):
         )
         openssh_pub = openssh_proc.stdout.strip()
         if openssh_proc.returncode != 0 or not openssh_pub:
-            openssh_pub = subprocess.run(
-                ["ssh-keygen", "-i", "-m", "PEM", "-f", pem_path],
-                check=True,
-                capture_output=True,
-                text=True
-            ).stdout.strip()
+            try:
+                openssh_pub = subprocess.run(
+                    ["ssh-keygen", "-i", "-m", "PEM", "-f", pem_path],
+                    check=True,
+                    capture_output=True,
+                    text=True
+                ).stdout.strip()
+            except subprocess.CalledProcessError as e:
+                fallback_err = e
+                openssh_pub = None
+
+        if not openssh_pub:
+            try:
+                with open(pem_path, "rb") as f:
+                    key = serialization.load_pem_public_key(
+                        f.read(),
+                        backend=default_backend()
+                    )
+                openssh_pub = key.public_bytes(
+                    Encoding.OpenSSH,
+                    PublicFormat.OpenSSH
+                ).decode("utf-8")
+            except Exception as e:
+                err = None
+                if fallback_err:
+                    err = (fallback_err.stderr or fallback_err.stdout or "ssh-keygen failed").strip()
+                if not err:
+                    err = str(e).strip() or "Public key conversion failed"
+                formats["errors"]["openssh"] = err
+                return formats
         if openssh_pub:
             formats["openssh"] = openssh_pub
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pub") as tmp_pub:
@@ -1342,219 +1368,29 @@ def convert_private_key_formats(pem_path):
 @login_required
 def inspect():
     result = None
+    formats = None
 
     if request.method == "POST":
         data = request.form.get("inspect_data", "").strip()
-
-        if not data:
-            result = "No data provided."
-
-        else:
-            is_pem = data.startswith("-----BEGIN ")
-
-            # ─── Non‑PEM: auto‑detect by trying every DER_TYPE ───
-            if not is_pem:
-                # Decode Base64 → DER bytes
-                try:
-                    der_bytes = base64.b64decode(data)
-                except Exception:
-                    result = "Failed to base64-decode input."
-                    return render_template("inspect.html", result=result)
-
-                # Write DER to temp file
-                fd, path = tempfile.mkstemp(suffix=".der")
-                os.close(fd)
-                with open(path, "wb") as f:
-                    f.write(der_bytes)
-
-                detected = None
-                detected_cmd = None
-                detected_out = None
-                failures = []
-
-                for label, subcmd in DER_TYPES:
-                    # Build the command, injecting -noout on generic DER
-                    if label == "Private Key":
-                        cmd = ["openssl", "pkey", "-inform DER", "-in", path, "-noout", "-text"]
-
-                    elif label == "Public Key":
-                        cmd = ["openssl", "pkey", "-pubin", "-in", path, "-noout", "-text"]
-
-                    elif label == "OCSP Request":
-                        cmd = ["openssl", "ocsp", "-reqin", path, "-text", "-noverify"]
-
-                    elif label == "OCSP Response":
-                        cmd = ["openssl", "ocsp", "-respin", path, "-text", "-noverify"]
-
-                    elif label == "PKCS#12 / PFX":
-                        cmd = ["openssl"] + subcmd + [path]
-
-                    else:
-                        # Generic DER handler: add -noout after -inform DER
-                        cmd = ["openssl", subcmd[0], "-inform", "DER", "-noout", "-in", path] + subcmd[1:]
-
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    out = proc.stdout.strip() or proc.stderr.strip()
-
-                    if proc.returncode == 0:
-                        detected = label
-                        detected_cmd = cmd
-                        detected_out = out
-                        break
-                    else:
-                        failures.append((label, cmd, proc.returncode, out))
-
-                os.remove(path)
-
-                if detected:
-                    header = f"Detected as: {detected}"
-                    cmd_line = f"$ {' '.join(detected_cmd)}"
-                    extra_sections = []
-                    if detected == "Public Key":
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as tmp_pem:
-                            tmp_pem_path = tmp_pem.name
-                        try:
-                            subprocess.run(
-                                ["openssl", "pkey", "-pubin", "-inform", "DER", "-in", path, "-out", tmp_pem_path],
-                                check=True,
-                                capture_output=True,
-                                text=True
-                            )
-                            pub_formats = convert_public_key_formats(tmp_pem_path)
-                            if pub_formats["openssh"]:
-                                extra_sections.append("Converted Public Key (OpenSSH)\n" + pub_formats["openssh"])
-                            if pub_formats["rfc4716"]:
-                                extra_sections.append("Converted Public Key (RFC4716)\n" + pub_formats["rfc4716"])
-                            if not extra_sections and pub_formats["errors"].get("openssh"):
-                                extra_sections.append("Public Key format error\n" + pub_formats["errors"]["openssh"])
-                        finally:
-                            os.unlink(tmp_pem_path)
-                    elif detected == "Private Key":
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as tmp_pem:
-                            tmp_pem_path = tmp_pem.name
-                        try:
-                            subprocess.run(
-                                ["openssl", "pkey", "-inform", "DER", "-in", path, "-out", tmp_pem_path],
-                                check=True,
-                                capture_output=True,
-                                text=True
-                            )
-                            priv_formats = convert_private_key_formats(tmp_pem_path)
-                            if priv_formats["pkcs1"]:
-                                extra_sections.append("Converted Private Key (PKCS1)\n" + priv_formats["pkcs1"])
-                            if priv_formats["sec1"]:
-                                extra_sections.append("Converted Private Key (SEC1)\n" + priv_formats["sec1"])
-                            if not extra_sections and priv_formats["errors"].get("private_formats"):
-                                extra_sections.append("Private Key format error\n" + priv_formats["errors"]["private_formats"])
-                        finally:
-                            os.unlink(tmp_pem_path)
-                    result = "\n\n".join([header, cmd_line, detected_out] + extra_sections)
-                else:
-                    # None succeeded: show all failures
-                    lines = ["None of the DER options succeeded. Debug info:"]
-                    for lbl, cmd, code, out in failures:
-                        lines.append(f"--- {lbl} (exit {code}) ---")
-                        lines.append(f"$ {' '.join(cmd)}")
-                        lines.append(out or "(no output)")
-                        lines.append("")
-                    result = "\n".join(lines)
-
-            # ─── PEM: use your existing “chosen” dispatch logic ───
-            else:
-                # 1) Write to temp .pem
-                fd, path = tempfile.mkstemp(suffix=".pem")
-                os.close(fd)
-                with open(path, "wb") as f:
-                    f.write(data.encode())
-
-                # 2) Auto-detect PEM header to set `chosen`
-                hdr = data.splitlines()[0].strip()
-                if hdr.startswith("-----BEGIN PRIVATE KEY") \
-                   or hdr.startswith("-----BEGIN RSA PRIVATE KEY") \
-                   or hdr.startswith("-----BEGIN EC PRIVATE KEY"):
-                    chosen = "Private Key"
-                elif hdr.startswith("-----BEGIN PUBLIC KEY"):
-                    chosen = "Public Key"
-                elif hdr.startswith("-----BEGIN OCSP REQUEST"):
-                    chosen = "OCSP Request"
-                elif hdr.startswith("-----BEGIN OCSP RESPONSE"):
-                    chosen = "OCSP Response"
-                elif hdr.startswith("-----BEGIN CERTIFICATE REQUEST"):
-                    chosen = "Certificate Signing Request"
-                elif hdr.startswith("-----BEGIN CERTIFICATE"):
-                    chosen = "X.509 Certificate"
-                elif hdr.startswith("-----BEGIN X509 CRL") or hdr.startswith("-----BEGIN CRL"):
-                    chosen = "Certificate Revocation List"
-                elif hdr.startswith("-----BEGIN PKCS7") or hdr.startswith("-----BEGIN CMS"):
-                    chosen = "PKCS#7 / CMS"
-                elif hdr.startswith("-----BEGIN PKCS12") or path.lower().endswith((".p12", ".pfx")):
-                    chosen = "PKCS#12 / PFX"
-                else:
-                    chosen = "X.509 Certificate"
-
-                # 3) Find the command template
-                subcmd = next(cmd for (lbl, cmd) in DER_TYPES if lbl == chosen)
-
-                # 4) Dispatch *exactly* as you had it, but add -noout on non‑PEM OCSP
-                if chosen == "Private Key":
-                    cmd = ["openssl", "pkey", "-in", path, "-noout", "-text"]
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    out, err = proc.stdout, proc.stderr
-
-                elif chosen == "Public Key":
-                    cmd = ["openssl", "pkey", "-pubin", "-in", path, "-noout", "-text"]
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    out, err = proc.stdout, proc.stderr
-
-                elif chosen == "OCSP Response":
-                    # both PEM & DER now use -noout
-                    cmd = ["openssl", "ocsp", "-respin", path, "-noout", "-text", "-noverify"]
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    out, err = proc.stdout, proc.stderr
-
-                elif chosen == "OCSP Request":
-                    cmd = ["openssl", "ocsp", "-reqin", path, "-noout", "-text", "-noverify"]
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    out, err = proc.stdout, proc.stderr
-
-                elif chosen == "PKCS#12 / PFX":
-                    cmd = ["openssl", *subcmd, path]
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    out, err = proc.stdout, proc.stderr
-
-                else:
-                    # generic PEM handler
-                    cmd = ["openssl", *subcmd, "-in", path]
-                    proc = subprocess.run(cmd, capture_output=True, text=True)
-                    out, err = proc.stdout, proc.stderr
-
-                header = f"Detected: {chosen}"
-                cmd_line = f"$ {' '.join(cmd)}"
-                body = out.strip() or err.strip()
-                extra_sections = []
-                if chosen == "Public Key":
-                    pub_formats = convert_public_key_formats(path)
-                    if pub_formats["openssh"]:
-                        extra_sections.append("Converted Public Key (OpenSSH)\n" + pub_formats["openssh"])
-                    if pub_formats["rfc4716"]:
-                        extra_sections.append("Converted Public Key (RFC4716)\n" + pub_formats["rfc4716"])
-                    if not extra_sections and pub_formats["errors"].get("openssh"):
-                        extra_sections.append("Public Key format error\n" + pub_formats["errors"]["openssh"])
-                elif chosen == "Private Key":
-                    priv_formats = convert_private_key_formats(path)
-                    if priv_formats["pkcs1"]:
-                        extra_sections.append("Converted Private Key (PKCS1)\n" + priv_formats["pkcs1"])
-                    if priv_formats["sec1"]:
-                        extra_sections.append("Converted Private Key (SEC1)\n" + priv_formats["sec1"])
-                    if not extra_sections and priv_formats["errors"].get("private_formats"):
-                        extra_sections.append("Private Key format error\n" + priv_formats["errors"]["private_formats"])
-                os.remove(path)
-                result = "\n\n".join([header, cmd_line, body] + extra_sections)
+        include_formats = request.form.get("show_formats") == "on"
+        result, formats = inspect_logic.run_inspect(
+            data,
+            DER_TYPES,
+            convert_public_key_formats,
+            convert_private_key_formats,
+            build_cert_public_key_formats,
+            certificate_to_dict,
+            is_pqc_public_key,
+            is_ssh2_supported,
+            logger=app.logger,
+            include_formats=include_formats
+        )
 
     return render_template("inspect.html",
                            result=result,
+                           formats=formats,
+                           include_formats=include_formats if request.method == "POST" else False,
                            der_types=[lbl for lbl, _ in DER_TYPES])
-
 
 
 def inspectM():
@@ -3353,5 +3189,6 @@ if __name__ == "__main__":
     Thread(target=run_https).start()
     Thread(target=run_trusted_https).start()
     Thread(target=run_http_general, daemon=True).start()
+
 
 
