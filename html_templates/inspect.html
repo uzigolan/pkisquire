@@ -9,6 +9,10 @@
                 class="form-control"
                 rows="10">{{ request.form.get('inspect_data', pending_data) }}</textarea>
     </div>
+    <div class="form-group form-check">
+      <input class="form-check-input" type="checkbox" id="show_formats" name="show_formats" {% if include_formats %}checked{% endif %}>
+      <label class="form-check-label" for="show_formats">Show formats (PKCS8 / SSH2 / SSH2 bare)</label>
+    </div>
 
     {% if der_mode %}
       <div class="form-group">
@@ -29,13 +33,123 @@
     </div>
   </form>
 
-  {% if result %}
-    <h2 class="mt-4">Result</h2>
-    <div class="card">
-      <div class="card-body p-2">
+    {% if result %}
+      <h2 class="mt-4">Result</h2>
+      <ul class="nav nav-tabs" id="inspectTabs" role="tablist">
+        <li class="nav-item">
+          <a class="nav-link active" id="inspect-openssl-tab" data-toggle="tab" href="#inspect-openssl" role="tab" aria-controls="inspect-openssl" aria-selected="true">OpenSSL</a>
+        </li>
+      {% if formats and formats.kind == "public_key" %}
+        <li class="nav-item">
+          <a class="nav-link" id="inspect-public-pkcs8-tab" data-toggle="tab" href="#inspect-public-pkcs8" role="tab" aria-controls="inspect-public-pkcs8" aria-selected="false">PKCS8</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="inspect-public-ssh2-tab" data-toggle="tab" href="#inspect-public-ssh2" role="tab" aria-controls="inspect-public-ssh2" aria-selected="false">SSH2</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" id="inspect-public-ssh2-bare-tab" data-toggle="tab" href="#inspect-public-ssh2-bare" role="tab" aria-controls="inspect-public-ssh2-bare" aria-selected="false">SSH2 (bare)</a>
+        </li>
+      {% elif formats and formats.kind == "private_key" %}
+        <li class="nav-item">
+          <a class="nav-link" id="inspect-private-pkcs8-tab" data-toggle="tab" href="#inspect-private-pkcs8" role="tab" aria-controls="inspect-private-pkcs8" aria-selected="false">PKCS8</a>
+        </li>
+        {% if formats.pkcs1 %}
+          <li class="nav-item">
+            <a class="nav-link" id="inspect-private-pkcs1-tab" data-toggle="tab" href="#inspect-private-pkcs1" role="tab" aria-controls="inspect-private-pkcs1" aria-selected="false">PKCS1</a>
+          </li>
+        {% endif %}
+        {% if formats.sec1 %}
+          <li class="nav-item">
+            <a class="nav-link" id="inspect-private-sec1-tab" data-toggle="tab" href="#inspect-private-sec1" role="tab" aria-controls="inspect-private-sec1" aria-selected="false">SEC1</a>
+          </li>
+        {% endif %}
+      {% elif formats and formats.kind == "certificate" %}
+        <li class="nav-item">
+          <a class="nav-link" id="inspect-cert-pkcs8-tab" data-toggle="tab" href="#inspect-cert-pkcs8" role="tab" aria-controls="inspect-cert-pkcs8" aria-selected="false">PKCS8</a>
+        </li>
+        {% if not formats.is_pqc_key and formats.is_ssh2_key %}
+          <li class="nav-item">
+            <a class="nav-link" id="inspect-cert-ssh2-tab" data-toggle="tab" href="#inspect-cert-ssh2" role="tab" aria-controls="inspect-cert-ssh2" aria-selected="false">SSH2</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" id="inspect-cert-ssh2-bare-tab" data-toggle="tab" href="#inspect-cert-ssh2-bare" role="tab" aria-controls="inspect-cert-ssh2-bare" aria-selected="false">SSH2 (bare)</a>
+          </li>
+        {% endif %}
+      {% endif %}
+    </ul>
+    <div class="tab-content border border-top-0 p-3" id="inspectTabsContent">
+      <div class="tab-pane fade show active" id="inspect-openssl" role="tabpanel" aria-labelledby="inspect-openssl-tab">
         <pre class="mb-0">{{ result }}</pre>
       </div>
+      {% if formats and formats.kind == "public_key" %}
+        <div class="tab-pane fade" id="inspect-public-pkcs8" role="tabpanel" aria-labelledby="inspect-public-pkcs8-tab">
+          {% if formats.pkcs8 %}
+            <pre class="mb-0">{{ formats.pkcs8 }}</pre>
+          {% else %}
+            <p><em>PKCS8 unavailable{% if (formats.errors|default({})).pkcs8 %}: {{ (formats.errors|default({})).pkcs8 }}{% endif %}</em></p>
+          {% endif %}
+        </div>
+        <div class="tab-pane fade" id="inspect-public-ssh2" role="tabpanel" aria-labelledby="inspect-public-ssh2-tab">
+          {% if formats.rfc4716 %}
+            <pre class="mb-0">{{ formats.rfc4716 }}</pre>
+          {% else %}
+            <p><em>SSH2 unavailable{% if (formats.errors|default({})).openssh %}: {{ (formats.errors|default({})).openssh }}{% endif %}</em></p>
+          {% endif %}
+        </div>
+        <div class="tab-pane fade" id="inspect-public-ssh2-bare" role="tabpanel" aria-labelledby="inspect-public-ssh2-bare-tab">
+          {% if formats.openssh %}
+            <pre class="mb-0">{{ formats.openssh }}</pre>
+          {% else %}
+            <p><em>SSH2 (bare) unavailable{% if (formats.errors|default({})).openssh %}: {{ (formats.errors|default({})).openssh }}{% endif %}</em></p>
+          {% endif %}
+        </div>
+      {% elif formats and formats.kind == "private_key" %}
+        <div class="tab-pane fade" id="inspect-private-pkcs8" role="tabpanel" aria-labelledby="inspect-private-pkcs8-tab">
+          {% if formats.pkcs8 %}
+            <pre class="mb-0">{{ formats.pkcs8 }}</pre>
+          {% else %}
+            <p><em>PKCS8 unavailable{% if (formats.errors|default({})).pkcs8 %}: {{ (formats.errors|default({})).pkcs8 }}{% endif %}</em></p>
+          {% endif %}
+        </div>
+        {% if formats.pkcs1 %}
+          <div class="tab-pane fade" id="inspect-private-pkcs1" role="tabpanel" aria-labelledby="inspect-private-pkcs1-tab">
+            <pre class="mb-0">{{ formats.pkcs1 }}</pre>
+          </div>
+        {% endif %}
+        {% if formats.sec1 %}
+          <div class="tab-pane fade" id="inspect-private-sec1" role="tabpanel" aria-labelledby="inspect-private-sec1-tab">
+            <pre class="mb-0">{{ formats.sec1 }}</pre>
+          </div>
+        {% endif %}
+      {% elif formats and formats.kind == "certificate" %}
+        <div class="tab-pane fade" id="inspect-cert-pkcs8" role="tabpanel" aria-labelledby="inspect-cert-pkcs8-tab">
+          {% if formats.public_pem %}
+            <pre class="mb-0">{{ formats.public_pem }}</pre>
+          {% else %}
+            <p><em>PKCS8 unavailable{% if (formats.errors|default({})).pkcs8 %}: {{ (formats.errors|default({})).pkcs8 }}{% endif %}</em></p>
+          {% endif %}
+        </div>
+        {% if not formats.is_pqc_key and formats.is_ssh2_key %}
+          <div class="tab-pane fade" id="inspect-cert-ssh2" role="tabpanel" aria-labelledby="inspect-cert-ssh2-tab">
+            {% if formats.rfc4716 %}
+              <pre class="mb-0">{{ formats.rfc4716 }}</pre>
+            {% else %}
+              <p><em>SSH2 unavailable{% if (formats.errors|default({})).openssh %}: {{ (formats.errors|default({})).openssh }}{% endif %}</em></p>
+            {% endif %}
+          </div>
+          <div class="tab-pane fade" id="inspect-cert-ssh2-bare" role="tabpanel" aria-labelledby="inspect-cert-ssh2-bare-tab">
+            {% if formats.openssh %}
+              <pre class="mb-0">{{ formats.openssh }}</pre>
+            {% else %}
+              <p><em>SSH2 (bare) unavailable{% if (formats.errors|default({})).openssh %}: {{ (formats.errors|default({})).openssh }}{% endif %}</em></p>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endif %}
     </div>
+    {% if formats and formats.kind == "certificate" %}
+      <p class="mt-2 text-muted"><em>PKCS8, SSH2, and SSH2 (bare) show the public key extracted from the inspected certificate.</em></p>
+    {% endif %}
   {% endif %}
   <p><strong>Supported types:</strong> {{ der_types|join(', ') }}, Public Key (OpenSSH), Public Key (RFC4716), Private Key (PKCS8), Private Key (PKCS1), Private Key (SEC1)</p>
 {% endblock %}
