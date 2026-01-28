@@ -1323,6 +1323,10 @@ def build_cert_public_key_formats(cert):
                 os.unlink(tmp_pub_path)
     return formats
 
+def build_cert_base64(cert):
+    der = cert.public_bytes(Encoding.DER)
+    return base64.encodebytes(der).decode("ascii").strip()
+
 def is_pqc_public_key(cert_details):
     algo = cert_details.get("Public Key Algorithm", "")
     return algo not in ("RSA", "EC", "") and algo is not None
@@ -1861,6 +1865,7 @@ def view_root():
         cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
         cert_details = certificate_to_dict(cert)
         raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
+        raw_cert_b64 = build_cert_base64(cert)
         cert_text = get_certificate_text(raw_cert)
         pub_formats = build_cert_public_key_formats(cert)
         is_pqc_key = is_pqc_public_key(cert_details)
@@ -1869,6 +1874,7 @@ def view_root():
             "view.html",
             cert_details=cert_details,
             raw_cert=raw_cert,
+            raw_cert_b64=raw_cert_b64,
             cert_text=cert_text,
             public_key_pem=pub_formats["public_pem"],
             public_key_openssh=pub_formats["openssh"],
@@ -1889,6 +1895,7 @@ def view_sub():
         cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
         cert_details = certificate_to_dict(cert)
         raw_cert = cert.public_bytes(encoding=serialization.Encoding.PEM).decode("utf-8")
+        raw_cert_b64 = build_cert_base64(cert)
         cert_text = get_certificate_text(raw_cert)
         pub_formats = build_cert_public_key_formats(cert)
         is_pqc_key = is_pqc_public_key(cert_details)
@@ -1897,6 +1904,7 @@ def view_sub():
             "view.html",
             cert_details=cert_details,
             raw_cert=raw_cert,
+            raw_cert_b64=raw_cert_b64,
             cert_text=cert_text,
             public_key_pem=pub_formats["public_pem"],
             public_key_openssh=pub_formats["openssh"],
@@ -1939,6 +1947,7 @@ def view_certificate(cert_id):
         raw_cert = cert.public_bytes(
             encoding=serialization.Encoding.PEM
         ).decode("utf-8")
+        raw_cert_b64 = build_cert_base64(cert)
         cert_text = get_certificate_text(raw_cert)
         pub_formats = build_cert_public_key_formats(cert)
         is_pqc_key = is_pqc_public_key(cert_details)
@@ -1947,6 +1956,7 @@ def view_certificate(cert_id):
             "view.html",
             cert_details=cert_details,
             raw_cert=raw_cert,
+            raw_cert_b64=raw_cert_b64,
             cert_text=cert_text,
             issued_via=row["issued_via"] if row and "issued_via" in row.keys() else "unknown",
             public_key_pem=pub_formats["public_pem"],
