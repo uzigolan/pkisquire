@@ -39,10 +39,16 @@
       </ul>
       <div class="tab-content border border-top-0 p-3" id="certRawTabsContent">
         <div class="tab-pane fade show active" id="cert-raw-pem" role="tabpanel" aria-labelledby="cert-raw-pem-tab">
-          <pre>{{ raw_cert }}</pre>
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-raw-pem-pre">Copy</button>
+          </div>
+          <pre id="cert-raw-pem-pre">{{ raw_cert }}</pre>
         </div>
         <div class="tab-pane fade" id="cert-raw-b64" role="tabpanel" aria-labelledby="cert-raw-b64-tab">
-          <pre>{{ raw_cert_b64 }}</pre>
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-raw-b64-pre">Copy</button>
+          </div>
+          <pre id="cert-raw-b64-pre">{{ raw_cert_b64 }}</pre>
         </div>
       </div>
 
@@ -62,19 +68,28 @@
       </ul>
       <div class="tab-content border border-top-0 p-3" id="certPublicKeyTabsContent">
         <div class="tab-pane fade show active" id="cert-public-pkcs8" role="tabpanel" aria-labelledby="cert-public-pkcs8-tab">
-          <pre>{{ public_key_pem }}</pre>
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-pkcs8-pre">Copy</button>
+          </div>
+          <pre id="cert-public-pkcs8-pre">{{ public_key_pem }}</pre>
         </div>
         {% if not is_pqc_key and is_ssh2_key %}
           <div class="tab-pane fade" id="cert-public-rfc4716" role="tabpanel" aria-labelledby="cert-public-rfc4716-tab">
             {% if public_key_rfc4716 %}
-              <pre>{{ public_key_rfc4716 }}</pre>
+              <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-rfc4716-pre">Copy</button>
+              </div>
+              <pre id="cert-public-rfc4716-pre">{{ public_key_rfc4716 }}</pre>
             {% else %}
               <p><em>SSH2 unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
             {% endif %}
           </div>
           <div class="tab-pane fade" id="cert-public-rfc4716-bare" role="tabpanel" aria-labelledby="cert-public-rfc4716-bare-tab">
             {% if public_key_openssh %}
-              <pre>{{ public_key_openssh }}</pre>
+              <div class="d-flex justify-content-end">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-rfc4716-bare-pre">Copy</button>
+              </div>
+              <pre id="cert-public-rfc4716-bare-pre">{{ public_key_openssh }}</pre>
             {% else %}
               <p><em>SSH2 (bare) unavailable{% if (public_key_errors|default({})).openssh %}: {{ (public_key_errors|default({})).openssh }}{% endif %}</em></p>
             {% endif %}
@@ -88,5 +103,21 @@
     </div>
   </div>
   <a href="/" class="btn btn-secondary mt-3">← Back to Home</a>
+  <script>
+  document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll("[data-copy-target]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        const targetId = btn.getAttribute("data-copy-target");
+        const targetEl = document.getElementById(targetId);
+        if (!targetEl || !navigator.clipboard) return;
+        navigator.clipboard.writeText(targetEl.textContent.trim()).then(function() {
+          const original = btn.textContent;
+          btn.textContent = "Copied!";
+          setTimeout(() => { btn.textContent = original; }, 1200);
+        });
+      });
+    });
+  });
+  </script>
 {% endblock %}
 
