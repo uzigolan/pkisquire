@@ -1103,7 +1103,7 @@ def index():
                 user_obj = get_user_by_id(user_id)
                 username = user_obj.username if user_obj else str(user_id)
             app.logger.trace(f"Cert ID {id_}: keycol={keycol}, expired={expired}   revoked={revoked}")
-            certs.append((id_, subject, serial, keycol, issue_date, revoked, expired, username, issued_via))
+            certs.append((id_, subject, serial, keycol, issue_date, revoked, expired, username, issued_via, cert_pem))
 
         return render_template(
             "list_certificates.html",

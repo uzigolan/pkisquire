@@ -46,7 +46,7 @@
         </thead>
         <tbody>
           {# Now unpack in the same order you built the tuple: #}
-          {% for id, subject, serial, keycol, date, revoked, expired, username, issued_via in certs %}
+          {% for id, subject, serial, keycol, date, revoked, expired, username, issued_via, cert_pem in certs %}
           <tr>
             <td>{{ id }}</td>
             <td>
@@ -95,12 +95,18 @@
             <td>
               <div class="btn-group" role="group">
                 <a href="/view/{{ id }}"      class="btn btn-sm btn-info" data-testid="btn-view-cert">View</a>
-                <a href="/downloads/{{ id }}" class="btn btn-sm btn-warning" data-testid="btn-download-cert">Download</a>
+                <a href="/downloads/{{ id }}" class="btn btn-sm btn-info" style="filter: brightness(0.9);" data-testid="btn-download-cert">Download</a>
+                <button type="button"
+                        class="btn btn-sm btn-secondary"
+                        style="background-color:#6C757D; border-color:#6C757D; color:#fff;"
+                        onclick="copyCertPem({{ id }}, this);">
+                  Copy PEM
+                </button>
 
                 <!-- NEW: Download PFX -->
                 <a href="javascript:void(0);"
-                   class="btn btn-sm btn-warning"
-                   style="background-color: orange; border-color: orange;"
+                   class="btn btn-sm btn-secondary"
+                   style="background-color:#F0AD4E; border-color:#F0AD4E; color:#212529;"
                    onclick="downloadPfx({{ id }});">
                   PFX
                 </a>
@@ -122,6 +128,7 @@
                   Delete
                 </a>
               </div>
+              <textarea class="d-none" id="cert-pem-{{ id }}">{{ cert_pem }}</textarea>
             </td>
           </tr>
           {% endfor %}
@@ -142,6 +149,16 @@
           copied.style.display = 'inline';
           setTimeout(function() { copied.style.display = 'none'; }, 1200);
         }
+      });
+    }
+
+    function copyCertPem(certId, btn) {
+      const el = document.getElementById("cert-pem-" + certId);
+      if (!el || !navigator.clipboard) return;
+      navigator.clipboard.writeText(el.value.trim()).then(() => {
+        const original = btn.textContent;
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = original; }, 1200);
       });
     }
 
