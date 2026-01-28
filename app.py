@@ -2032,7 +2032,7 @@ def delete_certificate(cert_id):
 @login_required
 def submit():
     app.logger.debug("submit: Received CSR signing request")
-    csr_pem = request.form["csr"]
+    csr_input = request.form["csr"]
     app.logger.debug(f"submit: ext_block={request.form.get('ext_block', 'v3_ext')}")
     ext_block = request.form.get("ext_block", "v3_ext")
     policy_id = request.form.get("policy_id")
@@ -2045,6 +2045,7 @@ def submit():
         return redirect("/")
     try:
         app.logger.debug("submit: Attempting to parse CSR")
+        csr_pem = normalize_csr_pem_text(csr_input)
         csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
         subject_str = ", ".join([f"{attr.oid._name}={attr.value}" for attr in csr_obj.subject])
         app.logger.debug(f"submit: Parsed CSR subject: {subject_str}")
@@ -2193,17 +2194,20 @@ def submit():
 
 @app.route("/submit_q", methods=["POST"])
 def submit_q():
-    csr_pem = request.form["csr"]
+    csr_input = request.form["csr"]
     ext_block = request.form.get("ext_block", "v3_ext")
     policy_id = request.form.get("policy_id")
     mgr, policy = _resolve_ra_policy(policy_id, None)
     if not policy:
         return "No RA policy available", 400
     try:
+        csr_pem = normalize_csr_pem_text(csr_input)
         csr_obj = x509.load_pem_x509_csr(csr_pem.encode(), default_backend())
         subject_str = ", ".join([f"{attr.oid._name}={attr.value}" for attr in csr_obj.subject])
     except Exception as e:
         subject_str = "Unknown Subject"
+        app.logger.error(f"submit_q: Failed to parse CSR: {e}")
+        return f"Invalid CSR: {e}", 400
 
     # ...removed strict CN validation...
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
@@ -2663,7 +2667,7 @@ def est_cacerts():
 
 def normalize_to_der(raw: bytes) -> bytes:
     # 1) PEM-wrapped CSR? Strip headers & decode.
-    if raw.strip().startswith(b"-----BEGIN CERTIFICATE REQUEST-----"):
+    if raw.strip().startswith(b"-----BEGIN CERTIFICATE REQUEST-----") or raw.strip().startswith(b"-----BEGIN NEW CERTIFICATE REQUEST-----"):
         text = raw.decode("ascii")
         b64 = "".join(
             line for line in text.splitlines()
@@ -2681,6 +2685,17 @@ def normalize_to_der(raw: bytes) -> bytes:
 
     # 3) Otherwise assume it’s already DER
     return raw
+
+def normalize_csr_pem_text(csr_text: str) -> str:
+    if not csr_text or not csr_text.strip():
+        raise ValueError("CSR is empty")
+    raw = csr_text.strip().encode("utf-8")
+    der = normalize_to_der(raw)
+    return (
+        "-----BEGIN CERTIFICATE REQUEST-----\n"
+        + base64.encodebytes(der).decode("ascii")
+        + "-----END CERTIFICATE REQUEST-----\n"
+    )
 
 
 
