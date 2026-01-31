@@ -84,7 +84,7 @@ def migrate_db():
         last_login TEXT,
         status TEXT,
         auth_source TEXT DEFAULT 'local',
-        custom_columns TEXT DEFAULT '{"theme_style":"modern","theme_color":"snow"}'
+        custom TEXT DEFAULT '{"theme_style":"classic","theme_color":"snow"}'
     )''')
     cur.execute('''CREATE TABLE IF NOT EXISTS certificates (
         id INTEGER PRIMARY KEY,
@@ -163,7 +163,7 @@ def migrate_db():
     ensure_column('user_events', 'actor_username', 'TEXT')
     ensure_column('user_events', 'username', 'TEXT')
     ensure_column('users', 'auth_source', "TEXT DEFAULT 'local'")
-    ensure_column('users', 'custom_columns', "TEXT DEFAULT '{\"theme_style\":\"modern\",\"theme_color\":\"snow\"}'")
+    ensure_column('users', 'custom', "TEXT DEFAULT '{\"theme_style\":\"classic\",\"theme_color\":\"snow\"}'")
     ensure_column('certificates', 'user_id', 'INTEGER')
     ensure_column('certificates', 'issued_via', "TEXT CHECK(issued_via IN ('ui','scep','est','manual','unknown')) DEFAULT 'unknown'")
     ensure_column('profiles', 'user_id', 'INTEGER')
@@ -213,9 +213,9 @@ def migrate_db():
 
     ensure_unique_usernames(cur)
     # Ensure default custom settings for users
-    default_custom_columns = '{"theme_style":"modern","theme_color":"snow"}'
+    default_custom_columns = '{"theme_style":"classic","theme_color":"snow"}'
     cur.execute(
-        "UPDATE users SET custom_columns = ? WHERE custom_columns IS NULL OR TRIM(custom_columns) = ''",
+        "UPDATE users SET custom = ? WHERE custom IS NULL OR TRIM(custom) = ''",
         (default_custom_columns,),
     )
     # Backfill issuance source where we can infer it

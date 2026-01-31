@@ -14,7 +14,7 @@ def set_user_active(user_id, active: bool):
     conn.close()
 
 class User(UserMixin):
-    def __init__(self, id, username, password_hash, role, email=None, created_at=None, last_login=None, status='pending', auth_source='local', custom_columns=None):
+    def __init__(self, id, username, password_hash, role, email=None, created_at=None, last_login=None, status='pending', auth_source='local', custom=None):
         self.id = id
         self.username = username
         self.password_hash = password_hash
@@ -24,7 +24,7 @@ class User(UserMixin):
         self.last_login = last_login
         self.status = status  # 'pending', 'active', 'disabled'
         self.auth_source = auth_source  # 'local' or 'ldap'
-        self.custom_columns = custom_columns or {}
+        self.custom = custom or {}
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -51,7 +51,7 @@ def ensure_auth_source_column(conn):
         cur.execute("ALTER TABLE users ADD COLUMN auth_source TEXT DEFAULT 'local'")
         conn.commit()
 
-def _parse_custom_columns(raw_value):
+def _parse_custom(raw_value):
     if not raw_value:
         return {}
     try:
@@ -85,7 +85,7 @@ def get_user_by_id(user_id):
             last_login=row['last_login'],
             status=status,
             auth_source=row['auth_source'] if 'auth_source' in row.keys() else 'local',
-            custom_columns=_parse_custom_columns(row['custom_columns']) if 'custom_columns' in row.keys() else {}
+            custom=_parse_custom(row['custom']) if 'custom' in row.keys() else {}
         )
     return None
 
@@ -108,7 +108,7 @@ def get_user_by_username(username):
             last_login=row['last_login'],
             status=row['status'] if 'status' in row.keys() else ('active' if row.get('is_active', 1) else 'disabled'),
             auth_source=row['auth_source'] if 'auth_source' in row.keys() else 'local',
-            custom_columns=_parse_custom_columns(row['custom_columns']) if 'custom_columns' in row.keys() else {}
+            custom=_parse_custom(row['custom']) if 'custom' in row.keys() else {}
         )
     return None
 
@@ -137,7 +137,7 @@ def get_all_users():
             'last_login': row['last_login'],
             'status': status,
             'auth_source': row['auth_source'] if 'auth_source' in row.keys() else 'local',
-            'custom_columns': _parse_custom_columns(row['custom_columns']) if 'custom_columns' in row.keys() else {}
+            'custom': _parse_custom(row['custom']) if 'custom' in row.keys() else {}
         })
     return users
 
@@ -201,39 +201,39 @@ def get_user_theme_style(user_id):
     try:
         conn = sqlite3.connect(current_app.config["DB_PATH"])
         cur = conn.cursor()
-        cur.execute("SELECT custom_columns FROM users WHERE id = ?", (user_id,))
+        cur.execute("SELECT custom FROM users WHERE id = ?", (user_id,))
         row = cur.fetchone()
         conn.close()
     except sqlite3.OperationalError:
         return "modern"
-    data = _parse_custom_columns(row[0]) if row else {}
-    theme = data.get("theme_style", "modern")
-    return theme if theme in ("modern", "classic") else "modern"
+    data = _parse_custom(row[0]) if row else {}
+    theme = data.get("theme_style", "classic")
+    return theme if theme in ("modern", "classic") else "classic"
 
 def get_user_theme_color(user_id):
     try:
         conn = sqlite3.connect(current_app.config["DB_PATH"])
         cur = conn.cursor()
-        cur.execute("SELECT custom_columns FROM users WHERE id = ?", (user_id,))
+        cur.execute("SELECT custom FROM users WHERE id = ?", (user_id,))
         row = cur.fetchone()
         conn.close()
     except sqlite3.OperationalError:
         return "snow"
-    data = _parse_custom_columns(row[0]) if row else {}
+    data = _parse_custom(row[0]) if row else {}
     color = data.get("theme_color", "snow")
     return color if color in ("snow", "midnight") else "snow"
 
 def set_user_theme_style(user_id, theme_style):
-    theme = theme_style if theme_style in ("modern", "classic") else "modern"
+    theme = theme_style if theme_style in ("modern", "classic") else "classic"
     try:
         conn = sqlite3.connect(current_app.config["DB_PATH"])
         cur = conn.cursor()
-        cur.execute("SELECT custom_columns FROM users WHERE id = ?", (user_id,))
+        cur.execute("SELECT custom FROM users WHERE id = ?", (user_id,))
         row = cur.fetchone()
-        data = _parse_custom_columns(row[0]) if row else {}
+        data = _parse_custom(row[0]) if row else {}
         data["theme_style"] = theme
         cur.execute(
-            "UPDATE users SET custom_columns = ? WHERE id = ?",
+            "UPDATE users SET custom = ? WHERE id = ?",
             (json.dumps(data, separators=(",", ":")), user_id),
         )
         conn.commit()
@@ -247,12 +247,12 @@ def set_user_theme_color(user_id, theme_color):
     try:
         conn = sqlite3.connect(current_app.config["DB_PATH"])
         cur = conn.cursor()
-        cur.execute("SELECT custom_columns FROM users WHERE id = ?", (user_id,))
+        cur.execute("SELECT custom FROM users WHERE id = ?", (user_id,))
         row = cur.fetchone()
-        data = _parse_custom_columns(row[0]) if row else {}
+        data = _parse_custom(row[0]) if row else {}
         data["theme_color"] = color
         cur.execute(
-            "UPDATE users SET custom_columns = ? WHERE id = ?",
+            "UPDATE users SET custom = ? WHERE id = ?",
             (json.dumps(data, separators=(",", ":")), user_id),
         )
         conn.commit()

@@ -276,7 +276,7 @@ def load_user(user_id):
 
 @app.context_processor
 def inject_theme_style():
-    theme_style = "modern"
+    theme_style = "classic"
     theme_color = "snow"
     if current_user.is_authenticated:
         try:
@@ -3180,7 +3180,7 @@ def account_theme():
     theme_style = request.form.get("theme_style", "modern").strip().lower()
     theme_color = request.form.get("theme_color", "snow").strip().lower()
     if theme_style not in ("modern", "classic"):
-        theme_style = "modern"
+        theme_style = "classic"
     if theme_color not in ("snow", "midnight"):
         theme_color = "snow"
     if theme_style == "classic":
