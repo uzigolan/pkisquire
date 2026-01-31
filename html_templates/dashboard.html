@@ -1,0 +1,325 @@
+{% extends "layout.html" %}
+{% block content %}
+  <section class="content-card dashboard-page">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+      <div>
+        <h2 class="page-title">Certificate Overview</h2>
+        <p class="page-subtitle">Live snapshot of issuance and status across your CA.</p>
+      </div>
+      <div class="app-meta">
+        <strong>Mode:</strong> {{ ca_mode }}
+      </div>
+    </div>
+
+    <div class="app-meta mb-2"><strong>Summary</strong></div>
+    <div class="metric-grid mb-4">
+      <div class="metric-card">
+        <div class="metric-label">Total</div>
+        <div class="metric-value">{{ summary.total }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Valid</div>
+        <div class="metric-value">{{ summary.valid }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Expired</div>
+        <div class="metric-value">{{ summary.expired }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Revoked</div>
+        <div class="metric-value">{{ summary.revoked }}</div>
+      </div>
+    </div>
+
+    <div class="app-meta mb-2"><strong>Enrollment</strong></div>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">UI</div>
+        <div class="metric-value">{{ enrollment.ui }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">EST</div>
+        <div class="metric-value">{{ enrollment.est }}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">SCEP</div>
+        <div class="metric-value">{{ enrollment.scep }}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content-card dashboard-page mt-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+      <div>
+        <h3 class="mb-1">Activity Timeline</h3>
+        <p class="page-subtitle">Zoom and pan to explore activity across resources.</p>
+      </div>
+      <div class="d-flex align-items-center">
+        <button id="resetZoomBtn" class="btn btn-sm btn-ghost">Reset Zoom</button>
+        <button id="resetLegendBtn" class="btn btn-sm btn-ghost ml-2">Reset Resources</button>
+      </div>
+    </div>
+    <div class="d-flex flex-wrap align-items-center mb-3 activity-legend">
+      <span class="legend-item mr-3"><span class="legend-dot legend-created"></span>Created</span>
+      <span class="legend-item mr-3"><span class="legend-dot legend-modified"></span>Modified</span>
+      <span class="legend-item mr-3"><span class="legend-dot legend-revoked"></span>Revoked</span>
+      <span class="legend-item mr-3"><span class="legend-dot legend-removed"></span>Removed</span>
+    </div>
+    <div class="text-muted mb-3" style="font-size: 0.9rem;">Tip: click a resource in the legend below to hide/show it.</div>
+    <div style="height: 380px;">
+      <canvas id="activityChart"></canvas>
+    </div>
+  </section>
+{% endblock %}
+{% block scripts %}
+  <style>
+    .activity-legend .legend-item {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .activity-legend .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      display: inline-block;
+      margin-right: 6px;
+      background: transparent;
+    }
+    .legend-created { color: #22c55e; }
+    .legend-modified { color: #eab308; }
+    .legend-revoked { color: #9ca3af; }
+    .legend-removed { color: #ef4444; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+  <script>
+    if (window.Chart && window.ChartZoom) {
+      Chart.register(window.ChartZoom);
+    }
+
+    const resourceLabels = [
+      "Certificates",
+      "Enrollment",
+      "Keys",
+      "CSRs",
+      "Policies",
+      "Templates",
+      "Challenge Passwords"
+    ];
+
+    const resourceStyles = {
+      "Certificates": "circle",
+      "Enrollment": "triangle",
+      "Keys": "rect",
+      "CSRs": "rectRot",
+      "Policies": "cross",
+      "Templates": "star",
+      "Challenge Passwords": "triangle"
+    };
+
+    function mapResource(eventType, resourceType) {
+      if (resourceType === "certificate") {
+        return eventType === "create" ? "Enrollment" : "Certificates";
+      }
+      if (resourceType === "key") return "Keys";
+      if (resourceType === "request") return "CSRs";
+      if (resourceType === "policy") return "Policies";
+      if (resourceType === "profile") return "Templates";
+      if (resourceType === "challenge_password") return "Challenge Passwords";
+      return null;
+    }
+
+    function actionColor(eventType) {
+      if (eventType === "create") return "#22c55e";
+      if (eventType === "revoke") return "#9ca3af";
+      if (eventType === "update") return "#eab308";
+      if (eventType === "delete" || eventType === "bulk_delete") return "#ef4444";
+      return "#3b82f6";
+    }
+
+    async function buildActivityChart() {
+      const res = await fetch("/dashboard/activity_data?limit=5000", { cache: "no-store" });
+      if (!res.ok) return;
+      const payload = await res.json();
+      const events = payload.events || [];
+
+      const datasets = {};
+      resourceLabels.forEach(label => {
+        datasets[label] = {
+          label,
+          data: [],
+          pointStyle: resourceStyles[label] || "circle",
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          showLine: false,
+          pointBackgroundColor: [],
+          pointBorderColor: [],
+          pointBorderWidth: 2,
+        };
+      });
+
+      events.forEach(evt => {
+        const label = mapResource(evt.event_type, evt.resource_type);
+        if (!label || !datasets[label]) return;
+        const color = actionColor(evt.event_type);
+        datasets[label].data.push({
+          x: evt.timestamp,
+          y: label,
+          eventType: evt.event_type,
+          resourceName: evt.resource_name
+        });
+        datasets[label].pointBackgroundColor.push("rgba(0,0,0,0)");
+        datasets[label].pointBorderColor.push(color);
+      });
+
+      const canvas = document.getElementById("activityChart");
+      const chart = new Chart(
+        canvas,
+        {
+          type: "scatter",
+          data: {
+            datasets: Object.values(datasets)
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: {
+                  usePointStyle: true,
+                  generateLabels: function(chart) {
+                    const labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                    return labels.map(label => ({
+                      ...label,
+                      fillStyle: "rgba(0,0,0,0)",
+                      strokeStyle: "#9ca3af",
+                      lineWidth: 2
+                    }));
+                  }
+                }
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const raw = context.raw || {};
+                    const label = context.dataset.label || "";
+                    const ts = raw.x ? new Date(raw.x).toLocaleString() : "";
+                    const action = raw.eventType ? raw.eventType.toUpperCase() : "";
+                    const name = raw.resourceName ? ` - ${raw.resourceName}` : "";
+                    return `${label} | ${action}${name} | ${ts}`;
+                  }
+                }
+              },
+              zoom: {
+                zoom: {
+                  wheel: { enabled: true, modifierKey: null },
+                  pinch: { enabled: true },
+                  mode: "x"
+                },
+                pan: {
+                  enabled: true,
+                  mode: "x",
+                  threshold: 0,
+                  modifierKey: null
+                }
+              }
+            },
+            scales: {
+              x: {
+                type: "time",
+                time: {
+                  unit: "hour",
+                  stepSize: 1
+                },
+                ticks: {
+                  autoSkip: false,
+                  maxTicksLimit: 12,
+                  callback: function(value) {
+                    const dt = new Date(value);
+                    return dt.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+                  }
+                }
+              },
+              y: {
+                type: "category",
+                labels: resourceLabels,
+                offset: true
+              }
+            }
+          }
+        }
+      );
+
+      const originalMin = chart.options.scales.x.min;
+      const originalMax = chart.options.scales.x.max;
+
+      const resetBtn = document.getElementById("resetZoomBtn");
+      if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+          chart.resetZoom();
+          chart.options.scales.x.min = originalMin ?? undefined;
+          chart.options.scales.x.max = originalMax ?? undefined;
+          chart.update();
+        });
+      }
+
+      const resetLegendBtn = document.getElementById("resetLegendBtn");
+      if (resetLegendBtn) {
+        resetLegendBtn.addEventListener("click", () => {
+          chart.data.datasets.forEach((ds, idx) => {
+            chart.setDatasetVisibility(idx, true);
+          });
+          chart.update();
+        });
+      }
+
+      // Manual drag-pan fallback for Chrome
+      let isDragging = false;
+      let lastX = 0;
+      let accumulated = 0;
+
+      canvas.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        lastX = e.clientX;
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        isDragging = false;
+        accumulated = 0;
+      });
+
+      window.addEventListener("mouseup", () => {
+        isDragging = false;
+        accumulated = 0;
+      });
+
+      canvas.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        const delta = e.clientX - lastX;
+        lastX = e.clientX;
+        accumulated += delta;
+
+        if (Math.abs(accumulated) < 4) return;
+        const scale = chart.scales.x;
+        if (!scale) return;
+        const min = scale.min;
+        const max = scale.max;
+        if (!min || !max) return;
+
+        const range = max - min;
+        const factor = (accumulated / canvas.clientWidth) * range;
+        accumulated = 0;
+        chart.options.scales.x.min = min - factor;
+        chart.options.scales.x.max = max - factor;
+        chart.update("none");
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", buildActivityChart);
+  </script>
+{% endblock %}

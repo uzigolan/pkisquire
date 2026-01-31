@@ -1,141 +1,130 @@
 {% extends "layout.html" %}
 {% block content %}
-  <!-- Issued Certificates Full Width Section -->
-  <div class="row mb-4">
-    <div class="col-12">
-      <h2>Issued Certificates</h2>
-      
-      <!-- Pagination Controls -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="form-inline">
-          <label for="pageSizeSelect" class="mr-2">Show:</label>
-          <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
-            <option value="10" selected>10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-          </select>
-          <span id="pageInfo" class="mr-3"></span>
-        </div>
-        <div>
-          <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
-          <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
-        </div>
+  <section class="content-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+      <div>
+        <h2 class="page-title">Issued Certificates</h2>
+        <p class="page-subtitle">Audit, download, and manage active credentials in one place.</p>
       </div>
+      <div class="app-meta">
+        <strong>Mode:</strong> {{ ca_mode }}
+      </div>
+    </div>
 
-      <div class="form-group">
+    <div class="toolbar mb-3">
+      <div class="d-flex flex-wrap align-items-center">
+        <label for="pageSizeSelect" class="mr-2 mb-0 text-muted">Rows</label>
+        <select id="pageSizeSelect" class="form-control form-control-sm mr-3" onchange="changePageSize()">
+          <option value="10" selected>10</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+        </select>
+        <span id="pageInfo" class="text-muted"></span>
+      </div>
+      <div class="d-flex flex-wrap align-items-center">
         <input
           type="text"
           id="filterInput"
-          class="form-control mb-3"
+          class="search-input mr-3"
           onkeyup="filterTable()"
-          placeholder="Filter by Common Name, Serial, Key or Date">
+          placeholder="Filter by common name, serial, key, or date">
+        <button class="btn btn-sm btn-ghost mr-2" onclick="previousPage()" id="prevBtn">Prev</button>
+        <button class="btn btn-sm btn-ghost" onclick="nextPage()" id="nextBtn">Next</button>
       </div>
-      <table id="certTable" class="table table-striped" data-testid="certs-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Common Name</th>
-            <th>Serial <small style="color: #6c757d;">(click to copy)</small></th>
-            <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">⇅</span></th>
-            <th style="cursor:pointer;" onclick="sortTable(4)">Date <span id="sort-4">⇅</span></th>
-            <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">⇅</span></th>
-            <th>Enrollment Method</th>
-            {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(7)">User <span id="sort-7">⇅</span></th>{% endif %}
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {# Now unpack in the same order you built the tuple: #}
-          {% for id, subject, serial, keycol, date, revoked, expired, username, issued_via, cert_pem in certs %}
-          <tr>
-            <td>{{ id }}</td>
-            <td>
-              {% set parts = subject.split(',') %}
-              {% for part in parts %}
-                {% if "commonName=" in part %}
-                  {{ part.split('=')[1].strip() }}
-                {% endif %}
-              {% endfor %}
-            </td>
-            <td>
-              {% set serial_idx = loop.index0 %}
-              <span style="position: relative;">
-                <span title="{{ serial }}" style="cursor: pointer;" onclick="copyToClipboard('{{ serial }}', this, {{ serial_idx }})">
-                  <span class="d-none full-serial">{{ serial }}</span>
-                  {% if serial|length > 20 %}
-                    {{ serial[:20] }}...
-                  {% else %}
-                    {{ serial }}
-                  {% endif %}
-                </span>
-                <span id="serial-copied-{{ serial_idx }}" style="display:none; color:green; font-weight:bold; position:absolute; left:105%; top:0;">Copied!</span>
-              </span>
-            </td>
-            <td>{{ keycol }}</td>
-            <td>{{ date }}</td>
-            <td>
-              {% if revoked %}
-                <span>Revoked</span>
-              {% elif expired %}
-                <span style="color: orange;">Expired</span>
-              {% else %}
-                <span style="color: green;">Valid</span>
-              {% endif %}
-            </td>
-            {% set via = issued_via|default('unknown') %}
-            {% set via_color = 'green' if via=='est' else ('purple' if via=='scep' else '#0d6efd') %}
-            <td>
-              <span class="badge" style="background-color: {{ via_color }}; color: white;">
-                {{ via|upper }}
-              </span>
-            </td>
-            {% if is_admin %}
-              <td>{{ username if username else 'N/A' }}</td>
-            {% endif %}
-            <td>
-              <div class="btn-group" role="group">
-                <a href="/view/{{ id }}"      class="btn btn-sm btn-info" data-testid="btn-view-cert">View</a>
-                <a href="/downloads/{{ id }}" class="btn btn-sm btn-info" style="filter: brightness(0.9);" data-testid="btn-download-cert">Download</a>
-                <button type="button"
-                        class="btn btn-sm btn-secondary"
-                        style="background-color:#6C757D; border-color:#6C757D; color:#fff;"
-                        onclick="copyCertPem({{ id }}, this);">
-                  Copy
-                </button>
-
-                <!-- NEW: Download PFX -->
-                <a href="javascript:void(0);"
-                   class="btn btn-sm btn-secondary"
-                   style="background-color:#F0AD4E; border-color:#F0AD4E; color:#212529;"
-                   onclick="downloadPfx({{ id }});">
-                  PFX
-                </a>
-
-                {% if not revoked %}
-                  <a href="javascript:void(0);"
-                  class="btn btn-sm btn-danger"
-                  onclick="handleRevoke({{ id }});" data-testid="btn-revoke-cert">
-    Revoke
-  </a>
-{% else %}
-  <span class="badge badge-secondary align-self-center">Revoked</span>
-{% endif %}
-
-                <!-- Updated Delete link: no direct /delete URL, JS handles POST -->
-                <a href="javascript:void(0);"
-                   class="btn btn-sm btn-outline-danger"
-                   onclick="handleDelete({{ id }});">
-                  Delete
-                </a>
-              </div>
-              <textarea class="d-none" id="cert-pem-{{ id }}">{{ cert_pem }}</textarea>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
     </div>
-  </div>
+
+    <table id="certTable" class="table table-modern" data-testid="certs-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Common Name</th>
+          <th>Serial <small class="text-muted">(click to copy)</small></th>
+          <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">sort</span></th>
+          <th style="cursor:pointer;" onclick="sortTable(4)">Date <span id="sort-4">sort</span></th>
+          <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">sort</span></th>
+          <th>Enrollment</th>
+          {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(7)">User <span id="sort-7">sort</span></th>{% endif %}
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {# Now unpack in the same order you built the tuple: #}
+        {% for id, subject, serial, keycol, date, revoked, expired, username, issued_via, cert_pem in certs %}
+        <tr>
+          <td>{{ id }}</td>
+          <td>
+            {% set parts = subject.split(',') %}
+            {% for part in parts %}
+              {% if "commonName=" in part %}
+                {{ part.split('=')[1].strip() }}
+              {% endif %}
+            {% endfor %}
+          </td>
+          <td>
+            {% set serial_idx = loop.index0 %}
+            <span style="position: relative;">
+              <span title="{{ serial }}" style="cursor: pointer;" onclick="copyToClipboard('{{ serial }}', this, {{ serial_idx }})">
+                <span class="d-none full-serial">{{ serial }}</span>
+                {% if serial|length > 20 %}
+                  {{ serial[:20] }}...
+                {% else %}
+                  {{ serial }}
+                {% endif %}
+              </span>
+              <span id="serial-copied-{{ serial_idx }}" style="display:none; color:var(--success); font-weight:bold; position:absolute; left:105%; top:0;">Copied!</span>
+            </span>
+          </td>
+          <td>{{ keycol }}</td>
+          <td>{{ date }}</td>
+          <td>
+            {% if revoked %}
+              <span class="status-pill status-revoked">Revoked</span>
+            {% elif expired %}
+              <span class="status-pill status-expired">Expired</span>
+            {% else %}
+              <span class="status-pill status-valid">Valid</span>
+            {% endif %}
+          </td>
+          {% set via = issued_via|default('unknown')|lower %}
+          <td>
+            <span class="badge badge-issuer badge-issuer-{{ via }}">
+              {{ via|upper }}
+            </span>
+          </td>
+          {% if is_admin %}
+            <td>{{ username if username else 'N/A' }}</td>
+          {% endif %}
+          <td>
+            <div class="btn-group cert-actions" role="group">
+              <a href="/view/{{ id }}" class="btn btn-sm btn-ghost" data-testid="btn-view-cert">View</a>
+              <a href="/downloads/{{ id }}" class="btn btn-sm btn-ghost" data-testid="btn-download-cert">Download</a>
+              <button type="button" class="btn btn-sm btn-ghost" onclick="copyCertPem({{ id }}, this);">
+                Copy
+              </button>
+
+              <a href="javascript:void(0);" class="btn btn-sm btn-soft" onclick="downloadPfx({{ id }});">
+                PFX
+              </a>
+
+              {% if not revoked %}
+                <a href="javascript:void(0);" class="btn btn-sm btn-danger-soft" onclick="handleRevoke({{ id }});" data-testid="btn-revoke-cert">
+                  Revoke
+                </a>
+              {% else %}
+                <span class="badge badge-secondary align-self-center">Revoked</span>
+              {% endif %}
+
+              <a href="javascript:void(0);" class="btn btn-sm btn-outline-danger" onclick="handleDelete({{ id }});">
+                Delete
+              </a>
+            </div>
+            <textarea class="d-none" id="cert-pem-{{ id }}">{{ cert_pem }}</textarea>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
 
   <script>
     let sortDirections = {}; // Track sort direction for each column
@@ -169,8 +158,8 @@
       sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
 
       // Update all sort indicators
-      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
-      document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = 'sort');
+      document.getElementById('sort-' + columnIndex).textContent = isAscending ? 'asc' : 'desc';
 
       rows.sort(function(a, b) {
         var aText = a.cells[columnIndex].textContent.trim();
@@ -197,18 +186,18 @@
     function filterTable() {
       var filterValue = document.getElementById('filterInput').value.toLowerCase();
       var filterInput = document.getElementById('filterInput');
-      
+
       // Change background color if filter is active
       if (filterValue) {
         filterInput.style.backgroundColor = '#fff3cd'; // Light yellow
       } else {
         filterInput.style.backgroundColor = '';
       }
-      
+
       var table = document.getElementById('certTable');
       var tbody = table.getElementsByTagName('tbody')[0];
       var rows = tbody.getElementsByTagName('tr');
-      
+
       // Hide all rows first, then only show filtered
       allRows = [];
       for (var i = 0; i < rows.length; i++) {
@@ -247,7 +236,7 @@
       form.submit();
     }
 
-    // NEW: Download PFX – ask for a PFX password and POST to server
+    // Download PFX - ask for a PFX password and POST to server
     function downloadPfx(certId) {
       var pwd = prompt('Choose password for your PFX file:');
       if (pwd === null || pwd === '') {
@@ -285,7 +274,7 @@
       currentPage = page;
       var start = (page - 1) * pageSize;
       var end = start + pageSize;
-      
+
       allRows.forEach((row, index) => {
         if (index >= start && index < end) {
           row.style.display = '';
@@ -293,7 +282,7 @@
           row.style.display = 'none';
         }
       });
-      
+
       updatePaginationInfo();
     }
 
@@ -301,10 +290,10 @@
       var totalPages = Math.ceil(allRows.length / pageSize);
       var start = (currentPage - 1) * pageSize + 1;
       var end = Math.min(currentPage * pageSize, allRows.length);
-      
-      document.getElementById('pageInfo').textContent = 
+
+      document.getElementById('pageInfo').textContent =
         `Showing ${start}-${end} of ${allRows.length}`;
-      
+
       document.getElementById('prevBtn').disabled = currentPage === 1;
       document.getElementById('nextBtn').disabled = currentPage >= totalPages;
     }
@@ -366,4 +355,3 @@
   </script>
 
 {% endblock %}
-
