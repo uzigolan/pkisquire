@@ -19,7 +19,7 @@ import ssl
 from pathlib import Path
 from datetime import datetime,timezone, timedelta
 from threading import Thread
-from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session, abort, jsonify
+from flask import Flask, render_template, request, redirect, send_file, make_response, flash, url_for, Response, session, abort, jsonify, current_app
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from users import users_bp, register_login_signals, init_users_config, verify_api_token
 from flask_sqlalchemy import SQLAlchemy
@@ -1529,6 +1529,14 @@ def api_doc():
 @app.route("/about")
 def about():
     return render_template("about.html")
+
+
+@app.route("/license")
+def license_file():
+    license_path = Path(current_app.root_path) / "LICENSE.md"
+    if not license_path.exists():
+        abort(404)
+    return send_file(license_path, mimetype="text/markdown")
 
 
 # ---------- Validity Endpoint ----------
