@@ -165,3 +165,10 @@ Test artifacts (certs, keys, CSRs, OCSP responses) are written to `tests/results
 
 - `README_CONFIG.md` for configuration details
 - `scripts/README.md` and `scripts/VAULT_SCRIPTS_README.md` for Vault setup and server management
+
+---
+
+## License
+
+This project is dual-licensed under your choice of the MIT License or the Apache License, Version 2.0.
+See `LICENSE.md` for full text.
