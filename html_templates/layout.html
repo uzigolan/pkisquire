@@ -2,9 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Pikachu CA (R&D Only)</title>
-
-  <title>{% block title %}Pikachu CA R&D Only!{% endblock %}</title>
+  <title>{% block title %}Pikachu CA{% endblock %}</title>
 
   <!-- FAVICONS -->
   <link rel="icon"
@@ -18,19 +16,507 @@
 
   {% block head %}{% endblock %}
 
-
-
-
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <!-- Bootstrap CSS (via CDN) -->
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
   <style>
-    pre { background-color: #f8f9fa; padding: 1em; border: 1px solid #ddd; border-radius: 4px; }
+    :root {
+      --bg: #f3f4f7;
+      --bg-accent: #e6eef3;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #5b6b7f;
+      --accent: #0f766e;
+      --accent-2: #1d4ed8;
+      --danger: #b91c1c;
+      --success: #15803d;
+      --warning: #b45309;
+    }
+
+    body {
+      font-family: "Manrope", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 10%, #ffffff 0%, var(--bg) 35%, var(--bg-accent) 100%);
+      min-height: 100vh;
+    }
+
+    h1, h2, h3, h4, h5, .navbar-brand {
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      letter-spacing: -0.02em;
+    }
+
+    pre {
+      background-color: var(--surface-2);
+      padding: 1em;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .app-navbar {
+      background: rgba(255, 255, 255, 0.9);
+      border-bottom: 1px solid var(--border);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(10px);
+    }
+
+    .app-navbar .navbar-brand {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .app-navbar .nav-link {
+      color: var(--muted);
+      font-weight: 500;
+      border-radius: 999px;
+      padding: 0.35rem 0.8rem;
+      margin: 0 0.1rem;
+    }
+
+    .app-navbar .nav-link:hover,
+    .app-navbar .nav-link.active {
+      color: var(--text);
+      background: #e8f3f1;
+    }
+
+    .app-shell {
+      padding: 28px 0 48px;
+    }
+
+    .app-container {
+      max-width: 1520px;
+      padding-left: 32px;
+      padding-right: 32px;
+    }
+
+    .content-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
+      padding: 24px;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .page-subtitle {
+      color: var(--muted);
+      margin-bottom: 0;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .search-input {
+      min-width: 240px;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.55rem 0.75rem;
+    }
+
+    .table-modern {
+      border-collapse: separate;
+      border-spacing: 0 10px;
+    }
+
+    .table-modern thead th {
+      border: none;
+      color: var(--muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.6rem 1rem;
+    }
+
+    .table-modern tbody tr {
+      background: #ffffff;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .table-modern tbody td {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 1rem;
+      vertical-align: middle;
+    }
+
+    .table-modern tbody tr td:first-child {
+      border-left: 1px solid var(--border);
+      border-top-left-radius: 12px;
+      border-bottom-left-radius: 12px;
+    }
+
+    .table-modern tbody tr td:last-child {
+      border-right: 1px solid var(--border);
+      border-top-right-radius: 12px;
+      border-bottom-right-radius: 12px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .status-valid { background: #e7f6ed; color: var(--success); }
+    .status-expired { background: #fff3d9; color: var(--warning); }
+    .status-revoked { background: #fde8e8; color: var(--danger); }
+
+    .badge-issuer {
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+    }
+
+    .badge-issuer-est { background: #e0f2fe; color: #075985; }
+    .badge-issuer-scep { background: #fef3c7; color: #92400e; }
+    .badge-issuer-unknown { background: #eef2f7; color: var(--muted); }
+
+    .btn-soft {
+      background: #e8f3f1;
+      border: 1px solid #cfe7e3;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .btn-soft:hover { background: #d4ebe5; color: #0f5f58; }
+
+    .btn-ghost {
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: #ffffff;
+      font-weight: 600;
+    }
+
+    .btn-ghost:hover { background: #f1f5f9; }
+
+    .btn-danger-soft {
+      border: 1px solid #fecaca;
+      background: #fee2e2;
+      color: #7f1d1d;
+      font-weight: 600;
+    }
+
+    .btn-danger-soft:hover { background: #fecaca; }
+
+    .app-meta {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    body.theme-classic {
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #212529;
+      background: #ffffff;
+    }
+
+    body.theme-classic .app-navbar {
+      background: #343a40;
+      border-bottom: none;
+      box-shadow: none;
+    }
+
+    body.theme-classic .app-navbar .navbar-brand,
+    body.theme-classic .app-navbar .nav-link,
+    body.theme-classic .app-navbar .navbar-text a {
+      color: #f8f9fa;
+    }
+
+    body.theme-classic .app-navbar .nav-link.active,
+    body.theme-classic .app-navbar .nav-link:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+
+    body.theme-classic .content-card {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 0;
+    }
+
+    body.theme-classic .page-title {
+      text-align: center;
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    body.theme-classic .page-subtitle {
+      display: none;
+    }
+
+    body.theme-classic .toolbar {
+      gap: 8px;
+    }
+
+    body.theme-classic .search-input {
+      width: 100%;
+      max-width: 100%;
+      border-radius: 4px;
+      border-color: #ced4da;
+      padding: 0.4rem 0.6rem;
+    }
+
+    body.theme-classic .metric-grid {
+      display: none;
+    }
+
+    body.theme-classic .dashboard-page .metric-grid {
+      display: grid;
+    }
+
+    body.theme-classic .dashboard-page .content-card,
+    body.theme-classic .dashboard-page {
+      padding: 0;
+    }
+
+    body.theme-classic .table-modern {
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+
+    body.theme-classic .table-modern thead th {
+      color: #6c757d;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.8rem;
+      border-bottom: 2px solid #dee2e6;
+    }
+
+    body.theme-classic .table-modern tbody tr {
+      background: #ffffff;
+      box-shadow: none;
+    }
+
+    body.theme-classic .table-modern tbody tr:nth-child(even) {
+      background: #f5f5f5;
+    }
+
+    body.theme-classic .table-modern tbody td {
+      border: 1px solid #dee2e6;
+      border-left: none;
+      border-right: none;
+    }
+
+    body.theme-classic .table-modern tbody tr td:first-child,
+    body.theme-classic .table-modern tbody tr td:last-child {
+      border-left: none;
+      border-right: none;
+      border-radius: 0;
+    }
+
+    body.theme-classic .status-pill {
+      background: transparent;
+      padding: 0;
+      font-weight: 600;
+    }
+
+    body.theme-classic .status-valid { color: #28a745; }
+    body.theme-classic .status-expired { color: #fd7e14; }
+    body.theme-classic .status-revoked { color: #dc3545; }
+
+    body.theme-classic .badge-issuer-est { background: #28a745; color: #ffffff; }
+    body.theme-classic .badge-issuer-scep { background: #6f42c1; color: #ffffff; }
+    body.theme-classic .badge-issuer-unknown { background: #007bff; color: #ffffff; }
+
+    body.theme-classic .btn-ghost {
+      border-color: #17a2b8;
+      color: #ffffff;
+      background: #17a2b8;
+    }
+
+    body.theme-classic .btn-soft {
+      background: #ffc107;
+      border-color: #ffc107;
+      color: #212529;
+    }
+
+    body.theme-classic .btn-danger-soft {
+      background: #dc3545;
+      border-color: #dc3545;
+      color: #ffffff;
+    }
+
+    body.theme-classic .btn-ghost:hover,
+    body.theme-classic .btn-soft:hover,
+    body.theme-classic .btn-danger-soft:hover {
+      filter: brightness(0.95);
+    }
+
+    body.theme-color-midnight {
+      --bg: #0b1220;
+      --bg-accent: #111827;
+      --surface: #111827;
+      --surface-2: #0f172a;
+      --border: #1f2937;
+      --text: #ffffff;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-2: #22d3ee;
+      --danger: #f87171;
+      --success: #4ade80;
+      --warning: #fbbf24;
+      background: radial-gradient(circle at 20% 10%, #0f172a 0%, #0b1220 45%, #020617 100%);
+    }
+
+    body.theme-color-midnight .app-navbar {
+      background: rgba(15, 23, 42, 0.95);
+    }
+
+    body.theme-color-midnight .app-navbar .navbar-brand,
+    body.theme-color-midnight .app-navbar .nav-link {
+      color: var(--text);
+    }
+
+    body.theme-color-midnight .app-navbar .nav-link.active,
+    body.theme-color-midnight .app-navbar .nav-link:hover {
+      background: rgba(56, 189, 248, 0.15);
+      color: #e2f6ff;
+    }
+
+    body.theme-color-midnight .content-card,
+    body.theme-color-midnight .metric-card {
+      background: var(--surface);
+      border-color: var(--border);
+      box-shadow: 0 20px 40px rgba(2, 6, 23, 0.45);
+    }
+
+    body.theme-color-midnight pre {
+      background-color: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    body.theme-color-midnight .table-modern tbody tr {
+      background: var(--surface);
+      box-shadow: 0 10px 18px rgba(2, 6, 23, 0.4);
+    }
+
+    body.theme-color-midnight .table-modern tbody td {
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    body.theme-color-midnight .table-modern thead th {
+      color: var(--muted);
+    }
+
+    body.theme-color-midnight .card,
+    body.theme-color-midnight .card-header,
+    body.theme-color-midnight .card-body,
+    body.theme-color-midnight .list-group-item,
+    body.theme-color-midnight .modal-content {
+      background-color: var(--surface);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    body.theme-color-midnight .table,
+    body.theme-color-midnight .table thead th,
+    body.theme-color-midnight .table tbody td {
+      color: var(--text);
+    }
+
+    body.theme-color-midnight .table th,
+    body.theme-color-midnight .table td {
+      border-color: var(--border);
+    }
+
+    body.theme-color-midnight .form-control,
+    body.theme-color-midnight .form-control:focus,
+    body.theme-color-midnight .custom-select,
+    body.theme-color-midnight .custom-select:focus {
+      background-color: var(--surface-2);
+      color: var(--text);
+      border-color: var(--border);
+      box-shadow: none;
+    }
+
+    body.theme-color-midnight .input-group-text {
+      background-color: var(--surface);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    body.theme-color-midnight .text-muted {
+      color: var(--muted) !important;
+    }
+
+    body.theme-color-midnight a,
+    body.theme-color-midnight .page-link {
+      color: #7dd3fc;
+    }
+
+    body.theme-color-midnight .page-link,
+    body.theme-color-midnight .page-item.disabled .page-link {
+      background-color: var(--surface);
+      border-color: var(--border);
+    }
+
+    body.theme-color-midnight .btn-ghost {
+      color: var(--text);
+      background: transparent;
+      border-color: var(--border);
+    }
+
+    @media (max-width: 768px) {
+      .app-shell { padding: 16px 0 32px; }
+      .content-card { padding: 18px; }
+      .page-title { font-size: 1.6rem; }
+      .table-modern { border-spacing: 0 6px; }
+      .app-container { padding-left: 16px; padding-right: 16px; }
+    }
   </style>
 </head>
-<body>
+<body class="theme-{{ theme_style|default('modern') }} theme-color-{{ theme_color|default('snow') }}">
   <!-- Navigation Bar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+  <nav class="navbar navbar-expand-lg navbar-light app-navbar mb-4">
     <a class="navbar-brand" href="/">
     <img
       src="{{ url_for('static', filename='favicon-32x32.png') }}"
@@ -48,7 +534,7 @@
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav">
         {% if request.path not in ['/login', '/register'] %}
-          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/certs') or request.path == '/' %} active{% endif %}" href="/certs">Certs</a></li>
+          <li class="nav-item"><a class="nav-link{% if request.path.startswith('/certs') %} active{% endif %}" href="/certs">Certs</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/sign') %} active{% endif %}" href="/sign">RA(sign)</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/requests') %} active{% endif %}" href="/requests">CSRs</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/keys') %} active{% endif %}" href="/keys">Keys</a></li>
@@ -80,21 +566,25 @@
     <!-- New version badge to the right -->
     <span class="navbar-text text-muted ml-3">
       v{{ version }} | <a href="/about" class="text-muted">About</a>
+      <span class="badge badge-light ml-2">
+        Theme: {{ theme_style|default('modern')|capitalize }} / {{ theme_color|default('snow')|capitalize }}
+      </span>
     </span>
     <!-- User info and actions -->
     {% if current_user.is_authenticated %}
       <span class="navbar-text ml-4">
         <strong>User:</strong> {{ current_user.username }}
         <span class="ml-2"><strong>Role:</strong> {{ 'admin' if current_user.is_admin() else 'user' }}</span>
-        <a href="{{ url_for('account') }}" class="btn btn-sm btn-info ml-2">Account</a>
+        <a href="{{ url_for('account') }}" class="btn btn-sm btn-ghost ml-2">Account</a>
         {% if current_user.is_admin() %}
-          <a href="/users/manage" class="btn btn-sm btn-warning ml-2">Users</a>
+          <a href="/users/manage" class="btn btn-sm btn-soft ml-2">Users</a>
         {% endif %}
       </span>
     {% endif %}
     </div>
   </nav>
-  <div class="container">
+  <div class="app-shell">
+    <div class="container-fluid app-container">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -108,6 +598,7 @@
       {% endif %}
     {% endwith %}
     {% block content %}{% endblock %}
+    </div>
   </div>
 
   <!-- Bootstrap JS and dependencies -->

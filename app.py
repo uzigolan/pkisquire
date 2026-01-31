@@ -2,6 +2,7 @@
 from flask_login import current_user
 import os
 import sqlite3
+import json
 import logging
 import subprocess
 import tempfile
@@ -36,7 +37,7 @@ import inspect_logic
 from asn1crypto import x509 as asn1_x509
 
 from ldap_utils import ldap_authenticate, ldap_user_exists
-from user_models import User, get_user_by_id
+from user_models import User, get_user_by_id, get_user_theme_style, set_user_theme_style, get_user_theme_color, set_user_theme_color
 # Load shared extensions and blueprints
 from extensions import db           # Shared SQLAlchemy instance
 from x509_profiles import x509_profiles_bp, Profile, X509_PROFILE_DIR
@@ -272,6 +273,19 @@ login_manager.login_message = 'Please log in to access this page.'
 @login_manager.user_loader
 def load_user(user_id):
     return get_user_by_id(int(user_id))
+
+@app.context_processor
+def inject_theme_style():
+    theme_style = "modern"
+    theme_color = "snow"
+    if current_user.is_authenticated:
+        try:
+            theme_style = get_user_theme_style(current_user.id)
+            theme_color = get_user_theme_color(current_user.id)
+        except Exception:
+            theme_style = "modern"
+            theme_color = "snow"
+    return {"theme_style": theme_style, "theme_color": theme_color}
 
 # ---------- Logging Setup ----------
 from logging import Formatter
@@ -1062,7 +1076,6 @@ def view_logs_page():
 
 
 
-@app.route("/")
 @app.route("/certs")
 @login_required
 def index():
@@ -1114,6 +1127,129 @@ def index():
         app.logger.error(f"Failed to load index: {e}")
         return f"Error: {e}", 500
 
+
+@app.route("/")
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    try:
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            cur = conn.cursor()
+            if current_user.is_admin():
+                cur.execute("""
+                    SELECT c.cert_pem, c.revoked, c.issued_via
+                    FROM certificates c
+                    ORDER BY c.id DESC
+                """)
+            else:
+                cur.execute("""
+                    SELECT c.cert_pem, c.revoked, c.issued_via
+                    FROM certificates c
+                    WHERE c.user_id = ?
+                    ORDER BY c.id DESC
+                """, (current_user.id,))
+            rows = cur.fetchall()
+
+        now = datetime.now(timezone.utc)
+        summary = {
+            "total": 0,
+            "valid": 0,
+            "expired": 0,
+            "revoked": 0,
+        }
+        enrollment = {
+            "ui": 0,
+            "est": 0,
+            "scep": 0,
+        }
+
+        for cert_pem, revoked, issued_via in rows:
+            summary["total"] += 1
+            if revoked:
+                summary["revoked"] += 1
+            else:
+                try:
+                    cert = x509.load_pem_x509_certificate(
+                        cert_pem.encode(), default_backend()
+                    )
+                    expired = cert.not_valid_after_utc < now
+                except Exception:
+                    expired = False
+                if expired:
+                    summary["expired"] += 1
+                else:
+                    summary["valid"] += 1
+
+            via = (issued_via or "unknown").lower()
+            if via == "ui":
+                enrollment["ui"] += 1
+            elif via == "est":
+                enrollment["est"] += 1
+            elif via == "scep":
+                enrollment["scep"] += 1
+
+        return render_template(
+            "dashboard.html",
+            summary=summary,
+            enrollment=enrollment,
+            is_admin=current_user.is_admin(),
+        )
+    except Exception as e:
+        app.logger.error(f"Failed to load dashboard: {e}")
+        return f"Error: {e}", 500
+
+
+@app.route("/dashboard/activity_data", methods=["GET"])
+@login_required
+def dashboard_activity_data():
+    try:
+        limit = int(request.args.get("limit", 2000))
+        limit = max(100, min(limit, 10000))
+        start_ts = request.args.get("start")
+        end_ts = request.args.get("end")
+        user_role = getattr(g, "user_role", "user")
+        user_id = getattr(g, "user_id", None)
+
+        query = "SELECT event_type, resource_type, resource_name, timestamp, details FROM events WHERE 1=1"
+        params = []
+        if user_role != "admin":
+            query += " AND user_id = ?"
+            params.append(user_id)
+            query += " AND NOT (resource_type = 'user' AND (event_type = 'create' OR event_type = 'delete'))"
+        if start_ts:
+            query += " AND timestamp >= ?"
+            params.append(start_ts)
+        if end_ts:
+            query += " AND timestamp <= ?"
+            params.append(end_ts)
+
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params.append(limit)
+
+        with sqlite3.connect(app.config["DB_PATH"]) as conn:
+            cur = conn.cursor()
+            cur.execute(query, params)
+            rows = cur.fetchall()
+
+        events = []
+        for event_type, resource_type, resource_name, timestamp, details in rows:
+            try:
+                details_obj = json.loads(details) if details else {}
+            except Exception:
+                details_obj = {}
+            events.append({
+                "event_type": event_type,
+                "resource_type": resource_type,
+                "resource_name": resource_name,
+                "timestamp": timestamp,
+                "details": details_obj,
+            })
+
+        events.reverse()
+        return jsonify({"events": events})
+    except Exception as e:
+        app.logger.error(f"Failed to load dashboard activity data: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/certs/state")
 @login_required
@@ -3037,6 +3173,25 @@ def download_pfx(cert_id):
 @login_required
 def account():
     return render_template("account.html")
+
+@app.route("/account/theme", methods=["POST"])
+@login_required
+def account_theme():
+    theme_style = request.form.get("theme_style", "modern").strip().lower()
+    theme_color = request.form.get("theme_color", "snow").strip().lower()
+    if theme_style not in ("modern", "classic"):
+        theme_style = "modern"
+    if theme_color not in ("snow", "midnight"):
+        theme_color = "snow"
+    if theme_style == "classic":
+        theme_color = "snow"
+    updated_style = set_user_theme_style(current_user.id, theme_style)
+    updated_color = set_user_theme_color(current_user.id, theme_color)
+    if updated_style and updated_color:
+        flash("Theme updated.", "success")
+    else:
+        flash("Theme update failed. Run migrate_db.py to add the custom_columns field.", "warning")
+    return redirect(url_for('account'))
 
 @app.route("/change_password", methods=["POST"])
 @login_required

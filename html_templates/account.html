@@ -33,6 +33,29 @@
       <a href="{{ url_for('users.api_tokens') }}" class="btn btn-primary">Manage API Tokens</a>
     </div>
   </div>
+  <div class="card mb-4">
+    <div class="card-header">Appearance</div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('account_theme') }}">
+        <div class="form-group">
+          <label for="theme_style">Theme style</label>
+          <select id="theme_style" name="theme_style" class="form-control">
+            <option value="modern" {% if theme_style == 'modern' %}selected{% endif %}>Modern</option>
+            <option value="classic" {% if theme_style == 'classic' %}selected{% endif %}>Classic</option>
+          </select>
+        </div>
+        <div class="form-group" id="theme-color-group">
+          <label for="theme_color">Theme color</label>
+          <select id="theme_color" name="theme_color" class="form-control">
+            <option value="snow" {% if theme_color == 'snow' %}selected{% endif %}>Snow</option>
+            <option value="midnight" {% if theme_color == 'midnight' %}selected{% endif %}>Midnight</option>
+          </select>
+          <small class="form-text text-muted">Theme color is available for Modern only.</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Theme</button>
+      </form>
+    </div>
+  </div>
   <div class="card">
     <div class="card-header">Logout</div>
     <div class="card-body">
@@ -40,4 +63,18 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  function toggleThemeColor() {
+    var styleSelect = document.getElementById('theme_style');
+    var colorGroup = document.getElementById('theme-color-group');
+    if (!styleSelect || !colorGroup) return;
+    var isModern = styleSelect.value === 'modern';
+    colorGroup.style.display = isModern ? 'block' : 'none';
+  }
+
+  document.addEventListener('DOMContentLoaded', toggleThemeColor);
+  document.getElementById('theme_style').addEventListener('change', toggleThemeColor);
+</script>
 {% endblock %}
