@@ -159,7 +159,7 @@
 
       // Update all sort indicators
       document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = 'sort');
-      document.getElementById('sort-' + columnIndex).textContent = isAscending ? 'asc' : 'desc';
+      document.getElementById('sort-' + columnIndex).textContent = isAscending ? 'up' : 'down';
 
       rows.sort(function(a, b) {
         var aText = a.cells[columnIndex].textContent.trim();

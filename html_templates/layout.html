@@ -459,6 +459,12 @@
       color: var(--muted);
     }
 
+    body.theme-color-midnight .table-modern thead th [id^="sort-"] {
+      color: #e2f6ff;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+
     body.theme-color-midnight .card,
     body.theme-color-midnight .card-header,
     body.theme-color-midnight .card-body,
@@ -515,6 +521,36 @@
       color: var(--text);
       background: transparent;
       border-color: var(--border);
+    }
+
+    body.theme-color-midnight .status-valid {
+      background: rgba(34, 197, 94, 0.18);
+      color: #86efac;
+    }
+
+    body.theme-color-midnight .status-expired {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fcd34d;
+    }
+
+    body.theme-color-midnight .status-revoked {
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+    }
+
+    body.theme-color-midnight .badge-issuer-est {
+      background: rgba(56, 189, 248, 0.2);
+      color: #bae6fd;
+    }
+
+    body.theme-color-midnight .badge-issuer-scep {
+      background: rgba(251, 191, 36, 0.2);
+      color: #fde68a;
+    }
+
+    body.theme-color-midnight .badge-issuer-unknown {
+      background: rgba(148, 163, 184, 0.2);
+      color: #e2e8f0;
     }
 
     body.theme-color-midnight .cert-actions .cert-action {
