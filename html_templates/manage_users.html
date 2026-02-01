@@ -2,7 +2,7 @@
 {% block content %}
 <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
     <h2 style="margin-bottom: 0;">Manage Users</h2>
-    <a href="{{ url_for('users.user_events') }}" class="btn btn-warning mr-2" style="min-width: 180px; font-size: 1.08em; font-weight: 500;">User Events</a>
+    <a href="{{ url_for('users.user_events') }}" class="btn btn-warning mr-2 action-pill" style="min-width: 180px; font-size: 1.08em; font-weight: 500;">User Events</a>
 </div>
 <div class="form-group">
     <input type="text" id="filterInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Filter by any column">
@@ -70,40 +70,40 @@
                 <td style="white-space: nowrap;">
                     {% if user.id != current_user.id %}
                     <form method="post" action="{{ url_for('users.delete_user', user_id=user.id) }}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');" data-testid="btn-delete-user">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-danger action-pill" onclick="return confirm('Are you sure you want to delete this user?');" data-testid="btn-delete-user">Delete</button>
                     </form>
                     <form method="post" action="{{ url_for('users.change_role', user_id=user.id) }}" style="display:inline;">
                         <select name="role" class="form-control form-control-sm d-inline-block w-auto" style="vertical-align:middle;">
                             <option value="user" {% if user.role == 'user' %}selected{% endif %}>User</option>
                             <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
                         </select>
-                        <button type="submit" class="btn btn-sm btn-primary">Change Role</button>
-                            <button type="submit" class="btn btn-sm btn-primary" data-testid="btn-change-role">Change Role</button>
+                        <button type="submit" class="btn btn-sm btn-primary action-pill">Change Role</button>
+                            <button type="submit" class="btn btn-sm btn-primary action-pill" data-testid="btn-change-role">Change Role</button>
                     </form>
                     {% if user.auth_source != 'ldap' %}
                     <form method="post" action="{{ url_for('users.reset_password', user_id=user.id) }}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Reset password for this user?');" data-testid="btn-reset-password">Reset Password</button>
+                            <button type="submit" class="btn btn-sm btn-warning action-pill" onclick="return confirm('Reset password for this user?');" data-testid="btn-reset-password">Reset Password</button>
                     </form>
                     {% endif %}
                     {% if user.status == 'active' %}
                         <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-warning" data-testid="btn-suspend-user">Suspend</button>
+                            <button type="submit" class="btn btn-sm btn-warning action-pill" data-testid="btn-suspend-user">Suspend</button>
                         </form>
                     {% elif user.status == 'deactivated' %}
                         <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-success" data-testid="btn-activate-user">Activate</button>
+                            <button type="submit" class="btn btn-sm btn-success action-pill" data-testid="btn-activate-user">Activate</button>
                         </form>
                     {% elif user.status == 'pending' %}
                         <form method="post" action="{{ url_for('users.approve_user', user_id=user.id) }}" style="display:inline;">
-                               <button type="submit" class="btn btn-sm btn-success" data-testid="btn-approve-user">Approve</button>
+                               <button type="submit" class="btn btn-sm btn-success action-pill" data-testid="btn-approve-user">Approve</button>
                         </form>
                         <form method="post" action="{{ url_for('users.toggle_user_active', user_id=user.id) }}" style="display:inline;">
-                            <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
+                            <button type="submit" class="btn btn-sm btn-warning action-pill">Suspend</button>
                         </form>
                     {% endif %}
                     {% if user.is_logged_in %}
                         <form method="post" action="{{ url_for('users.admin_logout', user_id=user.id) }}" style="display:inline; margin-left: 2px;">
-                            <button type="submit" class="btn btn-sm btn-secondary">Logout</button>
+                            <button type="submit" class="btn btn-sm btn-secondary action-pill">Logout</button>
                         </form>
                     {% endif %}
                     {% else %}
@@ -115,7 +115,7 @@
         </tbody>
     </table>
 </div>
-<a href="{{ url_for('users.add_user') }}" class="btn btn-success" data-testid="btn-add-user">Add User</a>
+<a href="{{ url_for('users.add_user') }}" class="btn btn-success action-pill" data-testid="btn-add-user">Add User</a>
 
 <div class="mt-3">
     {% if config.get('MAX_IDLE_TIME') %}
@@ -164,39 +164,39 @@ function renderUserRow(user, currentUserId) {
     let actions = '';
     if (user.id !== currentUserId) {
         actions += `<form method="post" action="/users/delete/${user.id}" style="display:inline;">
-            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+            <button type="submit" class="btn btn-sm btn-danger action-pill" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
         </form>`;
         actions += `<form method="post" action="/users/change_role/${user.id}" style="display:inline;" oninput="this.querySelector('button[type=submit]').disabled = this.querySelector('select').value === '${user.role}'">
             <select name="role" class="form-control form-control-sm d-inline-block w-auto" style="vertical-align:middle;">
                 <option value="user" ${user.role === 'user' ? 'selected' : ''}>User</option>
                 <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
             </select>
-            <button type="submit" class="btn btn-sm btn-primary" ${user.role === (user.role === 'admin' ? 'admin' : 'user') ? 'disabled' : ''}>Change Role</button>
+            <button type="submit" class="btn btn-sm btn-primary action-pill" ${user.role === (user.role === 'admin' ? 'admin' : 'user') ? 'disabled' : ''}>Change Role</button>
         </form>`;
             if (user.auth_source !== 'ldap') {
                 actions += `<form method="post" action="/users/reset_password/${user.id}" style="display:inline;">
-                    <button type="submit" class="btn btn-sm" style="background-color: #6c757d; color: white;" onclick="return confirm('Reset password for this user?');">Reset Password</button>
+                    <button type="submit" class="btn btn-sm action-pill" style="background-color: #6c757d; color: white;" onclick="return confirm('Reset password for this user?');">Reset Password</button>
                 </form>`;
             }
         if (user.status === 'active') {
             actions += `<form method="post" action="/users/toggle_active/${user.id}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
+                <button type="submit" class="btn btn-sm btn-warning action-pill">Suspend</button>
             </form>`;
         } else if (user.status === 'deactivated') {
             actions += `<form method="post" action="/users/toggle_active/${user.id}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-success">Activate</button>
+                <button type="submit" class="btn btn-sm btn-success action-pill">Activate</button>
             </form>`;
         } else if (user.status === 'pending') {
             actions += `<form method="post" action="/users/approve_user/${user.id}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                <button type="submit" class="btn btn-sm btn-success action-pill">Approve</button>
             </form>`;
             actions += `<form method="post" action="/users/toggle_active/${user.id}" style="display:inline;">
-                <button type="submit" class="btn btn-sm btn-warning">Suspend</button>
+                <button type="submit" class="btn btn-sm btn-warning action-pill">Suspend</button>
             </form>`;
         }
         if (user.is_logged_in) {
             actions += `<form method="post" action="/users/admin_logout/${user.id}" style="display:inline; margin-left: 2px;">
-                            <button type="submit" class="btn btn-sm btn-secondary" data-testid="btn-logout-user">Logout</button>
+                            <button type="submit" class="btn btn-sm btn-secondary action-pill" data-testid="btn-logout-user">Logout</button>
             </form>`;
         }
     } else {
