@@ -245,6 +245,14 @@
 
     .btn-danger-soft:hover { background: #fecaca; }
 
+    .action-pill {
+      border-radius: 10px;
+    }
+
+    .enrollment-pill {
+      border-radius: 10px;
+    }
+
     .app-meta {
       color: var(--muted);
       font-size: 0.85rem;
@@ -503,6 +511,55 @@
       color: var(--text);
       background: transparent;
       border-color: var(--border);
+    }
+
+    body.theme-color-midnight .cert-actions .cert-action {
+      border-radius: 6px;
+      border-width: 1px;
+    }
+
+    body.theme-color-midnight .cert-action-view {
+      background: #38bdf8;
+      border-color: #38bdf8;
+      color: #0b1220;
+    }
+
+    body.theme-color-midnight .cert-action-download {
+      background: #4ade80;
+      border-color: #4ade80;
+      color: #0b1220;
+    }
+
+    body.theme-color-midnight .cert-action-copy {
+      background: #94a3b8;
+      border-color: #94a3b8;
+      color: #0b1220;
+    }
+
+    body.theme-color-midnight .cert-action-pfx {
+      background: #fbbf24;
+      border-color: #fbbf24;
+      color: #0b1220;
+    }
+
+    body.theme-color-midnight .cert-action-revoke {
+      background: #f87171;
+      border-color: #f87171;
+      color: #0b1220;
+    }
+
+    body.theme-color-midnight .cert-action-delete {
+      background: transparent;
+      border-color: #f87171;
+      color: #f87171;
+    }
+
+    body.theme-color-midnight .cert-actions .cert-action:hover {
+      filter: brightness(0.95);
+    }
+
+    body.theme-color-midnight .cert-action-delete:hover {
+      background: rgba(248, 113, 113, 0.15);
     }
 
     @media (max-width: 768px) {

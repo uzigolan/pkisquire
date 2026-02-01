@@ -65,12 +65,12 @@
         {% endif %}
         <td>
             <a href="{{ url_for('keys.view_key', key_id=key.id) }}" 
-               class="btn btn-sm btn-info" data-testid="btn-view-key">View</a>
+               class="btn btn-sm btn-info action-pill" data-testid="btn-view-key">View</a>
             <a href="{{ url_for('keys.download_key', key_id=key.id) }}" 
-               class="btn btn-sm btn-success" data-testid="btn-download-key">Download</a>
+               class="btn btn-sm btn-success action-pill" data-testid="btn-download-key">Download</a>
             <form action="{{ url_for('keys.delete_key', key_id=key.id) }}" 
                   method="post" style="display:inline;">
-              <button type="submit" class="btn btn-sm btn-danger"
+              <button type="submit" class="btn btn-sm btn-danger action-pill"
                       onclick="return confirm('Are you sure?');" data-testid="btn-delete-key">
                 Delete
               </button>

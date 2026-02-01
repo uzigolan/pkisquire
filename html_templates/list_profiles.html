@@ -77,13 +77,13 @@
         </td>
         <td>
           <a href="{{ url_for('profiles.view_profile', name=profile.name) }}"
-             class="btn btn-sm btn-info">View</a>
+             class="btn btn-sm btn-info action-pill">View</a>
           <a href="{{ url_for('profiles.edit_profile_file', name=profile.name) }}"
-             class="btn btn-sm btn-secondary ml-1">Edit</a>
+             class="btn btn-sm btn-secondary ml-1 action-pill">Edit</a>
           <form action="{{ url_for('profiles.delete_profile', name=profile.name) }}"
                 method="post" style="display:inline;">
             <button type="submit"
-                    class="btn btn-sm btn-danger ml-1"
+                    class="btn btn-sm btn-danger ml-1 action-pill"
                     onclick="return confirm('Delete this profile?');">
               Delete
             </button>

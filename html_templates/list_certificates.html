@@ -87,7 +87,7 @@
           </td>
           {% set via = issued_via|default('unknown')|lower %}
           <td>
-            <span class="badge badge-issuer badge-issuer-{{ via }}">
+            <span class="badge badge-issuer enrollment-pill badge-issuer-{{ via }}">
               {{ via|upper }}
             </span>
           </td>
@@ -96,25 +96,25 @@
           {% endif %}
           <td>
             <div class="btn-group cert-actions" role="group">
-              <a href="/view/{{ id }}" class="btn btn-sm btn-ghost" data-testid="btn-view-cert">View</a>
-              <a href="/downloads/{{ id }}" class="btn btn-sm btn-ghost" data-testid="btn-download-cert">Download</a>
-              <button type="button" class="btn btn-sm btn-ghost" onclick="copyCertPem({{ id }}, this);">
+              <a href="/view/{{ id }}" class="btn btn-sm btn-ghost cert-action cert-action-view" data-testid="btn-view-cert">View</a>
+              <a href="/downloads/{{ id }}" class="btn btn-sm btn-ghost cert-action cert-action-download" data-testid="btn-download-cert">Download</a>
+              <button type="button" class="btn btn-sm btn-ghost cert-action cert-action-copy" onclick="copyCertPem({{ id }}, this);">
                 Copy
               </button>
 
-              <a href="javascript:void(0);" class="btn btn-sm btn-soft" onclick="downloadPfx({{ id }});">
+              <a href="javascript:void(0);" class="btn btn-sm btn-soft cert-action cert-action-pfx" onclick="downloadPfx({{ id }});">
                 PFX
               </a>
 
               {% if not revoked %}
-                <a href="javascript:void(0);" class="btn btn-sm btn-danger-soft" onclick="handleRevoke({{ id }});" data-testid="btn-revoke-cert">
+                <a href="javascript:void(0);" class="btn btn-sm btn-danger-soft cert-action cert-action-revoke" onclick="handleRevoke({{ id }});" data-testid="btn-revoke-cert">
                   Revoke
                 </a>
               {% else %}
                 <span class="badge badge-secondary align-self-center">Revoked</span>
               {% endif %}
 
-              <a href="javascript:void(0);" class="btn btn-sm btn-outline-danger" onclick="handleDelete({{ id }});">
+              <a href="javascript:void(0);" class="btn btn-sm btn-outline-danger cert-action cert-action-delete" onclick="handleDelete({{ id }});">
                 Delete
               </a>
             </div>
