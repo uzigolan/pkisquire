@@ -216,6 +216,7 @@ let allRows = [];
 let currentPage = 1;
 let pageSize = 10;
 let sortDirections = {};
+let currentSortColumn = null;
 
 function collectRows() {
     const tbody = document.getElementById('users-table-body');
@@ -224,6 +225,9 @@ function collectRows() {
 }
 
 function showPage(page) {
+    const totalPages = Math.max(1, Math.ceil(allRows.length / pageSize));
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
     currentPage = page;
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
@@ -263,7 +267,7 @@ function previousPage() {
     }
 }
 
-function filterTable() {
+function filterTable(preservePage = false) {
     const filterValue = document.getElementById('filterInput').value.toLowerCase();
     const filterInput = document.getElementById('filterInput');
     if (filterValue) {
@@ -278,10 +282,10 @@ function filterTable() {
         }
         return text.indexOf(filterValue) > -1;
     });
-    showPage(1);
+    showPage(preservePage ? currentPage : 1);
 }
 
-function sortTable(columnIndex) {
+function applySort(columnIndex, direction) {
     masterRows.sort(function(a, b) {
         var aText = a.cells[columnIndex].textContent.trim().toLowerCase();
         var bText = b.cells[columnIndex].textContent.trim().toLowerCase();
@@ -289,16 +293,19 @@ function sortTable(columnIndex) {
         if (aText > bText) return 1;
         return 0;
     });
-    // Toggle sort direction
-    if (sortDirections[columnIndex] === 'asc') {
+    if (direction === 'desc') {
         masterRows.reverse();
-        sortDirections[columnIndex] = 'desc';
-    } else {
-        sortDirections[columnIndex] = 'asc';
     }
     // Update sort indicators
-    document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
-    document.getElementById('sort-' + columnIndex).textContent = sortDirections[columnIndex] === 'asc' ? '↑' : '↓';
+    document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '\u21C5');
+    document.getElementById('sort-' + columnIndex).textContent = direction === 'asc' ? '\u2191' : '\u2193';
+}
+
+function sortTable(columnIndex) {
+    const nextDirection = sortDirections[columnIndex] === 'asc' ? 'desc' : 'asc';
+    sortDirections[columnIndex] = nextDirection;
+    currentSortColumn = columnIndex;
+    applySort(columnIndex, nextDirection);
     filterTable();
 }
 
@@ -309,7 +316,11 @@ function fetchAndUpdateUsers() {
             const tbody = document.getElementById('users-table-body');
             tbody.innerHTML = data.users.map(user => renderUserRow(user, data.current_user_id)).join('');
             collectRows();
-            filterTable();
+            if (currentSortColumn !== null) {
+                const direction = sortDirections[currentSortColumn] || 'asc';
+                applySort(currentSortColumn, direction);
+            }
+            filterTable(true);
         });
 }
 setInterval(fetchAndUpdateUsers, 5000);
@@ -320,3 +331,4 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
