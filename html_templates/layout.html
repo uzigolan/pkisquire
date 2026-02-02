@@ -150,10 +150,20 @@
 
     .search-input {
       min-width: 240px;
-      background: #ffffff;
+      background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 0.55rem 0.75rem;
+      color: var(--text);
+    }
+
+    .filter-input-active {
+      background-color: #fff3cd;
+      color: #5c4a00;
+    }
+
+    .filter-input-active::placeholder {
+      color: #8a6b00;
     }
 
     .table-modern {
@@ -498,6 +508,15 @@
       color: var(--text);
       border-color: var(--border);
       box-shadow: none;
+    }
+
+    body.theme-color-midnight .filter-input-active {
+      background-color: rgba(56, 189, 248, 0.15);
+      color: var(--text);
+    }
+
+    body.theme-color-midnight .filter-input-active::placeholder {
+      color: var(--muted);
     }
 
     body.theme-color-midnight .input-group-text {

@@ -30,8 +30,8 @@
       onkeyup="filterTable()"
       placeholder="Filter by Name, Type, Size, or Date">
   </div>
-    <table id="keyTable" class="table table-bordered table-hover" data-testid="keys-table">
-    <thead class="thead-light">
+    <table id="keyTable" class="table table-modern" data-testid="keys-table">
+    <thead>
       <tr>
         <th>ID</th>
         <th>Name</th>
@@ -117,9 +117,9 @@
       var filterValue = document.getElementById('filterInput').value.toLowerCase();
       var filterInput = document.getElementById('filterInput');
       if (filterValue) {
-        filterInput.style.backgroundColor = '#fff3cd';
+        filterInput.classList.add('filter-input-active');
       } else {
-        filterInput.style.backgroundColor = '';
+        filterInput.classList.remove('filter-input-active');
       }
       var table = document.getElementById('keyTable');
       var tbody = table.getElementsByTagName('tbody')[0];
