@@ -271,9 +271,9 @@ function filterTable(preservePage = false) {
     const filterValue = document.getElementById('filterInput').value.toLowerCase();
     const filterInput = document.getElementById('filterInput');
     if (filterValue) {
-        filterInput.style.backgroundColor = '#fff3cd';
+        filterInput.classList.add('filter-input-active');
     } else {
-        filterInput.style.backgroundColor = '';
+        filterInput.classList.remove('filter-input-active');
     }
     allRows = masterRows.filter(function(row) {
         let text = '';

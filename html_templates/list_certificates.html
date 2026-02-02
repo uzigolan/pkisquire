@@ -189,9 +189,9 @@
 
       // Change background color if filter is active
       if (filterValue) {
-        filterInput.style.backgroundColor = '#fff3cd'; // Light yellow
+        filterInput.classList.add('filter-input-active');
       } else {
-        filterInput.style.backgroundColor = '';
+        filterInput.classList.remove('filter-input-active');
       }
 
       var table = document.getElementById('certTable');

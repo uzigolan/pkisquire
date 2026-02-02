@@ -134,9 +134,9 @@
       var filterValue = document.getElementById('filterInput').value.toLowerCase();
       var filterInput = document.getElementById('filterInput');
       if (filterValue) {
-        filterInput.style.backgroundColor = '#fff3cd';
+        filterInput.classList.add('filter-input-active');
       } else {
-        filterInput.style.backgroundColor = '';
+        filterInput.classList.remove('filter-input-active');
       }
       var table = document.getElementById('profileTable');
       var tbody = table.getElementsByTagName('tbody')[0];

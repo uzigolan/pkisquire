@@ -27,8 +27,8 @@
       onkeyup="filterTable()"
       placeholder="Filter by Name, Key, Profile, or Date">
   </div>
-  <table id="csrTable" class="table table-bordered">
-    <thead class="thead-light">
+  <table id="csrTable" class="table table-modern">
+    <thead>
       <tr>
           <th data-testid="header-id">ID</th>
         <th>Name</th>
@@ -116,9 +116,9 @@
       var filterValue = document.getElementById('filterInput').value.toLowerCase();
       var filterInput = document.getElementById('filterInput');
       if (filterValue) {
-        filterInput.style.backgroundColor = '#fff3cd';
+        filterInput.classList.add('filter-input-active');
       } else {
-        filterInput.style.backgroundColor = '';
+        filterInput.classList.remove('filter-input-active');
       }
       // Always filter from masterRows, not from allRows (which may be filtered/paginated)
       allRows = masterRows.filter(function(row) {
