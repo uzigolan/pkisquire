@@ -30,19 +30,28 @@
   </ul>
   <div class="tab-content border border-top-0 p-3" id="publicKeyTabsContent">
     <div class="tab-pane fade show active" id="public-pkcs8" role="tabpanel" aria-labelledby="public-pkcs8-tab">
-      <pre>{{ key.public_key }}</pre>
+      <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="key-public-pkcs8-pre">Copy</button>
+      </div>
+      <pre id="key-public-pkcs8-pre">{{ key.public_key }}</pre>
     </div>
     {% if key.key_type != "PQC" and key.curve_name != "secp256k1" %}
       <div class="tab-pane fade" id="public-rfc4716" role="tabpanel" aria-labelledby="public-rfc4716-tab">
         {% if rfc4716_public %}
-          <pre>{{ rfc4716_public }}</pre>
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="key-public-rfc4716-pre">Copy</button>
+          </div>
+          <pre id="key-public-rfc4716-pre">{{ rfc4716_public }}</pre>
         {% else %}
           <p><em>SSH2 unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
         {% endif %}
       </div>
       <div class="tab-pane fade" id="public-rfc4716-bare" role="tabpanel" aria-labelledby="public-rfc4716-bare-tab">
         {% if rfc4716_public_bare %}
-          <pre>{{ rfc4716_public_bare }}</pre>
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="key-public-rfc4716-bare-pre">Copy</button>
+          </div>
+          <pre id="key-public-rfc4716-bare-pre">{{ rfc4716_public_bare }}</pre>
         {% else %}
           <p><em>SSH2 (bare) unavailable{% if format_errors.rfc4716_public %}: {{ format_errors.rfc4716_public }}{% endif %}</em></p>
         {% endif %}
@@ -63,12 +72,18 @@
   </ul>
   <div class="tab-content border border-top-0 p-3" id="privateKeyTabsContent">
     <div class="tab-pane fade show active" id="private-pkcs8" role="tabpanel" aria-labelledby="private-pkcs8-tab">
-      <pre>{{ key.private_key }}</pre>
+      <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="key-private-pkcs8-pre">Copy</button>
+      </div>
+      <pre id="key-private-pkcs8-pre">{{ key.private_key }}</pre>
     </div>
     {% if key.key_type == "RSA" %}
       <div class="tab-pane fade" id="private-pkcs1" role="tabpanel" aria-labelledby="private-pkcs1-tab">
         {% if pkcs1_private %}
-          <pre>{{ pkcs1_private }}</pre>
+          <div class="d-flex justify-content-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="key-private-pkcs1-pre">Copy</button>
+          </div>
+          <pre id="key-private-pkcs1-pre">{{ pkcs1_private }}</pre>
         {% else %}
           <p><em>PKCS1 unavailable{% if format_errors.pkcs1_private %}: {{ format_errors.pkcs1_private }}{% endif %}</em></p>
         {% endif %}

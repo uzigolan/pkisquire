@@ -103,21 +103,5 @@
     </div>
   </div>
   <a href="/" class="btn btn-secondary mt-3">← Back to Home</a>
-  <script>
-  document.addEventListener("DOMContentLoaded", function() {
-    document.querySelectorAll("[data-copy-target]").forEach(function(btn) {
-      btn.addEventListener("click", function() {
-        const targetId = btn.getAttribute("data-copy-target");
-        const targetEl = document.getElementById(targetId);
-        if (!targetEl || !navigator.clipboard) return;
-        navigator.clipboard.writeText(targetEl.textContent.trim()).then(function() {
-          const original = btn.textContent;
-          btn.textContent = "Copied!";
-          setTimeout(() => { btn.textContent = original; }, 1200);
-        });
-      });
-    });
-  });
-  </script>
 {% endblock %}
 

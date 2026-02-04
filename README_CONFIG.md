@@ -8,6 +8,9 @@ This document describes all options available in `config.ini` for the Pikachu CA
 - **SECRET_KEY**: Flask secret key for session security.
 - **http_port**: HTTP port for unauthenticated OCSP (default: 80).
 - **max_idle_time**: Maximum idle time before automatic logout (e.g., `10h`, `4d`, `20m`).
+- **allow_self_registration**: Enable self-registration at `/users/register` (`true`/`false`).
+- **show_legacy_paths**: Show legacy routes like `/x509_templates` (`true`/`false`). Requires admin role.
+- **default_new_user_role**: Default role for newly onboarded users (`user` or `admin`). If missing or invalid, defaults to `user`.
 
 ## [LOGGING]
 - **log_level**: Logging level (`TRACE`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).

@@ -46,7 +46,10 @@
   <h2>Current CRL Content</h2>
   <div class="card mb-4">
     <div class="card-body">
-      <pre>{{ crl_content }}</pre>
+      <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="crl-content-pre">Copy</button>
+      </div>
+      <pre id="crl-content-pre">{{ crl_content }}</pre>
     </div>
   </div>
 
