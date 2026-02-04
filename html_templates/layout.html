@@ -662,7 +662,7 @@
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/profiles') %} active{% endif %}" href="/profiles">Certificate Templates</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/va') %} active{% endif %}" href="/va">VA(crl)</a></li>
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/ca') %} active{% endif %}" href="/ca">CA ({{ ca_mode }})</a></li>
-          {% if current_user.is_authenticated and current_user.is_admin() %}
+          {% if current_user.is_authenticated and current_user.is_admin() and show_legacy_paths %}
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/x509_templates') %} active{% endif %}" href="/x509_templates">Templates</a></li>
           {% endif %}
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/events') %} active{% endif %}" href="/events">Events</a></li>
@@ -744,6 +744,28 @@
     document.body.appendChild(form);
     form.submit();
   }
+  </script>
+  <script>
+  document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll("[data-copy-target]").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        const targetId = btn.getAttribute("data-copy-target");
+        const targetEl = document.getElementById(targetId);
+        if (!targetEl || !navigator.clipboard) return;
+        let text = "";
+        if (targetEl.tagName === "TEXTAREA" || targetEl.tagName === "INPUT") {
+          text = targetEl.value || "";
+        } else {
+          text = targetEl.textContent || "";
+        }
+        navigator.clipboard.writeText(text.trim()).then(function() {
+          const original = btn.textContent;
+          btn.textContent = "Copied!";
+          setTimeout(() => { btn.textContent = original; }, 1200);
+        });
+      });
+    });
+  });
   </script>
 
 

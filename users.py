@@ -22,6 +22,16 @@ def init_users_config(app, config):
     app.config["MAX_IDLE_TIME"] = config.get("DEFAULT", "max_idle_time", fallback="7d")
     app.config["API_TOKEN_DEFAULT_VALIDITY"] = config.get("DEFAULT", "api_token_default_validity", fallback="60d")
     app.config["API_TOKEN_LENGTH"] = config.getint("DEFAULT", "api_token_length", fallback=64)
+    app.config["DEFAULT_NEW_USER_ROLE"] = config.get("DEFAULT", "default_new_user_role", fallback="user")
+
+
+def _get_default_new_user_role():
+    role = current_app.config.get("DEFAULT_NEW_USER_ROLE", "user")
+    if isinstance(role, str):
+        role = role.strip().lower()
+    if role not in ("user", "admin"):
+        role = "user"
+    return role
 
 
 def register_login_signals(app):
@@ -860,7 +870,7 @@ def delete_user(user_id):
 @users_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     # Enforce allow_self_registration from config.ini
     allow_self_registration = current_app.config.get('allow_self_registration', True)
     # If config value is a string, normalize to bool
@@ -904,20 +914,20 @@ def register():
             for error in errors:
                 flash(error, "error")
             return render_template("register.html")
-        # Check if this is the first user (make them admin)
+        # Determine role for new users (configurable)
         conn = sqlite3.connect(current_app.config["DB_PATH"])
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM users")
         user_count = cur.fetchone()[0]
         conn.close()
-        role = 'admin' if user_count == 0 else 'user'
+        role = _get_default_new_user_role()
         user_id = create_user_db(username, password, role, email or None)
         if user_id:
             if role == 'admin':
-                flash("Account created successfully! You are the first user and have been granted admin privileges. You can now log in.", "success")
+                flash("Account created successfully! Your account has been granted admin privileges. You can now log in.", "success")
             else:
                 flash("Account created and pending approval. Your registration is awaiting administrator review.", "info")
-            current_app.logger.info(f"New user registered: {username} with role: {role}")
+            current_app.logger.info(f"New user registered: {username} with role: {role} (user_count={user_count})")
             return redirect(url_for('users.login'))
         else:
             flash("Registration failed. Please try again.", "error")
@@ -927,7 +937,7 @@ def register():
 @users_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(url_for('dashboard'))
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "").strip()
@@ -956,7 +966,7 @@ def login():
                     ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
                     log_user_event('login', user.id, {'username': user.username, 'by': user.id, 'actor_username': user.username, 'ip': ip_addr})
                     current_app.logger.info(f"User {username} authenticated via LDAP and synced to local DB.")
-                    return redirect(url_for('index'))
+                    return redirect(url_for('dashboard'))
                 else:
                     flash("Invalid username or password.", "error")
                     current_app.logger.warning(f"Failed login attempt for: {username} (LDAP)")
@@ -967,7 +977,7 @@ def login():
                 ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
                 log_user_event('login', user.id, {'username': user.username, 'by': user.id, 'actor_username': user.username, 'ip': ip_addr})
                 current_app.logger.info(f"User {username} logged in from IP {ip_addr}")
-                return redirect(url_for('index'))
+                return redirect(url_for('dashboard'))
             else:
                 flash("Invalid username or password.", "error")
                 current_app.logger.warning(f"Failed login attempt for: {username}")
@@ -975,7 +985,8 @@ def login():
             from ldap_utils import ldap_authenticate
             ldap_result = ldap_authenticate(username, password, current_app.config, current_app.logger)
             if ldap_result:
-                user_id = create_user_db(username, password, role='user', email=ldap_result.get('email'), status='active', auth_source='ldap')
+                role = _get_default_new_user_role()
+                user_id = create_user_db(username, password, role=role, email=ldap_result.get('email'), status='active', auth_source='ldap')
                 # You may want to update LDAP_IMPORTED_USERS and LDAP_SOURCE_CACHE here
                 user = get_user_by_username(username)
                 if user and user.status == 'active':
@@ -985,7 +996,7 @@ def login():
                     ip_addr = request.headers.get('X-Forwarded-For', request.remote_addr)
                     log_user_event('login', user.id, {'username': user.username, 'by': user.id, 'actor_username': user.username, 'ip': ip_addr})
                     current_app.logger.info(f"User {username} authenticated via LDAP and synced to local DB.")
-                    return redirect(url_for('index'))
+                    return redirect(url_for('dashboard'))
                 else:
                     flash("LDAP authentication succeeded but local user could not be activated. Contact administrator.", "error")
                     current_app.logger.error(f"LDAP auth ok for {username} but local user creation/activation failed.")

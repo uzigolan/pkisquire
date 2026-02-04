@@ -3,7 +3,7 @@ import re
 import subprocess
 import tempfile
 from datetime import datetime
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, abort
 from jinja2 import Environment, meta, FileSystemLoader
 from extensions import db
 
@@ -150,6 +150,8 @@ def _validate_cnf_disable(path: str) -> (bool, str):
 @x509_profiles_bp.route("/x509_templates/", endpoint="list_templates", methods=["GET"])
 @login_required
 def list_templates():
+    if not (current_user.is_admin() and current_app.config.get("SHOW_LEGACY_PATHS", False)):
+        return abort(404)
     template_files = [f for f in os.listdir(X509_TEMPLATE_DIR) if f.endswith(".j2")]
     return render_template("list_templates.html", template_files=template_files)
 
@@ -159,6 +161,8 @@ def list_templates():
 @x509_profiles_bp.route("/template", methods=["GET", "POST"])
 @login_required
 def template_form():
+    if not (current_user.is_admin() and current_app.config.get("SHOW_LEGACY_PATHS", False)):
+        return abort(404)
     template_name = request.args.get("template")
     if not template_name:
         return redirect(url_for("profiles.list_templates"))

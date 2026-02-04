@@ -171,6 +171,7 @@ app.config["SECRET_KEY"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-se
 app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please-set-me")
 HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
 app.config["allow_self_registration"] = _cfg.get("DEFAULT", "allow_self_registration", fallback="true")
+app.config["SHOW_LEGACY_PATHS"] = _cfg.getboolean("DEFAULT", "show_legacy_paths", fallback=False)
 init_users_config(app, _cfg)
 
 ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
@@ -530,6 +531,10 @@ def inject_ca_mode():
     ca_mode_value = app.config.get("CA_MODE", "UNKNOWN")
     app.logger.debug(f"inject_ca_mode called: returning ca_mode={ca_mode_value}")
     return {"ca_mode": ca_mode_value}
+
+@app.context_processor
+def inject_legacy_paths_flag():
+    return {"show_legacy_paths": app.config.get("SHOW_LEGACY_PATHS", False)}
 
 
 OID_TO_NAME = {
@@ -2343,8 +2348,8 @@ def submit():
     )
     app.logger.debug(f"submit: Event logged for certificate creation, serial={actual_serial}")
     flash(f"Certificate signed successfully! Serial: {actual_serial}", "success")
-    app.logger.debug("submit: Redirecting to home page after successful signing")
-    return redirect("/")
+    app.logger.debug("submit: Redirecting to /certs after successful signing")
+    return redirect("/certs")
 
 @app.route("/submit_q", methods=["POST"])
 def submit_q():

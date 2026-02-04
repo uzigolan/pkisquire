@@ -7,7 +7,10 @@
   {% endif %}
   <div class="card">
     <div class="card-body">
-      <pre>{{ file_content }}</pre>
+      <div class="d-flex justify-content-end">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="profile-file-pre">Copy</button>
+      </div>
+      <pre id="profile-file-pre">{{ file_content }}</pre>
     </div>
   </div>
   <a href="{{ url_for('profiles.list_profiles') }}" class="btn btn-secondary mt-3">Back to Certificate Templates</a>
