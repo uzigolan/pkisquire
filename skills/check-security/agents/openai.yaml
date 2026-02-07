@@ -1,0 +1,4 @@
+interface:
+  display_name: "Check Security"
+  short_description: "Run Bandit and pip-audit, write security reports."
+  default_prompt: "Run the security scan for this repo and update reports."

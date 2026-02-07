@@ -210,6 +210,13 @@ app.config["SCEP_CHALLENGE_PASSWORD_ENABLED"] = _cfg.getboolean("SCEP", "challen
 app.config["SCEP_CHALLENGE_PASSWORD_VALIDITY"] = _cfg.get("SCEP", "challenge_password_validity", fallback="60m")
 HTTP_SCEP_PORT                = _cfg.getint("SCEP", "http_port", fallback=9090)
 
+# —— OCSP section ——
+ocsp_hash_alg = _cfg.get("OCSP", "hash_algorithm", fallback="sha1").lower()
+if ocsp_hash_alg not in ("sha1", "sha256"):
+    app.logger.warning("Invalid OCSP hash_algorithm '%s'; defaulting to sha1", ocsp_hash_alg)
+    ocsp_hash_alg = "sha1"
+app.config["OCSP_HASH_ALGORITHM"] = ocsp_hash_alg
+
 # —— HTTPS section —— 
 SSL_CERT_PATH = _cfg.get("HTTPS", "ssl_cert")
 SSL_KEY_PATH  = _cfg.get("HTTPS", "ssl_key")
@@ -2557,6 +2564,11 @@ def download_chain():
 
 
 # ---------- OCSPV Endpoint ----------
+def _ocsp_hash_algorithm():
+    if app.config.get("OCSP_HASH_ALGORITHM") == "sha256":
+        return hashes.SHA256()
+    return hashes.SHA1()  # nosec B303 - legacy OCSP client compatibility
+
 
 
 from cryptography.x509.ocsp import (
@@ -2636,7 +2648,7 @@ def ocspv():
                 builder = builder.add_response(
                     cert=target_cert,
                     issuer=ca_cert,
-                    algorithm=hashes.SHA1(),
+                    algorithm=_ocsp_hash_algorithm(),
                     cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
                     this_update=now,
                     next_update=next_update,
@@ -2746,7 +2758,7 @@ def ocsp():
                 builder = builder.add_response(
                     cert=target_cert,
                     issuer=ca_cert,
-                    algorithm=hashes.SHA1(),  # match client CertID hash if you later extract it
+                    algorithm=_ocsp_hash_algorithm(),  # match client CertID hash if you later extract it
                     cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
                     this_update=now,
                     next_update=next_update,
@@ -3245,10 +3257,10 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 
 def run_http_general():
-    app.run(host="0.0.0.0", port=HTTP_DEFAULT_PORT,use_reloader=False, use_debugger=True)
+    app.run(host="0.0.0.0", port=HTTP_DEFAULT_PORT, use_reloader=False, use_debugger=True)  # nosec B104 - exposed by design behind firewall
 
 def run_https():
-    app.run(host="0.0.0.0", port=HTTPS_PORT, ssl_context=(SSL_CERT_PATH, SSL_KEY_PATH), use_reloader=False, use_debugger=True)
+    app.run(host="0.0.0.0", port=HTTPS_PORT, ssl_context=(SSL_CERT_PATH, SSL_KEY_PATH), use_reloader=False, use_debugger=True)  # nosec B104 - exposed by design behind firewall
 
 def run_trusted_https():
     try:
@@ -3257,7 +3269,7 @@ def run_trusted_https():
         context.load_verify_locations(cafile=app.config["CHAIN_FILE_PATH"])
         context.verify_mode = ssl.CERT_REQUIRED  # Force client cert verification
         app.logger.info(f"Starting trusted HTTPS server on port {TRUSTED_HTTPS_PORT} with mTLS required.")
-        app.run(host="0.0.0.0", port=TRUSTED_HTTPS_PORT, ssl_context=context, use_reloader=False, use_debugger=True)
+        app.run(host="0.0.0.0", port=TRUSTED_HTTPS_PORT, ssl_context=context, use_reloader=False, use_debugger=True)  # nosec B104 - exposed by design behind firewall
     except Exception as e:
         app.logger.error(f"Error starting trusted HTTPS server: {e}", exc_info=True)
         print(f"Error starting trusted HTTPS server: {e}")

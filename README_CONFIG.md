@@ -58,6 +58,9 @@ This document describes all options available in `config.ini` for the Pikachu CA
 - **challenge_password_enabled**: Enable challenge-password feature (`true`/`false`).
 - **challenge_password_validity**: Validity period for challenge-passwords (e.g., `60m`, `2m`).
 
+## [OCSP]
+- **hash_algorithm**: OCSP CertID hash algorithm (`sha1` or `sha256`). Use `sha1` for legacy client compatibility, `sha256` for stronger hashing.
+
 ## [HTTPS]
 - **ssl_cert**: Path to HTTPS certificate.
 - **ssl_key**: Path to HTTPS private key.
