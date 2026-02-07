@@ -2,13 +2,13 @@
 {% block content %}
   <div class="row">
     <div class="col-12">
-      <h1 class="mb-4">🔐 About Pikachu CA</h1>
-      
+      <h1 class="mb-4">About Pikachu CA</h1>
+
       <div class="card mb-4">
         <div class="card-body">
           <h5 class="card-title">Overview</h5>
           <p class="card-text">
-            A Flask-based Public Key Infrastructure (PKI) platform for managing certificate lifecycles 
+            A Flask-based Public Key Infrastructure (PKI) platform for managing certificate lifecycles
             with SCEP, EST, and OCSP protocol support.
           </p>
         </div>
@@ -16,22 +16,22 @@
 
       <div class="card mb-4">
         <div class="card-body">
-          <h5 class="card-title">🚀 Features</h5>
+          <h5 class="card-title">Features</h5>
           <ul>
-            <li>📄 Web UI + RESTful API support</li>
-            <li>🔒 CSR submission and certificate issuance</li>
-            <li>📄 Certificate revocation and CRL generation</li>
-            <li>🌐 SCEP and EST protocol support for automated enrollment</li>
-            <li>⚛️ Post-Quantum Cryptography (e.g., Dilithium)</li>
-            <li>📡 MQTTs TLS integration</li>
-            <li>✅ OCSP real-time validation</li>
+            <li>Web UI + RESTful API support</li>
+            <li>CSR submission and certificate issuance</li>
+            <li>Certificate revocation and CRL generation</li>
+            <li>SCEP and EST protocol support for automated enrollment</li>
+            <li>Post-Quantum Cryptography (e.g., Dilithium)</li>
+            <li>MQTTs TLS integration</li>
+            <li>OCSP real-time validation</li>
           </ul>
         </div>
       </div>
 
       <div class="card mb-4">
         <div class="card-body">
-          <h5 class="card-title">🔗 Resources</h5>
+          <h5 class="card-title">Resources</h5>
           <div class="list-group list-group-flush">
             <a href="https://github.com/uzigolan/pikachu-ca" target="_blank" class="list-group-item list-group-item-action">
               <strong>GitHub Repository</strong><br>
@@ -55,7 +55,44 @@
 
       <div class="card mb-4">
         <div class="card-body">
-          <h5 class="card-title">⚡ Version</h5>
+          <h5 class="card-title">Security</h5>
+          <p class="card-text">
+            Security reports include Bandit static analysis outputs (JSON/HTML/interactive),
+            pip-audit dependency findings, and dated history snapshots under <code>security/history</code>.
+          </p>
+          <div class="list-group list-group-flush">
+            <a href="{{ url_for('bandit_report_interactive') }}" target="_blank" class="list-group-item list-group-item-action">
+              <strong>Bandit Interactive Report (Latest)</strong><br>
+              <small class="text-muted">Security review with search, filter, and sort</small>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Tests</h5>
+          <p class="card-text">
+            Two pytest suites: a 17-step UI lifecycle flow and API/PowerShell tests
+            covering basic endpoints, EST, EST mTLS, and SCEP (with and without challenge),
+            with artifact and DB cleanup. Reports are stored under <code>tests_repo/reports</code>.
+          </p>
+          <div class="list-group list-group-flush">
+            <a href="{{ url_for('latest_ui_report') }}" target="_blank" class="list-group-item list-group-item-action">
+              <strong>UI Test Report (Latest)</strong><br>
+              <small class="text-muted">Full UI certificate lifecycle report</small>
+            </a>
+            <a href="{{ url_for('latest_api_report') }}" target="_blank" class="list-group-item list-group-item-action">
+              <strong>API Test Report (Latest)</strong><br>
+              <small class="text-muted">API and protocol flow report</small>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Version</h5>
           <p class="card-text">
             <strong>Current Version:</strong> {{ version }}
           </p>
@@ -73,7 +110,7 @@
       </div>
 
       <p class="text-center text-muted mt-4">
-        <small>Stay secure, and may your certs never expire! ⚡</small>
+        <small>Stay secure, and may your certs never expire.</small>
       </p>
     </div>
   </div>

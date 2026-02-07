@@ -1687,6 +1687,42 @@ def license_file():
     return send_file(license_path, mimetype="text/markdown")
 
 
+def _latest_report_path(pattern):
+    reports_dir = Path(current_app.root_path) / "tests_repo" / "reports"
+    if not reports_dir.exists():
+        return None
+    matches = sorted(
+        reports_dir.glob(pattern),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True
+    )
+    return matches[0] if matches else None
+
+
+@app.route("/security/bandit-report-interactive")
+def bandit_report_interactive():
+    report_path = Path(current_app.root_path) / "security" / "bandit-report-interactive.html"
+    if not report_path.exists():
+        abort(404)
+    return send_file(report_path, mimetype="text/html")
+
+
+@app.route("/reports/ui/latest")
+def latest_ui_report():
+    report_path = _latest_report_path("pikachu_test_ui_full_*.html")
+    if not report_path or not report_path.exists():
+        abort(404)
+    return send_file(report_path, mimetype="text/html")
+
+
+@app.route("/reports/api/latest")
+def latest_api_report():
+    report_path = _latest_report_path("pikachu_test_api_full_*.html")
+    if not report_path or not report_path.exists():
+        abort(404)
+    return send_file(report_path, mimetype="text/html")
+
+
 # ---------- Validity Endpoint ----------
 
 @app.route("/update_validity", methods=["POST"])
