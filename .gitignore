@@ -21,3 +21,4 @@ db/*.db
 db_tools/*
 x509_profiles/*
 tests/results/*
+security/history/*

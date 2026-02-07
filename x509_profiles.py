@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, abort
-from jinja2 import Environment, meta, FileSystemLoader
+from jinja2 import Environment, meta, FileSystemLoader, select_autoescape
 from extensions import db
 
 x509_profiles_bp = Blueprint("profiles", __name__, template_folder="html_templates")
@@ -167,7 +167,10 @@ def template_form():
     if not template_name:
         return redirect(url_for("profiles.list_templates"))
 
-    env = Environment(loader=FileSystemLoader(X509_TEMPLATE_DIR))
+    env = Environment(
+        loader=FileSystemLoader(X509_TEMPLATE_DIR),
+        autoescape=select_autoescape(enabled_extensions=("html", "htm", "xml"), default_for_string=True),
+    )
     source, _, _ = env.loader.get_source(env, template_name)
     parsed = env.parse(source)
     variables = sorted(meta.find_undeclared_variables(parsed))
