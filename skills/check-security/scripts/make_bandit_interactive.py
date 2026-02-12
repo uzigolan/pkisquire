@@ -8,7 +8,7 @@ def build_html(rows):
 <html>
 <head>
   <meta charset=\"utf-8\" />
-  <title>Bandit Report (Interactive)</title>
+  <title>Bandit Report</title>
   <style>
     body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; }
     h1 { margin: 0 0 8px 0; }
@@ -27,7 +27,7 @@ def build_html(rows):
   </style>
 </head>
 <body>
-  <h1>Bandit Report (Interactive)</h1>
+  <h1>Bandit Report</h1>
   <div class=\"muted\">Source: bandit-report.json</div>
 
   <div class=\"controls\">

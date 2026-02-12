@@ -39,13 +39,13 @@
       </ul>
       <div class="tab-content border border-top-0 p-3" id="certRawTabsContent">
         <div class="tab-pane fade show active" id="cert-raw-pem" role="tabpanel" aria-labelledby="cert-raw-pem-tab">
-          <div class="d-flex justify-content-end">
+          <div class="d-flex justify-content-start">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-raw-pem-pre">Copy</button>
           </div>
           <pre id="cert-raw-pem-pre" style="font-size: 0.85em;">{{ raw_cert }}</pre>
         </div>
         <div class="tab-pane fade" id="cert-raw-b64" role="tabpanel" aria-labelledby="cert-raw-b64-tab">
-          <div class="d-flex justify-content-end">
+          <div class="d-flex justify-content-start">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-raw-b64-pre">Copy</button>
           </div>
           <pre id="cert-raw-b64-pre" style="font-size: 0.8em;">{{ raw_cert_b64 }}</pre>
@@ -68,7 +68,7 @@
       </ul>
       <div class="tab-content border border-top-0 p-3" id="certPublicKeyTabsContent">
         <div class="tab-pane fade show active" id="cert-public-pkcs8" role="tabpanel" aria-labelledby="cert-public-pkcs8-tab">
-          <div class="d-flex justify-content-end">
+          <div class="d-flex justify-content-start">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-pkcs8-pre">Copy</button>
           </div>
           <pre id="cert-public-pkcs8-pre">{{ public_key_pem }}</pre>
@@ -76,7 +76,7 @@
         {% if not is_pqc_key and is_ssh2_key %}
           <div class="tab-pane fade" id="cert-public-rfc4716" role="tabpanel" aria-labelledby="cert-public-rfc4716-tab">
             {% if public_key_rfc4716 %}
-              <div class="d-flex justify-content-end">
+              <div class="d-flex justify-content-start">
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-rfc4716-pre">Copy</button>
               </div>
               <pre id="cert-public-rfc4716-pre">{{ public_key_rfc4716 }}</pre>
@@ -86,7 +86,7 @@
           </div>
           <div class="tab-pane fade" id="cert-public-rfc4716-bare" role="tabpanel" aria-labelledby="cert-public-rfc4716-bare-tab">
             {% if public_key_openssh %}
-              <div class="d-flex justify-content-end">
+              <div class="d-flex justify-content-start">
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-rfc4716-bare-pre">Copy</button>
               </div>
               <pre id="cert-public-rfc4716-bare-pre">{{ public_key_openssh }}</pre>

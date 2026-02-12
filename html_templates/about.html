@@ -62,8 +62,12 @@
           </p>
           <div class="list-group list-group-flush">
             <a href="{{ url_for('bandit_report_interactive') }}" target="_blank" class="list-group-item list-group-item-action">
-              <strong>Bandit Interactive Report (Latest)</strong><br>
+              <strong>Bandit Report (Latest)</strong><br>
               <small class="text-muted">Security review with search, filter, and sort</small>
+            </a>
+            <a href="{{ url_for('pip_audit_report_interactive') }}" target="_blank" class="list-group-item list-group-item-action">
+              <strong>Vulnerabilities Report (Latest)</strong><br>
+              <small class="text-muted">Dependency findings with severity, filter, and sort</small>
             </a>
           </div>
         </div>

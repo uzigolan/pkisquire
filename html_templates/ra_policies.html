@@ -24,7 +24,7 @@
   </div>
   {% endif %}
   {% if policies %}
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex align-items-center mb-3">
     <div class="form-inline">
       <label for="pageSizeSelect" class="mr-2">Show:</label>
       <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
@@ -34,6 +34,7 @@
       </select>
       <span id="pageInfo" class="mr-3"></span>
     </div>
+    <div class="flex-grow-1 text-center text-muted small">Tip: click any Extension cell to copy its full content.</div>
     <div>
       <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
       <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
@@ -84,7 +85,9 @@
                 {{ created }}
               {% endif %}
             </td>
-            <td style="max-width: 320px; white-space: pre-wrap; font-size: 12px;">{{ (p.ext_config or '')[:200] }}{% if p.ext_config and p.ext_config|length > 200 %}...{% endif %}</td>
+            <td style="max-width: 320px; white-space: pre-wrap; font-size: 12px; cursor: pointer;" data-ext="{{ (p.ext_config or '') | e }}" onclick="copyExtensionCell(this)">
+              {{ (p.ext_config or '')[:200] }}{% if p.ext_config and p.ext_config|length > 200 %}...{% endif %}
+            </td>
             <td class="text-nowrap">
               <a class="btn btn-sm btn-info" href="{{ url_for('ra_policy_edit', policy_id=p.id, view=1) }}">View</a>
               {% if is_admin or p.type != 'system' %}
@@ -126,6 +129,14 @@
         el.classList.add('text-success');
         setTimeout(() => el.classList.remove('text-success'), 1200);
       }
+    }
+
+    function copyExtensionCell(cell) {
+      if (!navigator.clipboard) return;
+      const value = cell ? (cell.getAttribute('data-ext') || '') : '';
+      navigator.clipboard.writeText(value);
+      cell.classList.add('text-success');
+      setTimeout(() => { cell.classList.remove('text-success'); }, 1200);
     }
 
     function showPage(page) {

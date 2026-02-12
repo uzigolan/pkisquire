@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>pip-audit report</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --chip: #f3f4f6;
+    }
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; color: var(--text); background: var(--bg); }
+    h1 { margin: 0 0 6px; }
+    .meta { color: var(--muted); margin-bottom: 16px; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    input[type="text"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 240px; }
+    select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+    th { text-align: left; white-space: nowrap; cursor: pointer; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; }
+    .muted { color: var(--muted); }
+    .count { margin-left: auto; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>pip-audit report</h1>
+  <div class="meta">Generated at: 2026-02-12 13:20:48 +02:00 | Version: 2.0.1</div>
+  <div class="controls">
+    <input id="filterInput" type="text" placeholder="Filter by package, vuln id, or severity" onkeyup="applyFilter()" />
+    <label>
+      Severity:
+      <select id="severitySelect" onchange="applyFilter()">
+        <option value="">All</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+        <option value="unreported">Unspecified</option>
+      </select>
+    </label>
+    <span class="count" id="resultCount"></span>
+  </div>
+  <table id="auditTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">Package</th>
+        <th onclick="sortTable(1)">Version</th>
+        <th onclick="sortTable(2)">Vulnerability ID</th>
+        <th onclick="sortTable(3)">Severity</th>
+        <th onclick="sortTable(4)">Score</th>
+        <th onclick="sortTable(5)">Fix Versions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr data-severity="high"><td>cryptography</td><td>46.0.3</td><td><a href="https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-26007" target="_blank" rel="noopener noreferrer">CVE-2026-26007</a></td><td><span class="chip">High</span></td><td>8.2</td><td>46.0.5</td></tr>
+    </tbody>
+  </table>
+
+<script>
+  let sortDirections = {};
+
+  function applyFilter() {
+    const input = document.getElementById('filterInput').value.toLowerCase();
+    const severity = document.getElementById('severitySelect').value.toLowerCase();
+    const tbody = document.querySelector('#auditTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    let shown = 0;
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      const sev = row.getAttribute('data-severity') || 'unknown';
+      const matchesText = text.indexOf(input) > -1;
+      const matchesSev = !severity || sev === severity;
+      const show = matchesText && matchesSev;
+      row.style.display = show ? '' : 'none';
+      if (show) shown += 1;
+    });
+    document.getElementById('resultCount').textContent = 'Showing ' + shown + ' of ' + rows.length;
+  }
+
+  function sortTable(columnIndex) {
+    const tbody = document.querySelector('#auditTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAscending = sortDirections[columnIndex] !== 'asc';
+    sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
+    rows.sort((a, b) => {
+      const aText = a.cells[columnIndex].textContent.trim().toLowerCase();
+      const bText = b.cells[columnIndex].textContent.trim().toLowerCase();
+      if (columnIndex === 4) {
+        const aNum = parseFloat(aText) || 0;
+        const bNum = parseFloat(bText) || 0;
+        return isAscending ? aNum - bNum : bNum - aNum;
+      }
+      if (aText < bText) return isAscending ? -1 : 1;
+      if (aText > bText) return isAscending ? 1 : -1;
+      return 0;
+    });
+    rows.forEach(row => tbody.appendChild(row));
+    applyFilter();
+  }
+
+  document.addEventListener('DOMContentLoaded', applyFilter);
+</script>
+</body>
+</html>

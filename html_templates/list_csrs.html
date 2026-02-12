@@ -27,13 +27,13 @@
       onkeyup="filterTable()"
       placeholder="Filter by Name, Key, Profile, or Date">
   </div>
-  <table id="csrTable" class="table table-modern">
+  <table id="csrTable" class="table table-striped table-sm">
     <thead>
       <tr>
-          <th data-testid="header-id">ID</th>
-        <th>Name</th>
-        <th>Key</th>
-        <th>Profile</th>
+          <th style="cursor:pointer;" onclick="sortTable(0)" data-testid="header-id">ID <span id="sort-0">⇅</span></th>
+        <th style="cursor:pointer;" onclick="sortTable(1)">Name <span id="sort-1">⇅</span></th>
+        <th style="cursor:pointer;" onclick="sortTable(2)">Key <span id="sort-2">⇅</span></th>
+        <th style="cursor:pointer;" onclick="sortTable(3)">Profile <span id="sort-3">⇅</span></th>
         <th style="cursor:pointer;" onclick="sortTable(4)">Created At <span id="sort-4">⇅</span></th>
         {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(5)">User <span id="sort-5">⇅</span></th>{% endif %}
         <th>Actions</th>

@@ -33,17 +33,17 @@
       </div>
     </div>
 
-    <table id="certTable" class="table table-modern" data-testid="certs-table">
+    <table id="certTable" class="table table-striped table-sm" data-testid="certs-table">
       <thead>
         <tr>
           <th>ID</th>
           <th>Common Name</th>
           <th>Serial <small class="text-muted">(click to copy)</small></th>
-          <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">sort</span></th>
-          <th style="cursor:pointer;" onclick="sortTable(4)">Date <span id="sort-4">sort</span></th>
-          <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">sort</span></th>
+          <th style="cursor:pointer;" onclick="sortTable(3)">Key <span id="sort-3">⇅</span></th>
+          <th style="cursor:pointer;" onclick="sortTable(4)">Date <span id="sort-4">⇅</span></th>
+          <th style="cursor:pointer;" onclick="sortTable(5)">Status <span id="sort-5">⇅</span></th>
           <th>Enrollment</th>
-          {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(7)">User <span id="sort-7">sort</span></th>{% endif %}
+          {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(7)">User <span id="sort-7">⇅</span></th>{% endif %}
           <th>Actions</th>
         </tr>
       </thead>
@@ -158,8 +158,8 @@
       sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
 
       // Update all sort indicators
-      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = 'sort');
-      document.getElementById('sort-' + columnIndex).textContent = isAscending ? 'up' : 'down';
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+      document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
 
       rows.sort(function(a, b) {
         var aText = a.cells[columnIndex].textContent.trim();
