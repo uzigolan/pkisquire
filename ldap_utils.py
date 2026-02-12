@@ -33,22 +33,33 @@ def _log(logger, level: str, message: str) -> None:
             log_fn(message)
 
 
+def _looks_like_ad_people_dn(people_dn: Optional[str]) -> bool:
+    """Best-effort AD detection from common users container DN."""
+    if not people_dn:
+        return False
+    normalized = people_dn.lower().replace(" ", "")
+    return normalized.startswith("cn=users,")
+
+
 def _build_dn_candidates(username: str, base_dn: Optional[str], people_dn: Optional[str]) -> list[str]:
     """Generate reasonable DN guesses for the user."""
     short = username.split("@", 1)[0] if username and "@" in username else username
+    # AD typically uses cn=... while many LDAP directories use uid=...
+    # Prioritize cn for the common AD default users container.
+    rdn_order = ("cn", "uid") if _looks_like_ad_people_dn(people_dn) else ("uid", "cn")
     candidates = []
     if people_dn:
-        candidates.append(f"uid={username},{people_dn}")
-        candidates.append(f"cn={username},{people_dn}")
+        for rdn in rdn_order:
+            candidates.append(f"{rdn}={username},{people_dn}")
         if short != username:
-            candidates.append(f"uid={short},{people_dn}")
-            candidates.append(f"cn={short},{people_dn}")
+            for rdn in rdn_order:
+                candidates.append(f"{rdn}={short},{people_dn}")
     if base_dn:
-        candidates.append(f"uid={username},{base_dn}")
-        candidates.append(f"cn={username},{base_dn}")
+        for rdn in rdn_order:
+            candidates.append(f"{rdn}={username},{base_dn}")
         if short != username:
-            candidates.append(f"uid={short},{base_dn}")
-            candidates.append(f"cn={short},{base_dn}")
+            for rdn in rdn_order:
+                candidates.append(f"{rdn}={short},{base_dn}")
     # Deduplicate while preserving order
     seen = set()
     uniq = []
@@ -84,7 +95,7 @@ def ldap_authenticate(username: str, password: str, cfg: Dict, logger=None) -> O
 
     short_username = username.split("@", 1)[0] if "@" in username else username
 
-    server = Server(host, port=port, use_ssl=use_ssl, get_info=ALL)
+    server = Server(host, port=port, use_ssl=use_ssl, get_info=ALL, connect_timeout=5)
 
     # 1) Try direct binds with common DN patterns
     for dn in _build_dn_candidates(username, base_dn, people_dn):
@@ -107,7 +118,7 @@ def ldap_authenticate(username: str, password: str, cfg: Dict, logger=None) -> O
         _log(
             logger,
             "debug",
-            f"Attempting admin bind with DN: {admin_dn}, password: {admin_password}, host: {host}, port: {port}"
+            f"Attempting admin bind with DN: {admin_dn}, host: {host}, port: {port}"
         )
         try:
             admin_conn = Connection(
@@ -198,11 +209,11 @@ def ldap_user_exists(username: str, cfg: Dict, logger=None) -> bool:
         return False
 
     short_username = username.split("@", 1)[0] if "@" in username else username
-    server = Server(host, port=port, use_ssl=use_ssl, get_info=ALL)
+    server = Server(host, port=port, use_ssl=use_ssl, get_info=ALL, connect_timeout=5)
     _log(
         logger,
         "debug",
-        f"[Exists Check] Attempting admin bind with DN: {admin_dn}, password: {admin_password}, host: {host}, port: {port}"
+        f"[Exists Check] Attempting admin bind with DN: {admin_dn}, host: {host}, port: {port}"
     )
     try:
         admin_conn = Connection(
