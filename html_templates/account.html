@@ -18,7 +18,7 @@
   </ul>
   <div class="tab-content border border-top-0 p-3" id="accountTabsContent">
     <div class="tab-pane fade show active" id="panel-password" role="tabpanel" aria-labelledby="tab-password">
-      {% if current_user.auth_source != 'ldap' %}
+      {% if current_user.auth_source and current_user.auth_source|lower == 'local' %}
       <form method="POST" action="{{ url_for('change_password') }}">
         <div class="form-group">
           <label for="current_password">Current Password</label>
@@ -35,7 +35,7 @@
         <button type="submit" class="btn btn-primary">Change Password</button>
       </form>
       {% else %}
-      <div class="alert alert-info mb-0">Password changes are managed by your LDAP/Active Directory administrator.</div>
+      <div class="alert alert-info mb-0">Password changes are managed by your authentication provider.</div>
       {% endif %}
     </div>
     <div class="tab-pane fade" id="panel-tokens" role="tabpanel" aria-labelledby="tab-tokens">
