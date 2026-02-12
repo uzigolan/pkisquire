@@ -33,6 +33,10 @@ from cryptography.x509.ocsp import OCSPResponseBuilder, OCSPCertStatus, load_der
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
 from cryptography.hazmat.primitives import serialization 
 from markupsafe import escape
+try:
+    import markdown as md
+except Exception:
+    md = None
 import inspect_logic
 from asn1crypto import x509 as asn1_x509
 
@@ -1680,11 +1684,10 @@ def about():
 
 
 @app.route("/license")
+@app.route("/license.html")
 def license_file():
     license_path = Path(current_app.root_path) / "LICENSE.md"
-    if not license_path.exists():
-        abort(404)
-    return send_file(license_path, mimetype="text/markdown")
+    return _render_markdown_file(license_path, "License")
 
 
 def _latest_report_path(pattern):
@@ -1697,6 +1700,63 @@ def _latest_report_path(pattern):
         reverse=True
     )
     return matches[0] if matches else None
+
+
+def _render_markdown_file(path: Path, title: str):
+    if not path.exists():
+        abort(404)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if md:
+        body = md.markdown(text, extensions=["fenced_code", "tables"])
+    else:
+        body = f"<pre>{escape(text)}</pre>"
+    html = f"""<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>{escape(title)}</title>
+  <style>
+    body {{
+      font-family: Segoe UI, Arial, sans-serif;
+      margin: 24px;
+      color: #1f2933;
+      background: #ffffff;
+    }}
+    h1 {{ margin-top: 0; }}
+    pre, code {{
+      font-family: Consolas, "Courier New", monospace;
+      background: #f5f5f5;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }}
+    pre {{
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }}
+    table {{
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+    }}
+    th, td {{
+      border: 1px solid #e5e7eb;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }}
+    th {{
+      background: #f9fafb;
+    }}
+    a {{ color: #0d6efd; }}
+  </style>
+</head>
+<body>
+  <h1>{escape(title)}</h1>
+  <div>{body}</div>
+</body>
+</html>"""
+    return Response(html, mimetype="text/html")
 
 
 @app.route("/security/bandit-report-interactive")
@@ -1713,6 +1773,18 @@ def pip_audit_report_interactive():
     if not report_path.exists():
         abort(404)
     return send_file(report_path, mimetype="text/html")
+
+
+@app.route("/security/readme")
+def security_readme():
+    readme_path = Path(current_app.root_path) / "security" / "README.md"
+    return _render_markdown_file(readme_path, "Security README")
+
+
+@app.route("/tests/readme")
+def tests_readme():
+    readme_path = Path(current_app.root_path) / "tests_repo" / "README.md"
+    return _render_markdown_file(readme_path, "Tests README")
 
 
 @app.route("/reports/ui/latest")
