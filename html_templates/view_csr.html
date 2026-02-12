@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">CSR Details (ID: {{ csr.id }})</h1>
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <h1 class="mb-0">CSR Details (ID: {{ csr.id }})</h1>
+    <a href="{{ url_for('requests.list_csrs') }}" class="btn btn-secondary">Back to CSRs List</a>
+  </div>
   <div class="row">
     <div class="col-md-6">
       <p><strong>Name:</strong> {{ csr.name }}</p>
@@ -29,6 +32,5 @@
       <pre id="csr-pem-pre">{{ csr.csr_pem }}</pre>
     </div>
   </div>
-  <a href="{{ url_for('requests.list_csrs') }}" class="btn btn-secondary mt-3">Back to CSR List</a>
 {% endblock %}
 

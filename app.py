@@ -1985,11 +1985,28 @@ def _get_profile_options():
     return Profile.query.filter_by(user_id=current_user.id).order_by(Profile.id.desc()).all()
 
 
+def _load_policy_for_clone(policy_id: int):
+    mgr = get_ra_policy_manager()
+    policy = mgr.get_policy(policy_id=policy_id)
+    if not policy:
+        abort(404)
+    if not current_user.is_admin():
+        if policy["type"] != "system" and policy.get("user_id") != current_user.id:
+            abort(403)
+    return policy
+
+
 @app.route("/ra_policies/new", methods=["GET", "POST"])
 @login_required
 def ra_policy_new():
     mgr = get_ra_policy_manager()
     profiles = _get_profile_options()
+    clone_id = request.args.get("clone_id", type=int)
+    clone_policy = _load_policy_for_clone(clone_id) if clone_id else None
+    prefill_name = ""
+    if clone_policy:
+        prefill_name = f"{clone_policy.get('name', '')}_copy"
+
     if request.method == "POST":
         name = (request.form.get("name") or "").strip()
         validity = (request.form.get("validity") or DEFAULT_VALIDITY_DAYS).strip()
@@ -2002,7 +2019,14 @@ def ra_policy_new():
 
         if not name:
             flash("Policy name is required", "danger")
-            return render_template("ra_policy_form.html", profiles=profiles, is_admin=current_user.is_admin(), mode="new")
+            return render_template(
+                "ra_policy_form.html",
+                profiles=profiles,
+                is_admin=current_user.is_admin(),
+                mode="new",
+                policy=clone_policy,
+                prefill_name=prefill_name,
+            )
 
         if profile_name:
             prof = Profile.query.filter_by(name=profile_name).first()
@@ -2038,7 +2062,14 @@ def ra_policy_new():
         except Exception as e:
             flash(f"Error creating policy: {e}", "danger")
 
-    return render_template("ra_policy_form.html", profiles=profiles, is_admin=current_user.is_admin(), mode="new")
+    return render_template(
+        "ra_policy_form.html",
+        profiles=profiles,
+        is_admin=current_user.is_admin(),
+        mode="new",
+        policy=clone_policy,
+        prefill_name=prefill_name,
+    )
 
 
 def _load_policy_for_edit(policy_id: int):

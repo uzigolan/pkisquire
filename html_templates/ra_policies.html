@@ -88,6 +88,7 @@
             <td style="max-width: 320px; white-space: pre-wrap; font-size: 12px; cursor: pointer;" onclick="copyExtensionCell(this)"><textarea class="d-none" aria-hidden="true">{{ p.ext_config or '' }}</textarea>{{ (p.ext_config or '')[:200] }}{% if p.ext_config and p.ext_config|length > 200 %}...{% endif %}</td>
             <td class="text-nowrap">
               <a class="btn btn-sm btn-info" href="{{ url_for('ra_policy_edit', policy_id=p.id, view=1) }}">View</a>
+              <a class="btn btn-sm btn-primary ml-1" href="{{ url_for('ra_policy_new', clone_id=p.id) }}">Clone</a>
               {% if is_admin or p.type != 'system' %}
                 <a class="btn btn-sm btn-secondary ml-1" href="{{ url_for('ra_policy_edit', policy_id=p.id) }}">Edit</a>
                 {% if is_admin or p.user_id == current_user.id %}

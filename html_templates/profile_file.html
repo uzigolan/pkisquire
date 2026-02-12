@@ -1,18 +1,20 @@
 {% extends "layout.html" %}
 {% block content %}
-  <h1 class="mb-4">Certificate Template File: {{ filename }}</h1>
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <h1 class="mb-0">Certificate Template File: {{ filename }}</h1>
+    <a href="{{ url_for('profiles.list_profiles') }}" class="btn btn-secondary">Back to Certificate Templates</a>
+  </div>
   {% if profile %}
     <p><strong>Originating Template:</strong> {{ profile.template_name }}</p>
     <p><strong>Template Type:</strong> {{ profile.profile_type|default("Default") }}</p>
   {% endif %}
   <div class="card">
     <div class="card-body">
-      <div class="d-flex justify-content-end">
+      <div class="d-flex justify-content-start">
         <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="profile-file-pre">Copy</button>
       </div>
       <pre id="profile-file-pre">{{ file_content }}</pre>
     </div>
   </div>
-  <a href="{{ url_for('profiles.list_profiles') }}" class="btn btn-secondary mt-3">Back to Certificate Templates</a>
 {% endblock %}
 
