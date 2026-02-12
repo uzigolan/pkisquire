@@ -6,22 +6,24 @@
     <a href="/downloads/chain"     class="btn btn-outline-secondary mr-2" data-testid="btn-download-ca-chain">Download CA Chain Cert</a>
   </div>
 
-  <h2>Root CA Certificate</h2>
-
-  {% set cert_details = root_cert_details %}
-  {% set raw_cert = root_raw_cert %}
-  {% set cert_text = root_cert_text %}
-  {% set raw_cert_id = "root-raw-cert-pre" %}
-  {% include "_certificate_detail.html" %}
-  
-  <hr>
-  
-  <h2>Subordinate CA Certificate</h2>
-  {% set cert_details = sub_cert_details %}
-  {% set raw_cert = sub_raw_cert %}
-  {% set cert_text = sub_cert_text %}
-  {% set raw_cert_id = "sub-raw-cert-pre" %}
-  {% include "_certificate_detail.html" %}
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <h2>Subordinate CA Certificate</h2>
+      {% set cert_details = sub_cert_details %}
+      {% set raw_cert = sub_raw_cert %}
+      {% set cert_text = sub_cert_text %}
+      {% set raw_cert_id = "sub-raw-cert-pre" %}
+      {% include "_certificate_detail.html" %}
+    </div>
+    <div class="col-lg-6 mb-4">
+      <h2>Root CA Certificate</h2>
+      {% set cert_details = root_cert_details %}
+      {% set raw_cert = root_raw_cert %}
+      {% set cert_text = root_cert_text %}
+      {% set raw_cert_id = "root-raw-cert-pre" %}
+      {% include "_certificate_detail.html" %}
+    </div>
+  </div>
   
   <a href="/" class="btn btn-secondary mt-3" data-testid="btn-back-dashboard">Back to Dashboard</a>
 {% endblock %}

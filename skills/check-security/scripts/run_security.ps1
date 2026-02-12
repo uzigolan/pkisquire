@@ -66,8 +66,12 @@ Set-Content -Path (Join-Path $security 'bandit-report.html') -Value $banditHtml 
 
 # pip-audit report
 $pipAuditPath = Join-Path $security 'pip-audit.txt'
+$pipAuditJson = Join-Path $security 'pip-audit.json'
 "Generated at: $generatedAt | Version: $version" | Out-File -FilePath $pipAuditPath -Encoding ascii
 & $venvPipAudit -r (Join-Path $Root 'requirements.txt') | Out-File -FilePath $pipAuditPath -Encoding ascii -Append
+
+# pip-audit JSON (for interactive report)
+& $venvPipAudit -r (Join-Path $Root 'requirements.txt') -f json | Set-Content -Path $pipAuditJson -Encoding UTF8
 
 @"
 <!doctype html>
@@ -94,11 +98,16 @@ Get-Content (Join-Path $security 'pip-audit.txt') | Add-Content -Path (Join-Path
 </html>
 "@ | Add-Content -Path (Join-Path $security 'pip-audit.html') -Encoding Ascii
 
+# Interactive HTML from JSON
+& $venvPython (Join-Path $PSScriptRoot 'make_pip_audit_interactive.py') -i $pipAuditJson -o (Join-Path $security 'pip-audit-interactive.html') -t $generatedAt -v $version
+
 # Snapshot into history
 Copy-Item -Force (Join-Path $security 'bandit-report.json') $historyDir
 Copy-Item -Force (Join-Path $security 'bandit-report.html') $historyDir
 Copy-Item -Force (Join-Path $security 'bandit-report-interactive.html') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit.txt') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit.html') $historyDir
+Copy-Item -Force (Join-Path $security 'pip-audit.json') $historyDir
+Copy-Item -Force (Join-Path $security 'pip-audit-interactive.html') $historyDir
 
 Write-Host "Security reports updated. History: $historyDir"

@@ -30,7 +30,7 @@
       onkeyup="filterTable()"
       placeholder="Filter by Name, Type, Size, or Date">
   </div>
-    <table id="keyTable" class="table table-modern" data-testid="keys-table">
+    <table id="keyTable" class="table table-striped table-sm" data-testid="keys-table">
     <thead>
       <tr>
         <th>ID</th>
@@ -68,6 +68,8 @@
                class="btn btn-sm btn-info action-pill" data-testid="btn-view-key">View</a>
             <a href="{{ url_for('keys.download_key', key_id=key.id) }}" 
                class="btn btn-sm btn-success action-pill" data-testid="btn-download-key">Download</a>
+            <button type="button" class="btn btn-sm btn-warning action-pill" data-copy-target="key-public-{{ key.id }}">Copy Public</button>
+            <button type="button" class="btn btn-sm action-pill" style="background-color: #fd7e14; color: #fff;" data-copy-target="key-private-{{ key.id }}">Copy Private</button>
             <form action="{{ url_for('keys.delete_key', key_id=key.id) }}" 
                   method="post" style="display:inline;">
               <button type="submit" class="btn btn-sm btn-danger action-pill"
@@ -75,6 +77,8 @@
                 Delete
               </button>
             </form>
+            <textarea id="key-public-{{ key.id }}" class="d-none">{{ key.public_key }}</textarea>
+            <textarea id="key-private-{{ key.id }}" class="d-none">{{ key.private_key }}</textarea>
        </td>
       </tr>
       {% endfor %}

@@ -1707,6 +1707,14 @@ def bandit_report_interactive():
     return send_file(report_path, mimetype="text/html")
 
 
+@app.route("/security/pip-audit-interactive")
+def pip_audit_report_interactive():
+    report_path = Path(current_app.root_path) / "security" / "pip-audit-interactive.html"
+    if not report_path.exists():
+        abort(404)
+    return send_file(report_path, mimetype="text/html")
+
+
 @app.route("/reports/ui/latest")
 def latest_ui_report():
     report_path = _latest_report_path("pikachu_test_ui_full_*.html")

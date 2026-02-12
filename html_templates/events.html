@@ -32,27 +32,23 @@
   <input type="text" id="filterInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Filter by Event Type, Resource, Name, or Details">
 </div>
 
-<table class="table table-bordered table-striped" data-testid="events-table">
+<table class="table table-bordered table-striped" data-testid="events-table" style="table-layout: fixed;">
   <thead>
     <tr>
-      {% set sort_icon = {'asc': '^', 'desc': 'v'} %}
+      {% set col_index = 0 %}
+      <th style="cursor:pointer; white-space: nowrap;" onclick="sortTable({{ col_index }})">Time <span id="sort-{{ col_index }}" style="display:inline-block; width: 1.1em; text-align:center;">⇅</span></th>
+      {% set col_index = col_index + 1 %}
       {% if show_user_column %}
-        {% set sortable_columns = [('timestamp', 'Time'), ('user_id', 'User'), ('event_type', 'Event Type'), ('resource_type', 'Resource Type'), ('resource_name', 'Resource Name'), ('details', 'Details')] %}
-      {% else %}
-        {% set sortable_columns = [('timestamp', 'Time'), ('event_type', 'Event Type'), ('resource_type', 'Resource Type'), ('resource_name', 'Resource Name'), ('details', 'Details')] %}
+        <th style="cursor:pointer; white-space: nowrap;" onclick="sortTable({{ col_index }})">User <span id="sort-{{ col_index }}" style="display:inline-block; width: 1.1em; text-align:center;">⇅</span></th>
+        {% set col_index = col_index + 1 %}
       {% endif %}
-      {% for col, label in sortable_columns %}
-        <th>
-          {% set header_query = request.args.to_dict() %}
-          {% set _ = header_query.pop('page', None) %}
-          {% set new_dir = 'desc' if sort == col and direction == 'asc' else 'asc' %}
-          {% set _ = header_query.update({'sort': col, 'direction': new_dir, 'page': 1}) %}
-          <a href="?{{ header_query|urlencode }}" style="text-decoration:none; color:inherit;">
-            {{ label }}
-            {% if sort == col %}<span style="font-size:0.9em;">{{ sort_icon[direction] }}</span>{% endif %}
-          </a>
-        </th>
-      {% endfor %}
+      <th style="cursor:pointer; white-space: nowrap;" onclick="sortTable({{ col_index }})">Event Type <span id="sort-{{ col_index }}" style="display:inline-block; width: 1.1em; text-align:center;">⇅</span></th>
+      {% set col_index = col_index + 1 %}
+      <th style="cursor:pointer; white-space: nowrap;" onclick="sortTable({{ col_index }})">Resource Type <span id="sort-{{ col_index }}" style="display:inline-block; width: 1.1em; text-align:center;">⇅</span></th>
+      {% set col_index = col_index + 1 %}
+      <th style="cursor:pointer; white-space: nowrap;" onclick="sortTable({{ col_index }})">Resource Name <span id="sort-{{ col_index }}" style="display:inline-block; width: 1.1em; text-align:center;">⇅</span></th>
+      {% set col_index = col_index + 1 %}
+      <th style="cursor:pointer; white-space: nowrap;" onclick="sortTable({{ col_index }})">Details <span id="sort-{{ col_index }}" style="display:inline-block; width: 1.1em; text-align:center;">⇅</span></th>
       <th></th>
     </tr>
   </thead>
@@ -121,10 +117,13 @@ function copyResourceName(element) {
 let currentPage = 1;
 let pageSize = 10;
 let allRows = [];
+let masterRows = [];
+let sortDirections = {};
 function initPagination() {
   var table = document.querySelector('table.table');
   var tbody = table.getElementsByTagName('tbody')[0];
-  allRows = Array.from(tbody.getElementsByTagName('tr'));
+  masterRows = Array.from(tbody.getElementsByTagName('tr'));
+  allRows = masterRows.slice();
   showPage(1);
 }
 function showPage(page) {
@@ -167,18 +166,15 @@ function filterTable() {
   } else {
     filterInput.classList.remove('filter-input-active');
   }
-  var table = document.querySelector('table.table');
-  var tbody = table.getElementsByTagName('tbody')[0];
-  var rows = tbody.getElementsByTagName('tr');
   allRows = [];
-  for (var i = 0; i < rows.length; i++) {
-    rows[i].style.display = 'none';
-    var timeText = rows[i].cells[0].textContent.trim().toLowerCase();
-    var userText = rows[i].cells.length > 6 ? rows[i].cells[1].textContent.trim().toLowerCase() : '';
-    var eventTypeText = rows[i].cells[rows[i].cells.length > 6 ? 2 : 1].textContent.trim().toLowerCase();
-    var resourceTypeText = rows[i].cells[rows[i].cells.length > 6 ? 3 : 2].textContent.trim().toLowerCase();
-    var resourceNameText = rows[i].cells[rows[i].cells.length > 6 ? 4 : 3].textContent.trim().toLowerCase();
-    var detailsText = rows[i].cells[rows[i].cells.length > 6 ? 5 : 4].textContent.trim().toLowerCase();
+  for (var i = 0; i < masterRows.length; i++) {
+    masterRows[i].style.display = 'none';
+    var timeText = masterRows[i].cells[0].textContent.trim().toLowerCase();
+    var userText = masterRows[i].cells.length > 6 ? masterRows[i].cells[1].textContent.trim().toLowerCase() : '';
+    var eventTypeText = masterRows[i].cells[masterRows[i].cells.length > 6 ? 2 : 1].textContent.trim().toLowerCase();
+    var resourceTypeText = masterRows[i].cells[masterRows[i].cells.length > 6 ? 3 : 2].textContent.trim().toLowerCase();
+    var resourceNameText = masterRows[i].cells[masterRows[i].cells.length > 6 ? 4 : 3].textContent.trim().toLowerCase();
+    var detailsText = masterRows[i].cells[masterRows[i].cells.length > 6 ? 5 : 4].textContent.trim().toLowerCase();
     if (
       timeText.indexOf(filterValue) > -1 ||
       userText.indexOf(filterValue) > -1 ||
@@ -187,10 +183,40 @@ function filterTable() {
       resourceNameText.indexOf(filterValue) > -1 ||
       detailsText.indexOf(filterValue) > -1
     ) {
-      allRows.push(rows[i]);
+      allRows.push(masterRows[i]);
     }
   }
   showPage(1);
+}
+function sortTable(columnIndex) {
+  var table = document.querySelector('table.table');
+  var tbody = table.getElementsByTagName('tbody')[0];
+  var isAscending = sortDirections[columnIndex] !== 'asc';
+  sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
+
+  document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
+  document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
+
+  masterRows.sort(function(a, b) {
+    var aText = a.cells[columnIndex].textContent.trim().toLowerCase();
+    var bText = b.cells[columnIndex].textContent.trim().toLowerCase();
+    if (columnIndex === 0) {
+      var aDate = new Date(aText);
+      var bDate = new Date(bText);
+      return isAscending ? aDate - bDate : bDate - aDate;
+    }
+    if (aText < bText) return isAscending ? -1 : 1;
+    if (aText > bText) return isAscending ? 1 : -1;
+    return 0;
+  });
+
+  masterRows.forEach(row => tbody.appendChild(row));
+  if (document.getElementById('filterInput').value) {
+    filterTable();
+  } else {
+    allRows = masterRows.slice();
+    showPage(1);
+  }
 }
 window.addEventListener('DOMContentLoaded', initPagination);
 </script>
