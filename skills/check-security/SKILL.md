@@ -1,6 +1,6 @@
 ---
 name: check-security
-description: Run security scanning for this repo using Bandit and pip-audit, generate JSON/HTML/interactive reports under security/, and snapshot them under security/history. Use when asked to check vulnerabilities, produce security reports, or refresh security history snapshots.
+description: Run security scanning for this repo using Bandit, pip-audit, and pip-licenses, generate JSON/HTML/interactive reports under security/, and snapshot them under security/history. Use when asked to check vulnerabilities/licenses, produce security reports, or refresh security history snapshots.
 ---
 
 # Check Security
@@ -26,15 +26,27 @@ Run the bundled script from the repo root:
 2. Run pip-audit and write:
    - `security/pip-audit.txt`
    - `security/pip-audit.html`
-3. Copy all reports into `security/history/YYYY-MM-DD_HH-mm-ss/`.
+   - `security/pip-audit.json`
+   - `security/pip-audit-interactive.html`
+3. Run pip-licenses and write:
+   - `security/pip-licenses.txt`
+   - `security/pip-licenses.html`
+   - `security/pip-licenses.json`
+   - `security/pip-licenses-interactive.html`
+4. Apply license denylist policy from `security/license-denylist.txt` and write:
+   - `security/pip-licenses-denied.txt`
+5. Copy all reports into `security/history/YYYY-MM-DD_HH-mm-ss/`.
 
 ## Notes
 
-- Requires `.venv` at repo root. The script installs `bandit` and `pip-audit` into the venv if missing.
+- Requires `.venv` at repo root. The script installs `bandit`, `pip-audit`, and `pip-licenses` into the venv if missing.
+- By default, denylist violations fail the run. Use `-NoLicensePolicyFail` to keep generating reports without failing.
 - Update `security/README.md` manually only if the output set changes.
 
 ## Resources
 
 ### scripts/
-- `run_security.ps1`: Run Bandit + pip-audit, generate reports, and snapshot into history.
+- `run_security.ps1`: Run Bandit + pip-audit + pip-licenses, generate reports, and snapshot into history.
 - `make_bandit_interactive.py`: Build the interactive HTML view from the Bandit JSON report.
+- `make_pip_audit_interactive.py`: Build the interactive HTML view from the pip-audit JSON report.
+- `make_pip_licenses_interactive.py`: Build the interactive HTML view from the pip-licenses JSON report.

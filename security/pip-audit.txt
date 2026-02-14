@@ -1,1 +1,4 @@
-Generated at: 2026-02-07 11:43:02 +02:00 | Version: 2.0.1
+Generated at: 2026-02-14 14:00:29 +02:00 | Version: 2.0.1
+Name         Version ID             Fix Versions
+------------ ------- -------------- ------------
+cryptography 46.0.3  CVE-2026-26007 46.0.5

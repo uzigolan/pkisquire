@@ -8,11 +8,12 @@ def build_html(rows):
 <html>
 <head>
   <meta charset=\"utf-8\" />
-  <title>Bandit Report</title>
+  <title>Static Code Security Analysis</title>
   <style>
     body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; }
     h1 { margin: 0 0 8px 0; }
-    .controls { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0 16px; }
+    .controls { display: flex; gap: 12px; flex-wrap: wrap; margin: 12px 0 16px; align-items: center; }
+    .spacer { flex: 1 1 auto; }
     select, input { padding: 6px 8px; font-size: 14px; }
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #ddd; padding: 8px; vertical-align: top; }
@@ -27,10 +28,19 @@ def build_html(rows):
   </style>
 </head>
 <body>
-  <h1>Bandit Report</h1>
-  <div class=\"muted\">Source: bandit-report.json</div>
+  <h1>Static Code Security Analysis</h1>
+  <div class=\"muted\">Bandit findings for local Python source files, including severity, confidence, CWE, and code context.</div>
+  <div class=\"muted\">__META__</div>
 
   <div class=\"controls\">
+    <label>Show:
+      <select id=\"pageSize\" onchange=\"changePageSize()\">
+        <option value=\"10\" selected>10</option>
+        <option value=\"25\">25</option>
+        <option value=\"50\">50</option>
+      </select>
+    </label>
+    <span class=\"muted\" id=\"pageInfo\"></span>
     <input id=\"search\" type=\"text\" placeholder=\"Search text or file\" />
     <select id=\"severity\">
       <option value=\"\">All severities</option>
@@ -44,6 +54,9 @@ def build_html(rows):
       <option value=\"MEDIUM\">MEDIUM</option>
       <option value=\"LOW\">LOW</option>
     </select>
+    <span class=\"spacer\"></span>
+    <button type=\"button\" onclick=\"previousPage()\">Previous</button>
+    <button type=\"button\" onclick=\"nextPage()\">Next</button>
   </div>
 
   <table id=\"tbl\">
@@ -67,6 +80,9 @@ def build_html(rows):
 const rows = __ROWS__;
 let sortKey = 'severity';
 let sortAsc = true;
+let currentPage = 1;
+let pageSize = 10;
+let filteredRows = rows.slice();
 
 function sevClass(sev) {
   if (sev === 'HIGH') return 'sev-high';
@@ -74,12 +90,12 @@ function sevClass(sev) {
   return 'sev-low';
 }
 
-function render() {
+function render(resetPage = false) {
   const q = document.getElementById('search').value.toLowerCase();
   const sev = document.getElementById('severity').value;
   const conf = document.getElementById('confidence').value;
 
-  let filtered = rows.filter(r => {
+  filteredRows = rows.filter(r => {
     const hay = (r.text + ' ' + r.file + ' ' + r.test_id + ' ' + r.test_name + ' ' + r.code).toLowerCase();
     if (q && !hay.includes(q)) return false;
     if (sev && r.severity !== sev) return false;
@@ -87,7 +103,7 @@ function render() {
     return true;
   });
 
-  filtered.sort((a,b) => {
+  filteredRows.sort((a,b) => {
     const av = a[sortKey] ?? '';
     const bv = b[sortKey] ?? '';
     if (av === bv) return 0;
@@ -95,9 +111,19 @@ function render() {
     return av < bv ? 1 : -1;
   });
 
+  if (resetPage) currentPage = 1;
+  renderPage(currentPage);
+}
+
+function renderPage(page) {
+  const total = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  currentPage = Math.min(Math.max(1, page), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  const end = start + pageSize;
   const tbody = document.querySelector('#tbl tbody');
   tbody.innerHTML = '';
-  for (const r of filtered) {
+  for (const r of filteredRows.slice(start, end)) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><span class=\"pill ${sevClass(r.severity)}\">${r.severity}</span></td>
@@ -112,11 +138,14 @@ function render() {
     `;
     tbody.appendChild(tr);
   }
+  const shownStart = total === 0 ? 0 : start + 1;
+  const shownEnd = Math.min(end, total);
+  document.getElementById('pageInfo').textContent = `Page ${currentPage}/${totalPages} | Showing ${shownStart}-${shownEnd}`;
 }
 
 for (const el of ['search','severity','confidence']) {
-  document.getElementById(el).addEventListener('input', render);
-  document.getElementById(el).addEventListener('change', render);
+  document.getElementById(el).addEventListener('input', () => render(true));
+  document.getElementById(el).addEventListener('change', () => render(true));
 }
 
 document.querySelectorAll('th[data-key]').forEach(th => {
@@ -128,11 +157,24 @@ document.querySelectorAll('th[data-key]').forEach(th => {
       sortKey = key;
       sortAsc = true;
     }
-    render();
+    render(false);
   });
 });
 
-render();
+function changePageSize() {
+  pageSize = parseInt(document.getElementById('pageSize').value, 10) || 10;
+  render(true);
+}
+
+function nextPage() {
+  renderPage(currentPage + 1);
+}
+
+function previousPage() {
+  renderPage(currentPage - 1);
+}
+
+render(true);
 </script>
 </body>
 </html>
@@ -167,14 +209,10 @@ def main():
             'code': r.get('code', ''),
         })
 
-    html = build_html(rows).replace('__ROWS__', json.dumps(rows))
-    if args.generated_at or args.version:
-        parts = ['Source: bandit-report.json']
-        if args.generated_at:
-            parts.append(f'Generated at: {args.generated_at}')
-        if args.version:
-            parts.append(f'Version: {args.version}')
-        html = html.replace('Source: bandit-report.json', ' | '.join(parts))
+    generated_at = args.generated_at or 'unknown'
+    version = args.version or 'unknown'
+    meta = f"Source: bandit-report.json | Generated at: {generated_at} | Version: {version}"
+    html = build_html(rows).replace('__ROWS__', json.dumps(rows)).replace('__META__', meta)
     Path(args.output).write_text(html, encoding='utf-8')
 
 

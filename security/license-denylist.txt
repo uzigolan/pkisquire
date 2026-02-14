@@ -1,0 +1,9 @@
+# License denylist policy (one pattern per line; case-insensitive)
+# Matching uses wildcard if '*' or '?' is present; otherwise substring match.
+# Examples:
+# GPL
+# AGPL
+# LGPL
+# SSPL
+# UNKNOWN
+UNKNOWN

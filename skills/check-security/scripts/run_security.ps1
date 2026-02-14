@@ -1,5 +1,7 @@
 param(
-    [string]$Root = (Resolve-Path .)
+    [string]$Root = (Resolve-Path .),
+    [string]$LicenseDenylistPath = "",
+    [switch]$NoLicensePolicyFail
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,6 +10,7 @@ $security = Join-Path $Root 'security'
 $historyRoot = Join-Path $security 'history'
 $ts = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
 $historyDir = Join-Path $historyRoot $ts
+$licenseDenyReport = Join-Path $security 'pip-licenses-denied.txt'
 $generatedAt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss K'
 $versionFile = Join-Path $Root 'version.txt'
 $version = ''
@@ -22,8 +25,26 @@ New-Item -ItemType Directory -Force $security | Out-Null
 New-Item -ItemType Directory -Force $historyRoot | Out-Null
 New-Item -ItemType Directory -Force $historyDir | Out-Null
 
+if (-not $LicenseDenylistPath) {
+    $LicenseDenylistPath = Join-Path $security 'license-denylist.txt'
+}
+if (-not (Test-Path $LicenseDenylistPath)) {
+@"
+# License denylist policy (one pattern per line; case-insensitive)
+# Matching uses wildcard if '*' or '?' is present; otherwise substring match.
+# Examples:
+# GPL
+# AGPL
+# LGPL
+# SSPL
+# UNKNOWN
+UNKNOWN
+"@ | Set-Content -Path $LicenseDenylistPath -Encoding Ascii
+}
+
 $venvBandit = Join-Path $Root '.venv\Scripts\bandit.exe'
 $venvPipAudit = Join-Path $Root '.venv\Scripts\pip-audit.exe'
+$venvPipLicenses = Join-Path $Root '.venv\Scripts\pip-licenses.exe'
 $venvPython = Join-Path $Root '.venv\Scripts\python.exe'
 
 if (-not (Test-Path $venvPython)) {
@@ -36,6 +57,10 @@ if (-not (Test-Path $venvBandit)) {
 
 if (-not (Test-Path $venvPipAudit)) {
     & $venvPython -m pip install --quiet pip-audit
+}
+
+if (-not (Test-Path $venvPipLicenses)) {
+    & $venvPython -m pip install --quiet pip-licenses
 }
 
 # Bandit scans: only app.py and its local imports
@@ -101,6 +126,93 @@ Get-Content (Join-Path $security 'pip-audit.txt') | Add-Content -Path (Join-Path
 # Interactive HTML from JSON
 & $venvPython (Join-Path $PSScriptRoot 'make_pip_audit_interactive.py') -i $pipAuditJson -o (Join-Path $security 'pip-audit-interactive.html') -t $generatedAt -v $version
 
+# pip-licenses report
+$pipLicensesTxt = Join-Path $security 'pip-licenses.txt'
+$pipLicensesJson = Join-Path $security 'pip-licenses.json'
+"Generated at: $generatedAt | Version: $version" | Out-File -FilePath $pipLicensesTxt -Encoding ascii
+& $venvPipLicenses | Out-File -FilePath $pipLicensesTxt -Encoding ascii -Append
+& $venvPipLicenses --format=json | Set-Content -Path $pipLicensesJson -Encoding UTF8
+
+@"
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>pip-licenses report</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; }
+    pre { background: #f5f5f5; padding: 16px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>pip-licenses report</h1>
+  <div style="color: #555; margin-bottom: 12px;">Generated at: $generatedAt | Version: $version</div>
+  <pre>
+"@ | Set-Content -Path (Join-Path $security 'pip-licenses.html') -Encoding Ascii
+
+Get-Content $pipLicensesTxt | Add-Content -Path (Join-Path $security 'pip-licenses.html') -Encoding Ascii
+
+@"
+  </pre>
+</body>
+</html>
+"@ | Add-Content -Path (Join-Path $security 'pip-licenses.html') -Encoding Ascii
+
+# Interactive HTML from JSON
+& $venvPython (Join-Path $PSScriptRoot 'make_pip_licenses_interactive.py') -i $pipLicensesJson -o (Join-Path $security 'pip-licenses-interactive.html') -t $generatedAt -v $version -d $LicenseDenylistPath
+
+# License denylist policy check
+$denyPatterns = @()
+if (Test-Path $LicenseDenylistPath) {
+    $denyPatterns = Get-Content $LicenseDenylistPath |
+        ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -and -not $_.StartsWith('#') }
+}
+
+$denyViolations = @()
+if ($denyPatterns.Count -gt 0) {
+    $licenseEntries = Get-Content $pipLicensesJson -Raw | ConvertFrom-Json
+    foreach ($entry in $licenseEntries) {
+        $pkg = [string]$entry.Name
+        $ver = [string]$entry.Version
+        $lic = [string]$entry.License
+        foreach ($pattern in $denyPatterns) {
+            $isWildcard = $pattern.Contains('*') -or $pattern.Contains('?')
+            $match = $false
+            if ($isWildcard) {
+                $match = $lic -like $pattern
+            } else {
+                $match = $lic -like ("*" + $pattern + "*")
+            }
+            if ($match) {
+                $denyViolations += [PSCustomObject]@{
+                    Name = $pkg
+                    Version = $ver
+                    License = $lic
+                    MatchedPattern = $pattern
+                }
+                break
+            }
+        }
+    }
+}
+
+if ($denyViolations.Count -gt 0) {
+    "Generated at: $generatedAt | Version: $version" | Out-File -FilePath $licenseDenyReport -Encoding ascii
+    "Denylist policy: $LicenseDenylistPath" | Out-File -FilePath $licenseDenyReport -Encoding ascii -Append
+    "" | Out-File -FilePath $licenseDenyReport -Encoding ascii -Append
+    "Found $($denyViolations.Count) denylist violation(s):" | Out-File -FilePath $licenseDenyReport -Encoding ascii -Append
+    $denyViolations |
+        Sort-Object Name, Version |
+        Format-Table Name, Version, License, MatchedPattern -AutoSize |
+        Out-String |
+        Out-File -FilePath $licenseDenyReport -Encoding ascii -Append
+} else {
+    "Generated at: $generatedAt | Version: $version" | Out-File -FilePath $licenseDenyReport -Encoding ascii
+    "Denylist policy: $LicenseDenylistPath" | Out-File -FilePath $licenseDenyReport -Encoding ascii -Append
+    "No denylist violations found." | Out-File -FilePath $licenseDenyReport -Encoding ascii -Append
+}
+
 # Snapshot into history
 Copy-Item -Force (Join-Path $security 'bandit-report.json') $historyDir
 Copy-Item -Force (Join-Path $security 'bandit-report.html') $historyDir
@@ -109,5 +221,20 @@ Copy-Item -Force (Join-Path $security 'pip-audit.txt') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit.html') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit.json') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit-interactive.html') $historyDir
+Copy-Item -Force (Join-Path $security 'pip-licenses.txt') $historyDir
+Copy-Item -Force (Join-Path $security 'pip-licenses.html') $historyDir
+Copy-Item -Force (Join-Path $security 'pip-licenses.json') $historyDir
+Copy-Item -Force (Join-Path $security 'pip-licenses-interactive.html') $historyDir
+Copy-Item -Force $LicenseDenylistPath $historyDir
+Copy-Item -Force $licenseDenyReport $historyDir
+
+if ($denyViolations.Count -gt 0) {
+    $msg = "License denylist violations found: $($denyViolations.Count). See $licenseDenyReport"
+    if ($NoLicensePolicyFail) {
+        Write-Warning $msg
+    } else {
+        throw $msg
+    }
+}
 
 Write-Host "Security reports updated. History: $historyDir"

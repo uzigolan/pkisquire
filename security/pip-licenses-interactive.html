@@ -1,0 +1,242 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Dependency License Compliance Report</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --chip: #f3f4f6;
+      --warn: #b45309;
+    }
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; color: var(--text); background: var(--bg); }
+    h1 { margin: 0 0 6px; }
+    .meta { color: var(--muted); margin-bottom: 16px; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .spacer { flex: 1 1 auto; }
+    input[type="text"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 280px; }
+    select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+    th { text-align: left; white-space: nowrap; cursor: pointer; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; }
+    .warn { color: var(--warn); font-weight: 600; }
+    .muted { color: var(--muted); }
+    .count { margin-left: auto; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>Dependency License Compliance Report</h1>
+  <div class="meta">Declared licenses for Python dependencies, including denylist policy matching.</div>
+  <div class="meta">Source: pip-licenses.json | Generated at: 2026-02-14 14:00:29 +02:00 | Version: 2.0.1</div>
+  <div class="controls">
+    <label>
+      Show:
+      <select id="pageSizeSelect" onchange="changePageSize()">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </label>
+    <span class="count" id="pageInfo"></span>
+    <input id="filterInput" type="text" placeholder="Filter by package or license" onkeyup="applyFilter()" />
+    <label>
+      License:
+      <select id="licenseState" onchange="applyFilter()">
+        <option value="">All</option>
+        <option value="unknown">Unknown/Unlicensed</option>
+        <option value="known">Known</option>
+      </select>
+    </label>
+    <label>
+      Denied:
+      <select id="deniedState" onchange="applyFilter()">
+        <option value="">All</option>
+        <option value="yes">Denied</option>
+        <option value="no">Allowed</option>
+      </select>
+    </label>
+    <label>
+      Policy:
+      <select id="policyState" onchange="applyFilter()">
+        <option value="">All</option>
+        <option value="allowed">Allowed</option>
+        <option value="allowed-with-notice">Allowed With Notice</option>
+        <option value="review-required">Review Required</option>
+        <option value="restricted-copyleft-weak">Restricted (Copyleft Weak)</option>
+        <option value="prohibited-strong-copyleft">Prohibited (Strong Copyleft)</option>
+        <option value="unknown-unlicensed">Unknown/Unlicensed</option>
+      </select>
+    </label>
+    <span class="spacer"></span>
+    <button type="button" onclick="previousPage()">Previous</button>
+    <button type="button" onclick="nextPage()">Next</button>
+    <span class="count" id="resultCount"></span>
+  </div>
+  <table id="licenseTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">Package</th>
+        <th onclick="sortTable(1)">Version</th>
+        <th onclick="sortTable(2)">License</th>
+        <th onclick="sortTable(3)">Policy</th>
+        <th onclick="sortTable(4)">Denied</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>asn1crypto</td><td>1.5.1</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>bandit</td><td>1.9.3</td><td><span class="chip">Apache-2.0</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>blinker</td><td>1.9.0</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>boolean.py</td><td>5.0</td><td><span class="chip">BSD-2-Clause</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>CacheControl</td><td>0.14.4</td><td><span class="chip">Apache-2.0</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed-with-notice" data-denied="no"><td>certifi</td><td>2025.11.12</td><td><span class="chip">Mozilla Public License 2.0 (MPL 2.0)</span></td><td>Allowed With Notice</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>cffi</td><td>2.0.0</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>charset-normalizer</td><td>3.4.4</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>click</td><td>8.3.1</td><td><span class="chip">BSD-3-Clause</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>colorama</td><td>0.4.6</td><td><span class="chip">BSD License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="review-required" data-denied="no"><td>cryptography</td><td>46.0.3</td><td><span class="chip">Apache-2.0 OR BSD-3-Clause</span></td><td>Review Required</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>cyclonedx-python-lib</td><td>11.6.0</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>defusedxml</td><td>0.7.1</td><td><span class="chip">Python Software Foundation License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>filelock</td><td>3.20.3</td><td><span class="chip">Unlicense</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>Flask</td><td>3.1.2</td><td><span class="chip">BSD-3-Clause</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>Flask-Login</td><td>0.6.3</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>Flask-SQLAlchemy</td><td>3.1.1</td><td><span class="chip">BSD License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="review-required" data-denied="no"><td>greenlet</td><td>3.2.4</td><td><span class="chip">MIT AND Python-2.0</span></td><td>Review Required</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>hvac</td><td>2.1.0</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>idna</td><td>3.11</td><td><span class="chip">BSD-3-Clause</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>iniconfig</td><td>2.3.0</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>itsdangerous</td><td>2.2.0</td><td><span class="chip">BSD License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>Jinja2</td><td>3.1.6</td><td><span class="chip">BSD License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="restricted-copyleft-weak" data-denied="no"><td>ldap3</td><td>2.9.1</td><td><span class="chip">GNU Lesser General Public License v3 (LGPLv3)</span></td><td>Restricted (Copyleft Weak)</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>license-expression</td><td>30.4.4</td><td><span class="chip">Apache-2.0</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>Markdown</td><td>3.7</td><td><span class="chip">BSD License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>markdown-it-py</td><td>4.0.0</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>MarkupSafe</td><td>3.0.3</td><td><span class="chip">BSD-3-Clause</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>mdurl</td><td>0.1.2</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>msgpack</td><td>1.1.2</td><td><span class="chip">Apache-2.0</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>oscrypto</td><td>1.3.0</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>packageurl-python</td><td>0.17.6</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="review-required" data-denied="no"><td>packaging</td><td>25.0</td><td><span class="chip">Apache Software License; BSD License</span></td><td>Review Required</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pip-api</td><td>0.0.34</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pip-requirements-parser</td><td>32.0.1</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pip_audit</td><td>2.10.0</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>platformdirs</td><td>4.5.1</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pluggy</td><td>1.6.0</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>py-serializable</td><td>2.1.0</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pyasn1</td><td>0.6.2</td><td><span class="chip">BSD-2-Clause</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pycparser</td><td>2.23</td><td><span class="chip">BSD License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>Pygments</td><td>2.19.2</td><td><span class="chip">BSD License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pyparsing</td><td>3.3.2</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pytest</td><td>9.0.2</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed-with-notice" data-denied="no"><td>pytest-html</td><td>4.1.1</td><td><span class="chip">MPL-2.0</span></td><td>Allowed With Notice</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed-with-notice" data-denied="no"><td>pytest-metadata</td><td>3.1.1</td><td><span class="chip">MPL-2.0</span></td><td>Allowed With Notice</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>pytz</td><td>2025.2</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>PyYAML</td><td>6.0.3</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>requests</td><td>2.32.5</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>rich</td><td>14.3.2</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>sortedcontainers</td><td>2.4.0</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>SQLAlchemy</td><td>2.0.44</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>stevedore</td><td>5.6.0</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>tomli</td><td>2.4.0</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>tomli_w</td><td>1.2.0</td><td><span class="chip">MIT License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed-with-notice" data-denied="no"><td>typing_extensions</td><td>4.15.0</td><td><span class="chip">PSF-2.0</span></td><td>Allowed With Notice</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>tzdata</td><td>2025.2</td><td><span class="chip">Apache Software License</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>urllib3</td><td>2.6.3</td><td><span class="chip">MIT</span></td><td>Allowed</td><td>No</td></tr>
+<tr data-license-known="yes" data-policy="allowed" data-denied="no"><td>Werkzeug</td><td>3.1.5</td><td><span class="chip">BSD-3-Clause</span></td><td>Allowed</td><td>No</td></tr>
+    </tbody>
+  </table>
+  <div class="meta"><strong>Policy legend:</strong></div>
+  <div class="meta">Allowed: permissive use.</div>
+  <div class="meta">Allowed With Notice: use allowed with attribution/notice obligations.</div>
+  <div class="meta">Review Required: manual legal review needed.</div>
+  <div class="meta">Restricted (Copyleft Weak): conditional use, e.g., LGPL.</div>
+  <div class="meta">Prohibited (Strong Copyleft): blocked by policy.</div>
+  <div class="meta">Unknown/Unlicensed: license unclear or missing.</div>
+
+<script>
+  let sortDirections = {};
+  let currentPage = 1;
+  let pageSize = 10;
+  let filteredRows = [];
+
+  function applyFilter(resetPage = true) {
+    const input = document.getElementById('filterInput').value.toLowerCase();
+    const state = document.getElementById('licenseState').value;
+    const deniedState = document.getElementById('deniedState').value;
+    const policyState = document.getElementById('policyState').value;
+    const tbody = document.querySelector('#licenseTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    filteredRows = rows.filter(row => {
+      const text = row.textContent.toLowerCase();
+      const isUnknown = (row.getAttribute('data-license-known') || '') === 'no';
+      const isDenied = (row.getAttribute('data-denied') || '') === 'yes';
+      const rowPolicy = (row.getAttribute('data-policy') || '').toLowerCase();
+      const matchesText = text.indexOf(input) > -1;
+      let matchesState = true;
+      let matchesDenied = true;
+      let matchesPolicy = true;
+      if (state === 'unknown') matchesState = isUnknown;
+      if (state === 'known') matchesState = !isUnknown;
+      if (deniedState === 'yes') matchesDenied = isDenied;
+      if (deniedState === 'no') matchesDenied = !isDenied;
+      if (policyState) matchesPolicy = rowPolicy === policyState;
+      return matchesText && matchesState && matchesDenied && matchesPolicy;
+    });
+    document.getElementById('resultCount').textContent = 'Matched ' + filteredRows.length + ' of ' + rows.length;
+    if (resetPage) currentPage = 1;
+    renderPage();
+  }
+
+  function renderPage() {
+    const tbody = document.querySelector('#licenseTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const total = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    rows.forEach(row => row.style.display = 'none');
+    filteredRows.slice(start, end).forEach(row => row.style.display = '');
+    const shownStart = total === 0 ? 0 : start + 1;
+    const shownEnd = Math.min(end, total);
+    document.getElementById('pageInfo').textContent = 'Page ' + currentPage + '/' + totalPages + ' | Showing ' + shownStart + '-' + shownEnd;
+  }
+
+  function sortTable(columnIndex) {
+    const tbody = document.querySelector('#licenseTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const isAscending = sortDirections[columnIndex] !== 'asc';
+    sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
+    rows.sort((a, b) => {
+      const aText = a.cells[columnIndex].textContent.trim().toLowerCase();
+      const bText = b.cells[columnIndex].textContent.trim().toLowerCase();
+      if (aText < bText) return isAscending ? -1 : 1;
+      if (aText > bText) return isAscending ? 1 : -1;
+      return 0;
+    });
+    rows.forEach(row => tbody.appendChild(row));
+    applyFilter(false);
+  }
+
+  function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value, 10) || 10;
+    applyFilter(true);
+  }
+
+  function nextPage() {
+    currentPage += 1;
+    renderPage();
+  }
+
+  function previousPage() {
+    currentPage -= 1;
+    renderPage();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => applyFilter(true));
+</script>
+</body>
+</html>
