@@ -1,13 +1,15 @@
 {% extends "layout.html" %}
 {% block content %}
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Certificate Templates</h2>
+  <div class="d-flex align-items-center mb-3">
     <div>
-      <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-success">Generate New Certificate Template</a>
+      <h1 class="mb-0">Certificate Templates</h1>
+    </div>
+    <div class="ml-auto">
+      <a href="{{ url_for('profiles.new_profile_file') }}" class="btn btn-primary">Generate New Certificate Template</a>
     </div>
   </div>
   {% if profiles %}
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="d-flex align-items-center mb-3">
     <div class="form-inline">
       <label for="pageSizeSelect" class="mr-2">Show:</label>
       <select id="pageSizeSelect" class="form-control form-control-sm mr-2" onchange="changePageSize()">
@@ -17,200 +19,134 @@
       </select>
       <span id="pageInfo" class="mr-3"></span>
     </div>
+    <div class="flex-grow-1 text-center text-muted small">Tip: click any Template  cell to copy its full content.</div>
     <div>
-      <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">← Previous</button>
-      <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
+      <button class="btn btn-sm btn-secondary" onclick="previousPage()" id="prevBtn">&lt;- Previous</button>
+      <button class="btn btn-sm btn-secondary" onclick="nextPage()" id="nextBtn">Next -&gt;</button>
     </div>
   </div>
-  <div class="form-group">
-    <input
-      type="text"
-      id="filterInput"
-      class="form-control mb-3"
-      onkeyup="filterTable()"
-      placeholder="Filter by Template Name, Source, Type, or Date">
-  </div>
-  <div class="mb-2">
-    <span class="badge" style="background-color: #ffc107; color: black;">ext</span> <b>X509 Extensions</b> &nbsp;|&nbsp;
-    <span class="badge badge-success">req</span> <b>Certificate DN (Distinguished Name)</b>
-  </div>
-  <table id="profileTable" class="table table-hover">
-    <thead class="thead-dark">
-      <tr>
-        <th>Name</th>
-        <th>Originating Template</th>
-        <th style="cursor:pointer;" onclick="sortTable(2)">Profile Type <span id="sort-2">⇅</span></th>
-        <th style="cursor:pointer;" onclick="sortTable(3)">Created At <span id="sort-3">⇅</span></th>
-        {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(4)">User <span id="sort-4">⇅</span></th>{% endif %}
-        <th>Usage</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for profile in profiles %}
-      <tr>
-        <td>{{ profile.name }}</td>
-        <td>
-          {% if profile.template_name %}
-            {{ profile.template_name }}
-          {% else %}
-            manually
-          {% endif %}
-        </td>
-        <td>{{ profile.profile_type }}</td>
-        <td>{{ profile.created_at_local.strftime('%Y-%m-%d %H:%M') if profile.created_at_local else '' }}</td>
-        {% if is_admin %}
-          <td>{{ profile.user_obj.username if profile.user_obj else 'N/A' }}</td>
-        {% endif %}
-        <td>
-          {% if profile.content %}
-            {% if '[ v3_ext ]' in profile.content %}
-              <span class="badge" style="background-color: #ffc107; color: black;">ext</span>
-            {% elif '[ req ]' in profile.content %}
-              <span class="badge badge-success">req</span>
-            {% else %}
-              <span class="badge badge-secondary">?</span>
-            {% endif %}
-          {% else %}
-            <span class="badge badge-secondary">?</span>
-          {% endif %}
-        </td>
-        <td>
-          <a href="{{ url_for('profiles.view_profile', name=profile.name) }}"
-             class="btn btn-sm btn-info action-pill">View</a>
-          <a href="{{ url_for('profiles.edit_profile_file', name=profile.name) }}"
-             class="btn btn-sm btn-secondary ml-1 action-pill">Edit</a>
-          <form action="{{ url_for('profiles.delete_profile', name=profile.name) }}"
-                method="post" style="display:inline;">
-            <button type="submit"
-                    class="btn btn-sm btn-danger ml-1 action-pill"
-                    onclick="return confirm('Delete this profile?');">
-              Delete
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-    <p>No profiles available.</p>
   {% endif %}
-  <a href="{{ url_for('profiles.list_templates') }}"
-     class="btn btn-secondary mt-3">Back to Template List</a>
+  <div class="form-group">
+    <input type="text" id="filterInput" class="form-control mb-3" onkeyup="filterTable()" placeholder="Filter by any column">
+  </div>
+  <div class="table-responsive">
+    <table class="table table-striped table-sm" id="profileTable">
+      <thead>
+        <tr>
+          <th style="cursor:pointer;" onclick="sortTable(0)">Name <span id="sort-0">&#8645;</span></th>
+          <th style="cursor:pointer;" onclick="sortTable(1)">Uses <span id="sort-1">&#8645;</span></th>
+          {% if is_admin %}<th style="cursor:pointer;" onclick="sortTable(2)">User <span id="sort-2">&#8645;</span></th>{% endif %}
+          <th style="cursor:pointer;" onclick="sortTable({{ 3 if is_admin else 2 }})">Created (Updated) <span id="sort-{{ 3 if is_admin else 2 }}">&#8645;</span></th>
+          <th style="cursor:pointer;" onclick="sortTable({{ 4 if is_admin else 3 }})">Template Source <span id="sort-{{ 4 if is_admin else 3 }}">&#8645;</span></th>
+          <th style="cursor:pointer;" onclick="sortTable({{ 5 if is_admin else 4 }})">Template <span id="sort-{{ 5 if is_admin else 4 }}">&#8645;</span></th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if profiles %}
+          {% for profile in profiles %}
+          {% set content = profile.list_content or '' %}
+          {% set has_ext = ('[ v3_ext ]' in content) or ('[v3_ext]' in content) %}
+          {% set has_req = ('[ req ]' in content) or ('[req]' in content) %}
+          {% set template_value = profile.template_name or 'manually' %}
+          <tr>
+            <td>{{ profile.name }}</td>
+            <td>
+              {% if has_ext %}
+                <span class="badge" style="background-color: #ffc107; color: black;">ext</span>
+              {% endif %}
+              {% if has_req %}
+                <span class="badge badge-success">req</span>
+              {% endif %}
+              {% if not has_ext and not has_req %}
+                <span class="badge badge-secondary">?</span>
+              {% endif %}
+            </td>
+            {% if is_admin %}<td>{{ profile.user_obj.username if profile.user_obj else '-' }}</td>{% endif %}
+            <td>
+              {% set created = profile.created_at_local.strftime('%Y-%m-%d %H:%M') if profile.created_at_local else '' %}
+              {% set updated = profile.updated_at_local.strftime('%Y-%m-%d %H:%M') if profile.updated_at_local is defined and profile.updated_at_local else '' %}
+              {% if created and updated and created != updated %}
+                <div>{{ created }}</div>
+                <div class="text-muted" style="font-size: 12px;">({{ updated }})</div>
+              {% else %}
+                {{ created }}
+              {% endif %}
+            </td>
+            <td style="max-width: 260px; white-space: pre-wrap; font-size: 12px; cursor: pointer;" onclick="copyCellText(this)"><textarea class="d-none" aria-hidden="true">{{ template_value }}</textarea>{{ template_value[:200] }}{% if template_value|length > 200 %}...{% endif %}</td>
+            <td style="max-width: 320px; white-space: pre-wrap; font-size: 12px; cursor: pointer;" onclick="copyCellText(this)"><textarea class="d-none" aria-hidden="true">{{ content }}</textarea>{{ content[:200] }}{% if content|length > 200 %}...{% endif %}</td>
+            <td class="text-nowrap">
+              <a href="{{ url_for('profiles.view_profile', name=profile.name) }}" class="btn btn-sm btn-info">View</a>
+              <a href="{{ url_for('profiles.new_profile_file', clone_id=profile.id) }}" class="btn btn-sm btn-primary ml-1">Clone</a>
+              <a href="{{ url_for('profiles.edit_profile_file', name=profile.name) }}" class="btn btn-sm btn-secondary ml-1">Edit</a>
+              <form action="{{ url_for('profiles.delete_profile', name=profile.name) }}" method="post" style="display:inline;" onsubmit="return confirm('Delete this profile?');">
+                <button type="submit" class="btn btn-sm btn-danger ml-1">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="{{ 7 if is_admin else 6 }}" class="text-muted">No profiles available.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <a href="{{ url_for('profiles.list_templates') }}" class="btn btn-secondary mt-3">Back to Template List</a>
 
   <script>
-    let sortDirections = {};
-
-    function sortTable(columnIndex) {
-      var table = document.getElementById('profileTable');
-      var rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
-      var isAscending = sortDirections[columnIndex] !== 'asc';
-      sortDirections[columnIndex] = isAscending ? 'asc' : 'desc';
-
-      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '⇅');
-      document.getElementById('sort-' + columnIndex).textContent = isAscending ? '↑' : '↓';
-
-      rows.sort(function(a, b) {
-        var aText = a.cells[columnIndex].textContent.trim();
-        var bText = b.cells[columnIndex].textContent.trim();
-
-        if (columnIndex === 3) {
-          var aDate = new Date(aText);
-          var bDate = new Date(bText);
-          return isAscending ? aDate - bDate : bDate - aDate;
-        }
-
-        if (aText < bText) return isAscending ? -1 : 1;
-        if (aText > bText) return isAscending ? 1 : -1;
-        return 0;
-      });
-
-      var tbody = table.getElementsByTagName('tbody')[0];
-      rows.forEach(row => tbody.appendChild(row));
-    }
-
-    function filterTable() {
-      var filterValue = document.getElementById('filterInput').value.toLowerCase();
-      var filterInput = document.getElementById('filterInput');
-      if (filterValue) {
-        filterInput.classList.add('filter-input-active');
-      } else {
-        filterInput.classList.remove('filter-input-active');
-      }
-      var table = document.getElementById('profileTable');
-      var tbody = table.getElementsByTagName('tbody')[0];
-      var allDomRows = Array.from(tbody.querySelectorAll('tr'));
-      allRows = allDomRows.filter(function(row) {
-        var nameText = row.cells[0].textContent.trim().toLowerCase();
-        var templateText = row.cells[1].textContent.trim().toLowerCase();
-        var typeText = row.cells[2].textContent.trim().toLowerCase();
-        var dateText = row.cells[3].textContent.trim().toLowerCase();
-        var userText = '';
-        if (row.cells.length > 6) {
-          userText = row.cells[4].textContent.trim().toLowerCase();
-        }
-        return (
-          nameText.indexOf(filterValue) > -1 ||
-          templateText.indexOf(filterValue) > -1 ||
-          typeText.indexOf(filterValue) > -1 ||
-          dateText.indexOf(filterValue) > -1 ||
-          userText.indexOf(filterValue) > -1
-        );
-      });
-      // Hide all rows, then show only filtered rows
-      allDomRows.forEach(function(row) { row.style.display = 'none'; });
-      allRows.forEach(function(row) { row.style.display = ''; });
-      showPage(1);
-    }
-
-    // Pagination variables
+    let allRows = [];
+    let masterRows = [];
     let currentPage = 1;
     let pageSize = 10;
-    let allRows = [];
+    let lastProfileState = null;
+    let sortDirections = {};
 
-    function initPagination() {
-      var table = document.getElementById('profileTable');
-      var tbody = table.getElementsByTagName('tbody')[0];
-      allRows = Array.from(tbody.getElementsByTagName('tr'));
-      showPage(1);
+    function collectRows() {
+      const tbody = document.querySelector('#profileTable tbody');
+      masterRows = Array.from(tbody.querySelectorAll('tr'));
+      allRows = masterRows.slice();
+    }
+
+    function copyCellText(cell) {
+      if (!navigator.clipboard) return;
+      const hidden = cell ? cell.querySelector('textarea') : null;
+      const value = hidden ? (hidden.value || '').trimStart() : '';
+      navigator.clipboard.writeText(value);
+      cell.classList.add('text-success');
+      setTimeout(() => { cell.classList.remove('text-success'); }, 1200);
     }
 
     function showPage(page) {
       currentPage = page;
-      var start = (page - 1) * pageSize;
-      var end = start + pageSize;
-      
-      allRows.forEach((row, index) => {
-        if (index >= start && index < end) {
-          row.style.display = '';
-        } else {
-          row.style.display = 'none';
-        }
-      });
-      
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+      const tbody = document.querySelector('#profileTable tbody');
+      tbody.innerHTML = '';
+      allRows.slice(start, end).forEach(row => tbody.appendChild(row));
       updatePaginationInfo();
     }
 
     function updatePaginationInfo() {
-      var totalPages = Math.ceil(allRows.length / pageSize);
-      var start = (currentPage - 1) * pageSize + 1;
-      var end = Math.min(currentPage * pageSize, allRows.length);
-      
-      document.getElementById('pageInfo').textContent = 
-        `Showing ${start}-${end} of ${allRows.length}`;
-      
-      document.getElementById('prevBtn').disabled = currentPage === 1;
-      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+      const totalPages = Math.ceil(allRows.length / pageSize) || 1;
+      const start = (currentPage - 1) * pageSize + 1;
+      const end = Math.min(currentPage * pageSize, allRows.length);
+      const pageInfo = document.getElementById('pageInfo');
+      if (pageInfo) {
+        pageInfo.textContent = `Showing ${start}-${end} of ${allRows.length}`;
+      }
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      if (prevBtn) prevBtn.disabled = currentPage === 1;
+      if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
     }
 
     function changePageSize() {
-      pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+      pageSize = parseInt(document.getElementById('pageSizeSelect').value, 10);
       showPage(1);
     }
 
     function nextPage() {
-      var totalPages = Math.ceil(allRows.length / pageSize);
+      const totalPages = Math.ceil(allRows.length / pageSize);
       if (currentPage < totalPages) {
         showPage(currentPage + 1);
       }
@@ -222,7 +158,44 @@
       }
     }
 
-    let lastProfileState = null;
+    function filterTable() {
+      const filterValue = document.getElementById('filterInput').value.toLowerCase();
+      const filterInput = document.getElementById('filterInput');
+      if (filterValue) {
+        filterInput.classList.add('filter-input-active');
+      } else {
+        filterInput.classList.remove('filter-input-active');
+      }
+      allRows = masterRows.filter(function(row) {
+        let text = '';
+        for (let i = 0; i < row.cells.length - 1; ++i) {
+          text += row.cells[i].textContent.trim().toLowerCase() + ' ';
+        }
+        return text.indexOf(filterValue) > -1;
+      });
+      masterRows.forEach(function(row) { row.style.display = 'none'; });
+      allRows.forEach(function(row) { row.style.display = ''; });
+      showPage(1);
+    }
+
+    function sortTable(columnIndex) {
+      masterRows.sort(function(a, b) {
+        const aText = a.cells[columnIndex].textContent.trim().toLowerCase();
+        const bText = b.cells[columnIndex].textContent.trim().toLowerCase();
+        if (aText < bText) return -1;
+        if (aText > bText) return 1;
+        return 0;
+      });
+      if (sortDirections[columnIndex] === 'asc') {
+        masterRows.reverse();
+        sortDirections[columnIndex] = 'desc';
+      } else {
+        sortDirections[columnIndex] = 'asc';
+      }
+      document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '\u21C5');
+      document.getElementById('sort-' + columnIndex).textContent = sortDirections[columnIndex] === 'asc' ? '\u2191' : '\u2193';
+      filterTable();
+    }
 
     async function pollProfileState() {
       try {
@@ -239,11 +212,11 @@
       }
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      initPagination();
+    document.addEventListener('DOMContentLoaded', function() {
+      collectRows();
+      showPage(1);
       pollProfileState();
       setInterval(pollProfileState, 7000);
     });
   </script>
 {% endblock %}
-
