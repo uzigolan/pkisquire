@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import tempfile
+import textwrap
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, jsonify, abort
 from jinja2 import Environment, meta, FileSystemLoader, select_autoescape
@@ -271,6 +272,8 @@ def list_profiles():
             p.created_at_local = dt.astimezone()
         else:
             p.created_at_local = None
+        raw_content = p.content or ""
+        p.list_content = textwrap.dedent(raw_content).strip()
     from flask import current_app
     challenge_password_enabled = current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
     return render_template("list_profiles.html", profiles=profiles, is_admin=is_admin, challenge_password_enabled=challenge_password_enabled)
@@ -408,6 +411,17 @@ def is_valid_profile_name(name):
     # Valid profile name (no /, \0, etc.)
     return re.match(r'^[\w\-.]+$', name) is not None
 
+
+def _load_profile_for_clone(profile_id: int):
+    profile = db.session.get(Profile, profile_id)
+    if not profile:
+        abort(404)
+    is_admin_user = current_user.is_admin() if callable(getattr(current_user, "is_admin", None)) else bool(getattr(current_user, "is_admin", False))
+    if not is_admin_user and profile.user_id != current_user.id:
+        abort(403)
+    return profile
+
+
 @x509_profiles_bp.route("/profiles/new", methods=["GET", "POST"])
 @login_required
 def new_profile_file():
@@ -420,12 +434,15 @@ def new_profile_file():
         new_content = request.form.get("file_content", "")
         if not is_valid_profile_name(name):
             flash("Profile Name must contain only letters, numbers, dots, dashes, and underscores", "error")
-            return render_template("edit_profile.html",
-                                   filename="",
-                                   profile_type=profile_type,
-                                   file_content=new_content,
-                                   profile=None,
-                                   existing_types=existing_types)
+            return render_template(
+                "edit_profile.html",
+                filename="",
+                prefill_filename=name,
+                profile_type=profile_type,
+                file_content=new_content,
+                profile=None,
+                existing_types=existing_types,
+            )
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".cnf")
         tmp.write(new_content.encode("utf-8"))
         tmp.flush(); tmp.close()
@@ -467,11 +484,24 @@ def new_profile_file():
             flash(f"Failed to save: {e}", "error")
             return redirect(url_for("profiles.new_profile_file"))
 
-    # GET: render the same form as edit, but blank, and pass existing_types
-    return render_template("edit_profile.html",
-                           filename="",
-                           profile_type="",
-                           file_content="",
-                           profile=None,
-                           existing_types=existing_types)
+    # GET: render create form; optionally prefill from clone source
+    clone_id = request.args.get("clone_id", type=int)
+    clone_profile = _load_profile_for_clone(clone_id) if clone_id else None
+    prefill_filename = ""
+    prefill_profile_type = ""
+    prefill_content = ""
+    if clone_profile:
+        prefill_filename = f"{clone_profile.name}_copy"
+        prefill_profile_type = clone_profile.profile_type or ""
+        prefill_content = clone_profile.content or ""
+
+    return render_template(
+        "edit_profile.html",
+        filename="",
+        prefill_filename=prefill_filename,
+        profile_type=prefill_profile_type,
+        file_content=prefill_content,
+        profile=None,
+        existing_types=existing_types,
+    )
 
