@@ -11,26 +11,29 @@
       </div>
     </div>
 
-    <div class="toolbar mb-3">
-      <div class="d-flex flex-wrap align-items-center">
-        <label for="pageSizeSelect" class="mr-2 mb-0 text-muted">Rows</label>
-        <select id="pageSizeSelect" class="form-control form-control-sm mr-3" onchange="changePageSize()">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="form-inline">
+        <label for="pageSizeSelect" class="mr-2">Show:</label>
+        <select id="pageSizeSelect" class="form-control form-control-sm" onchange="changePageSize()">
           <option value="10" selected>10</option>
           <option value="25">25</option>
           <option value="50">50</option>
         </select>
-        <span id="pageInfo" class="text-muted"></span>
+        <span class="ml-2" id="pageInfo"></span>
       </div>
-      <div class="d-flex flex-wrap align-items-center">
-        <input
-          type="text"
-          id="filterInput"
-          class="search-input mr-3"
-          onkeyup="filterTable()"
-          placeholder="Filter by common name, serial, key, or date">
-        <button class="btn btn-sm btn-ghost mr-2" onclick="previousPage()" id="prevBtn">Prev</button>
-        <button class="btn btn-sm btn-ghost" onclick="nextPage()" id="nextBtn">Next</button>
+      <div>
+        <button class="btn btn-sm btn-outline-secondary mr-2" onclick="previousPage()" id="prevBtn">← Previous</button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="nextPage()" id="nextBtn">Next →</button>
       </div>
+    </div>
+
+    <div class="form-group">
+      <input
+        type="text"
+        id="filterInput"
+        class="form-control mb-3"
+        onkeyup="filterTable()"
+        placeholder="Filter by common name, serial, key, or date">
     </div>
 
     <table id="certTable" class="table table-striped table-sm" data-testid="certs-table">
