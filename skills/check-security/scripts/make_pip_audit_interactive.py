@@ -10,7 +10,7 @@ HTML_TEMPLATE = """<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>pip-audit report</title>
+  <title>Dependency Vulnerability Report</title>
   <style>
     :root {{
       --bg: #ffffff;
@@ -23,6 +23,7 @@ HTML_TEMPLATE = """<!doctype html>
     h1 {{ margin: 0 0 6px; }}
     .meta {{ color: var(--muted); margin-bottom: 16px; }}
     .controls {{ display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }}
+    .spacer {{ flex: 1 1 auto; }}
     input[type="text"] {{ padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 240px; }}
     select {{ padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }}
     table {{ width: 100%; border-collapse: collapse; }}
@@ -34,9 +35,19 @@ HTML_TEMPLATE = """<!doctype html>
   </style>
 </head>
 <body>
-  <h1>pip-audit report</h1>
-  <div class="meta">Generated at: {generated_at} | Version: {version}</div>
+  <h1>Dependency Vulnerability Report</h1>
+  <div class="meta">Known vulnerabilities in Python dependencies from requirements, with severity and fix-version guidance.</div>
+  <div class="meta">Source: {source} | Generated at: {generated_at} | Version: {version}</div>
   <div class="controls">
+    <label>
+      Show:
+      <select id="pageSizeSelect" onchange="changePageSize()">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </label>
+    <span class="count" id="pageInfo"></span>
     <input id="filterInput" type="text" placeholder="Filter by package, vuln id, or severity" onkeyup="applyFilter()" />
     <label>
       Severity:
@@ -49,6 +60,9 @@ HTML_TEMPLATE = """<!doctype html>
         <option value="unreported">Unspecified</option>
       </select>
     </label>
+    <span class="spacer"></span>
+    <button type="button" onclick="previousPage()">Previous</button>
+    <button type="button" onclick="nextPage()">Next</button>
     <span class="count" id="resultCount"></span>
   </div>
   <table id="auditTable">
@@ -69,23 +83,40 @@ HTML_TEMPLATE = """<!doctype html>
 
 <script>
   let sortDirections = {{}};
+  let currentPage = 1;
+  let pageSize = 10;
+  let filteredRows = [];
 
-  function applyFilter() {{
+  function applyFilter(resetPage = true) {{
     const input = document.getElementById('filterInput').value.toLowerCase();
     const severity = document.getElementById('severitySelect').value.toLowerCase();
     const tbody = document.querySelector('#auditTable tbody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
-    let shown = 0;
-    rows.forEach(row => {{
+    filteredRows = rows.filter(row => {{
       const text = row.textContent.toLowerCase();
       const sev = row.getAttribute('data-severity') || 'unknown';
       const matchesText = text.indexOf(input) > -1;
       const matchesSev = !severity || sev === severity;
-      const show = matchesText && matchesSev;
-      row.style.display = show ? '' : 'none';
-      if (show) shown += 1;
+      return matchesText && matchesSev;
     }});
-    document.getElementById('resultCount').textContent = 'Showing ' + shown + ' of ' + rows.length;
+    document.getElementById('resultCount').textContent = 'Matched ' + filteredRows.length + ' of ' + rows.length;
+    if (resetPage) currentPage = 1;
+    renderPage();
+  }}
+
+  function renderPage() {{
+    const tbody = document.querySelector('#auditTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const total = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    rows.forEach(row => row.style.display = 'none');
+    filteredRows.slice(start, end).forEach(row => row.style.display = '');
+    const shownStart = total === 0 ? 0 : start + 1;
+    const shownEnd = Math.min(end, total);
+    document.getElementById('pageInfo').textContent = 'Page ' + currentPage + '/' + totalPages + ' | Showing ' + shownStart + '-' + shownEnd;
   }}
 
   function sortTable(columnIndex) {{
@@ -106,10 +137,25 @@ HTML_TEMPLATE = """<!doctype html>
       return 0;
     }});
     rows.forEach(row => tbody.appendChild(row));
-    applyFilter();
+    applyFilter(false);
   }}
 
-  document.addEventListener('DOMContentLoaded', applyFilter);
+  function changePageSize() {{
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value, 10) || 10;
+    applyFilter(true);
+  }}
+
+  function nextPage() {{
+    currentPage += 1;
+    renderPage();
+  }}
+
+  function previousPage() {{
+    currentPage -= 1;
+    renderPage();
+  }}
+
+  document.addEventListener('DOMContentLoaded', () => applyFilter(true));
 </script>
 </body>
 </html>
@@ -308,6 +354,7 @@ def main():
     data = json.loads(Path(args.input).read_text(encoding="utf-8-sig"))
     rows = iter_rows(data)
     html = HTML_TEMPLATE.format(
+        source="pip-audit.json",
         generated_at=args.generated_at or "unknown",
         version=args.version or "unknown",
         rows=render_rows(rows),

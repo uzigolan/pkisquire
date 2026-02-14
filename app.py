@@ -1775,6 +1775,14 @@ def pip_audit_report_interactive():
     return send_file(report_path, mimetype="text/html")
 
 
+@app.route("/security/pip-licenses-interactive")
+def pip_licenses_report_interactive():
+    report_path = Path(current_app.root_path) / "security" / "pip-licenses-interactive.html"
+    if not report_path.exists():
+        abort(404)
+    return send_file(report_path, mimetype="text/html")
+
+
 @app.route("/security/readme")
 def security_readme():
     readme_path = Path(current_app.root_path) / "security" / "README.md"

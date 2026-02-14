@@ -73,14 +73,14 @@ pre {
 </style>
 </head>
 
-<body><div style="font-family: Segoe UI, Arial, sans-serif; margin: 12px 0; color: #555;">Generated at: 2026-02-12 13:20:48 +02:00 | Version: 2.0.1</div>
+<body><div style="font-family: Segoe UI, Arial, sans-serif; margin: 12px 0; color: #555;">Generated at: 2026-02-14 14:00:29 +02:00 | Version: 2.0.1</div>
 
 <div id="metrics">
     <div class="metrics-box bordered-box">
         <div class="metrics-title">
             Metrics:<br>
         </div>
-        Total lines of code: <span id="loc">2763</span><br>
+        Total lines of code: <span id="loc">2863</span><br>
         Total lines skipped (#nosec): <span id="nosec">0</span>
     </div>
 </div>
@@ -122,15 +122,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>111<br>
+    <b>Line number: </b>115<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html</a><br>
 
 <div class="code">
 <pre>
-110	            return dt.replace(tzinfo=timezone.utc)
-111	        except Exception:
-112	            continue
-113	    try:
+114	            return dt.replace(tzinfo=timezone.utc)
+115	        except Exception:
+116	            continue
+117	    try:
 </pre>
 </div>
 
@@ -146,15 +146,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>136<br>
+    <b>Line number: </b>140<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-135	            conn.commit()
-136	    except Exception:
-137	        pass
-138	
+139	            conn.commit()
+140	    except Exception:
+141	        pass
+142	
 </pre>
 </div>
 
@@ -170,15 +170,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>150<br>
+    <b>Line number: </b>154<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-149	            return LDAP_SOURCE_CACHE[key]
-150	    except Exception:
-151	        pass
-152	    if app.config.get(&quot;LDAP_ENABLED&quot;) and ldap_user_exists(username, app.config, app.logger):
+153	            return LDAP_SOURCE_CACHE[key]
+154	    except Exception:
+155	        pass
+156	    if app.config.get(&quot;LDAP_ENABLED&quot;) and ldap_user_exists(username, app.config, app.logger):
 </pre>
 </div>
 
@@ -194,14 +194,14 @@ pre {
     <b>Confidence: </b>MEDIUM<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/259.html" target="_blank">CWE-259</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>271<br>
+    <b>Line number: </b>275<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b105_hardcoded_password_string.html</a><br>
 
 <div class="code">
 <pre>
-270	app.config[&quot;SQLALCHEMY_TRACK_MODIFICATIONS&quot;] = False
-271	app.config[&quot;SECRET_KEY&quot;] = &quot;marketing&quot;  # Replace with a secure unique secret in production
-272	
+274	app.config[&quot;SQLALCHEMY_TRACK_MODIFICATIONS&quot;] = False
+275	app.config[&quot;SECRET_KEY&quot;] = &quot;marketing&quot;  # Replace with a secure unique secret in production
+276	
 </pre>
 </div>
 
@@ -217,17 +217,17 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>472<br>
+    <b>Line number: </b>476<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-471	
-472	            proc = subprocess.run(
-473	                [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
-474	                capture_output=True, text=True
-475	            )
-476	            # clean up immediately
+475	
+476	            proc = subprocess.run(
+477	                [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
+478	                capture_output=True, text=True
+479	            )
+480	            # clean up immediately
 </pre>
 </div>
 
@@ -243,17 +243,17 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>472<br>
+    <b>Line number: </b>476<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-471	
-472	            proc = subprocess.run(
-473	                [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
-474	                capture_output=True, text=True
-475	            )
-476	            # clean up immediately
+475	
+476	            proc = subprocess.run(
+477	                [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
+478	                capture_output=True, text=True
+479	            )
+480	            # clean up immediately
 </pre>
 </div>
 
@@ -269,14 +269,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>477<br>
+    <b>Line number: </b>481<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-476	            # clean up immediately
-477	            try: subprocess.run([&quot;rm&quot;, &quot;-f&quot;, path])
-478	            except: pass
+480	            # clean up immediately
+481	            try: subprocess.run([&quot;rm&quot;, &quot;-f&quot;, path])
+482	            except: pass
 </pre>
 </div>
 
@@ -292,14 +292,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>477<br>
+    <b>Line number: </b>481<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-476	            # clean up immediately
-477	            try: subprocess.run([&quot;rm&quot;, &quot;-f&quot;, path])
-478	            except: pass
+480	            # clean up immediately
+481	            try: subprocess.run([&quot;rm&quot;, &quot;-f&quot;, path])
+482	            except: pass
 </pre>
 </div>
 
@@ -315,14 +315,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>478<br>
+    <b>Line number: </b>482<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-477	            try: subprocess.run([&quot;rm&quot;, &quot;-f&quot;, path])
-478	            except: pass
-479	
+481	            try: subprocess.run([&quot;rm&quot;, &quot;-f&quot;, path])
+482	            except: pass
+483	
 </pre>
 </div>
 
@@ -338,14 +338,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>521<br>
+    <b>Line number: </b>525<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-520	        cmd.extend([&quot;-in&quot;, f.name, &quot;-noout&quot;, &quot;-text&quot;])
-521	        p = subprocess.run(cmd, capture_output=True, text=True)
-522	        return p.stdout or p.stderr
+524	        cmd.extend([&quot;-in&quot;, f.name, &quot;-noout&quot;, &quot;-text&quot;])
+525	        p = subprocess.run(cmd, capture_output=True, text=True)
+526	        return p.stdout or p.stderr
 </pre>
 </div>
 
@@ -361,17 +361,17 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>564<br>
+    <b>Line number: </b>568<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-563	    try:
-564	        proc = subprocess.run(
-565	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
-566	            capture_output=True, text=True
-567	        )
-568	        text = proc.stdout or proc.stderr
+567	    try:
+568	        proc = subprocess.run(
+569	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
+570	            capture_output=True, text=True
+571	        )
+572	        text = proc.stdout or proc.stderr
 </pre>
 </div>
 
@@ -387,17 +387,17 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>564<br>
+    <b>Line number: </b>568<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-563	    try:
-564	        proc = subprocess.run(
-565	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
-566	            capture_output=True, text=True
-567	        )
-568	        text = proc.stdout or proc.stderr
+567	    try:
+568	        proc = subprocess.run(
+569	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;],
+570	            capture_output=True, text=True
+571	        )
+572	        text = proc.stdout or proc.stderr
 </pre>
 </div>
 
@@ -413,15 +413,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>665<br>
+    <b>Line number: </b>669<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-664	            )
-665	        except Exception:
-666	            pass
-667	    flash(&#x27;Challenge password deleted.&#x27;, &#x27;success&#x27;)
+668	            )
+669	        except Exception:
+670	            pass
+671	    flash(&#x27;Challenge password deleted.&#x27;, &#x27;success&#x27;)
 </pre>
 </div>
 
@@ -437,15 +437,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>706<br>
+    <b>Line number: </b>710<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b112_try_except_continue.html</a><br>
 
 <div class="code">
 <pre>
-705	                            to_delete.append(row[&#x27;value&#x27;])
-706	                    except Exception:
-707	                        continue
-708	        if to_delete:
+709	                            to_delete.append(row[&#x27;value&#x27;])
+710	                    except Exception:
+711	                        continue
+712	        if to_delete:
 </pre>
 </div>
 
@@ -461,15 +461,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>721<br>
+    <b>Line number: </b>725<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-720	                )
-721	            except Exception:
-722	                pass
-723	            flash(f&quot;Deleted {len(to_delete)} expired challenge passwords.&quot;, &quot;success&quot;)
+724	                )
+725	            except Exception:
+726	                pass
+727	            flash(f&quot;Deleted {len(to_delete)} expired challenge passwords.&quot;, &quot;success&quot;)
 </pre>
 </div>
 
@@ -485,15 +485,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>771<br>
+    <b>Line number: </b>775<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-770	                    expired_flag = datetime.now(timezone.utc) &gt; expires_dt
-771	                except Exception:
-772	                    pass
-773	        result.append({
+774	                    expired_flag = datetime.now(timezone.utc) &gt; expires_dt
+775	                except Exception:
+776	                    pass
+777	        result.append({
 </pre>
 </div>
 
@@ -509,15 +509,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>847<br>
+    <b>Line number: </b>851<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-846	        )
-847	    except Exception:
-848	        pass
-849	    return jsonify({
+850	        )
+851	    except Exception:
+852	        pass
+853	    return jsonify({
 </pre>
 </div>
 
@@ -533,15 +533,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>900<br>
+    <b>Line number: </b>904<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-899	            )
-900	        except Exception:
-901	            pass
-902	        session[&#x27;generated_challenge_password&#x27;] = {
+903	            )
+904	        except Exception:
+905	            pass
+906	        session[&#x27;generated_challenge_password&#x27;] = {
 </pre>
 </div>
 
@@ -557,15 +557,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>952<br>
+    <b>Line number: </b>956<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-951	                    expired = True
-952	            except Exception:
-953	                pass
-954	        challenge_passwords.append({
+955	                    expired = True
+956	            except Exception:
+957	                pass
+958	        challenge_passwords.append({
 </pre>
 </div>
 
@@ -581,18 +581,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1373<br>
+    <b>Line number: </b>1377<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-1372	        fallback_err = None
-1373	        openssh_proc = subprocess.run(
-1374	            [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PKCS8&quot;, &quot;-f&quot;, pem_path],
-1375	            capture_output=True,
-1376	            text=True
-1377	        )
-1378	        openssh_pub = openssh_proc.stdout.strip()
+1376	        fallback_err = None
+1377	        openssh_proc = subprocess.run(
+1378	            [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PKCS8&quot;, &quot;-f&quot;, pem_path],
+1379	            capture_output=True,
+1380	            text=True
+1381	        )
+1382	        openssh_pub = openssh_proc.stdout.strip()
 </pre>
 </div>
 
@@ -608,18 +608,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1373<br>
+    <b>Line number: </b>1377<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1372	        fallback_err = None
-1373	        openssh_proc = subprocess.run(
-1374	            [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PKCS8&quot;, &quot;-f&quot;, pem_path],
-1375	            capture_output=True,
-1376	            text=True
-1377	        )
-1378	        openssh_pub = openssh_proc.stdout.strip()
+1376	        fallback_err = None
+1377	        openssh_proc = subprocess.run(
+1378	            [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PKCS8&quot;, &quot;-f&quot;, pem_path],
+1379	            capture_output=True,
+1380	            text=True
+1381	        )
+1382	        openssh_pub = openssh_proc.stdout.strip()
 </pre>
 </div>
 
@@ -635,19 +635,19 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1381<br>
+    <b>Line number: </b>1385<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-1380	            try:
-1381	                openssh_pub = subprocess.run(
-1382	                    [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PEM&quot;, &quot;-f&quot;, pem_path],
-1383	                    check=True,
-1384	                    capture_output=True,
-1385	                    text=True
-1386	                ).stdout.strip()
-1387	            except subprocess.CalledProcessError as e:
+1384	            try:
+1385	                openssh_pub = subprocess.run(
+1386	                    [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PEM&quot;, &quot;-f&quot;, pem_path],
+1387	                    check=True,
+1388	                    capture_output=True,
+1389	                    text=True
+1390	                ).stdout.strip()
+1391	            except subprocess.CalledProcessError as e:
 </pre>
 </div>
 
@@ -663,19 +663,19 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1381<br>
+    <b>Line number: </b>1385<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1380	            try:
-1381	                openssh_pub = subprocess.run(
-1382	                    [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PEM&quot;, &quot;-f&quot;, pem_path],
-1383	                    check=True,
-1384	                    capture_output=True,
-1385	                    text=True
-1386	                ).stdout.strip()
-1387	            except subprocess.CalledProcessError as e:
+1384	            try:
+1385	                openssh_pub = subprocess.run(
+1386	                    [&quot;ssh-keygen&quot;, &quot;-i&quot;, &quot;-m&quot;, &quot;PEM&quot;, &quot;-f&quot;, pem_path],
+1387	                    check=True,
+1388	                    capture_output=True,
+1389	                    text=True
+1390	                ).stdout.strip()
+1391	            except subprocess.CalledProcessError as e:
 </pre>
 </div>
 
@@ -691,19 +691,19 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1416<br>
+    <b>Line number: </b>1420<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-1415	            try:
-1416	                rfc4716_pub = subprocess.run(
-1417	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
-1418	                    check=True,
-1419	                    capture_output=True,
-1420	                    text=True
-1421	                ).stdout.strip()
-1422	                if rfc4716_pub:
+1419	            try:
+1420	                rfc4716_pub = subprocess.run(
+1421	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
+1422	                    check=True,
+1423	                    capture_output=True,
+1424	                    text=True
+1425	                ).stdout.strip()
+1426	                if rfc4716_pub:
 </pre>
 </div>
 
@@ -719,19 +719,19 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1416<br>
+    <b>Line number: </b>1420<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1415	            try:
-1416	                rfc4716_pub = subprocess.run(
-1417	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
-1418	                    check=True,
-1419	                    capture_output=True,
-1420	                    text=True
-1421	                ).stdout.strip()
-1422	                if rfc4716_pub:
+1419	            try:
+1420	                rfc4716_pub = subprocess.run(
+1421	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
+1422	                    check=True,
+1423	                    capture_output=True,
+1424	                    text=True
+1425	                ).stdout.strip()
+1426	                if rfc4716_pub:
 </pre>
 </div>
 
@@ -747,19 +747,19 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1459<br>
+    <b>Line number: </b>1463<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-1458	            try:
-1459	                rfc4716_pub = subprocess.run(
-1460	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
-1461	                    check=True,
-1462	                    capture_output=True,
-1463	                    text=True
-1464	                ).stdout.strip()
-1465	                if rfc4716_pub:
+1462	            try:
+1463	                rfc4716_pub = subprocess.run(
+1464	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
+1465	                    check=True,
+1466	                    capture_output=True,
+1467	                    text=True
+1468	                ).stdout.strip()
+1469	                if rfc4716_pub:
 </pre>
 </div>
 
@@ -775,19 +775,19 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1459<br>
+    <b>Line number: </b>1463<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1458	            try:
-1459	                rfc4716_pub = subprocess.run(
-1460	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
-1461	                    check=True,
-1462	                    capture_output=True,
-1463	                    text=True
-1464	                ).stdout.strip()
-1465	                if rfc4716_pub:
+1462	            try:
+1463	                rfc4716_pub = subprocess.run(
+1464	                    [&quot;ssh-keygen&quot;, &quot;-e&quot;, &quot;-m&quot;, &quot;RFC4716&quot;, &quot;-f&quot;, tmp_pub_path],
+1465	                    check=True,
+1466	                    capture_output=True,
+1467	                    text=True
+1468	                ).stdout.strip()
+1469	                if rfc4716_pub:
 </pre>
 </div>
 
@@ -803,18 +803,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1497<br>
+    <b>Line number: </b>1501<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-1496	    }
-1497	    rsa_proc = subprocess.run(
-1498	        [&quot;openssl&quot;, &quot;rsa&quot;, &quot;-in&quot;, pem_path, &quot;-traditional&quot;],
-1499	        capture_output=True,
-1500	        text=True
-1501	    )
-1502	    if rsa_proc.returncode == 0 and rsa_proc.stdout.strip():
+1500	    }
+1501	    rsa_proc = subprocess.run(
+1502	        [&quot;openssl&quot;, &quot;rsa&quot;, &quot;-in&quot;, pem_path, &quot;-traditional&quot;],
+1503	        capture_output=True,
+1504	        text=True
+1505	    )
+1506	    if rsa_proc.returncode == 0 and rsa_proc.stdout.strip():
 </pre>
 </div>
 
@@ -830,18 +830,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1497<br>
+    <b>Line number: </b>1501<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1496	    }
-1497	    rsa_proc = subprocess.run(
-1498	        [&quot;openssl&quot;, &quot;rsa&quot;, &quot;-in&quot;, pem_path, &quot;-traditional&quot;],
-1499	        capture_output=True,
-1500	        text=True
-1501	    )
-1502	    if rsa_proc.returncode == 0 and rsa_proc.stdout.strip():
+1500	    }
+1501	    rsa_proc = subprocess.run(
+1502	        [&quot;openssl&quot;, &quot;rsa&quot;, &quot;-in&quot;, pem_path, &quot;-traditional&quot;],
+1503	        capture_output=True,
+1504	        text=True
+1505	    )
+1506	    if rsa_proc.returncode == 0 and rsa_proc.stdout.strip():
 </pre>
 </div>
 
@@ -857,18 +857,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1505<br>
+    <b>Line number: </b>1509<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-1504	        return formats
-1505	    ec_proc = subprocess.run(
-1506	        [&quot;openssl&quot;, &quot;ec&quot;, &quot;-in&quot;, pem_path],
-1507	        capture_output=True,
-1508	        text=True
-1509	    )
-1510	    if ec_proc.returncode == 0 and ec_proc.stdout.strip():
+1508	        return formats
+1509	    ec_proc = subprocess.run(
+1510	        [&quot;openssl&quot;, &quot;ec&quot;, &quot;-in&quot;, pem_path],
+1511	        capture_output=True,
+1512	        text=True
+1513	    )
+1514	    if ec_proc.returncode == 0 and ec_proc.stdout.strip():
 </pre>
 </div>
 
@@ -884,18 +884,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1505<br>
+    <b>Line number: </b>1509<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1504	        return formats
-1505	    ec_proc = subprocess.run(
-1506	        [&quot;openssl&quot;, &quot;ec&quot;, &quot;-in&quot;, pem_path],
-1507	        capture_output=True,
-1508	        text=True
-1509	    )
-1510	    if ec_proc.returncode == 0 and ec_proc.stdout.strip():
+1508	        return formats
+1509	    ec_proc = subprocess.run(
+1510	        [&quot;openssl&quot;, &quot;ec&quot;, &quot;-in&quot;, pem_path],
+1511	        capture_output=True,
+1512	        text=True
+1513	    )
+1514	    if ec_proc.returncode == 0 and ec_proc.stdout.strip():
 </pre>
 </div>
 
@@ -911,14 +911,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1603<br>
+    <b>Line number: </b>1607<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1602	                        cmd = [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;]
-1603	                        proc = subprocess.run(cmd, capture_output=True, text=True)
-1604	                        out, err = proc.stdout, proc.stderr
+1606	                        cmd = [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;]
+1607	                        proc = subprocess.run(cmd, capture_output=True, text=True)
+1608	                        out, err = proc.stdout, proc.stderr
 </pre>
 </div>
 
@@ -934,14 +934,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1608<br>
+    <b>Line number: </b>1612<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1607	                        cmd = [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-pubin&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;]
-1608	                        proc = subprocess.run(cmd, capture_output=True, text=True)
-1609	                        out, err = proc.stdout, proc.stderr
+1611	                        cmd = [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-pubin&quot;, &quot;-in&quot;, path, &quot;-noout&quot;, &quot;-text&quot;]
+1612	                        proc = subprocess.run(cmd, capture_output=True, text=True)
+1613	                        out, err = proc.stdout, proc.stderr
 </pre>
 </div>
 
@@ -957,14 +957,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1614<br>
+    <b>Line number: </b>1618<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1613	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-respin&quot;, path, &quot;-noout&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
-1614	                            proc = subprocess.run(cmd, capture_output=True, text=True)
-1615	                            out, err = proc.stdout, proc.stderr
+1617	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-respin&quot;, path, &quot;-noout&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
+1618	                            proc = subprocess.run(cmd, capture_output=True, text=True)
+1619	                            out, err = proc.stdout, proc.stderr
 </pre>
 </div>
 
@@ -980,14 +980,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1619<br>
+    <b>Line number: </b>1623<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1618	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-respin&quot;, &quot;-&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
-1619	                            proc = subprocess.run(cmd, input=der, capture_output=True)
-1620	                            out = proc.stdout.decode(&quot;utf-8&quot;, errors=&quot;ignore&quot;)
+1622	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-respin&quot;, &quot;-&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
+1623	                            proc = subprocess.run(cmd, input=der, capture_output=True)
+1624	                            out = proc.stdout.decode(&quot;utf-8&quot;, errors=&quot;ignore&quot;)
 </pre>
 </div>
 
@@ -1003,14 +1003,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1626<br>
+    <b>Line number: </b>1630<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1625	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-reqin&quot;, path, &quot;-noout&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
-1626	                            proc = subprocess.run(cmd, capture_output=True, text=True)
-1627	                            out, err = proc.stdout, proc.stderr
+1629	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-reqin&quot;, path, &quot;-noout&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
+1630	                            proc = subprocess.run(cmd, capture_output=True, text=True)
+1631	                            out, err = proc.stdout, proc.stderr
 </pre>
 </div>
 
@@ -1026,14 +1026,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1631<br>
+    <b>Line number: </b>1635<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1630	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-reqin&quot;, &quot;-&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
-1631	                            proc = subprocess.run(cmd, input=der, capture_output=True)
-1632	                            out = proc.stdout.decode(&quot;utf-8&quot;, errors=&quot;ignore&quot;)
+1634	                            cmd = [&quot;openssl&quot;, &quot;ocsp&quot;, &quot;-reqin&quot;, &quot;-&quot;, &quot;-text&quot;, &quot;-noverify&quot;]
+1635	                            proc = subprocess.run(cmd, input=der, capture_output=True)
+1636	                            out = proc.stdout.decode(&quot;utf-8&quot;, errors=&quot;ignore&quot;)
 </pre>
 </div>
 
@@ -1049,14 +1049,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1637<br>
+    <b>Line number: </b>1641<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1636	                        cmd = [&quot;openssl&quot;, *subcmd, path]
-1637	                        proc = subprocess.run(cmd, capture_output=True, text=True)
-1638	                        out, err = proc.stdout, proc.stderr
+1640	                        cmd = [&quot;openssl&quot;, *subcmd, path]
+1641	                        proc = subprocess.run(cmd, capture_output=True, text=True)
+1642	                        out, err = proc.stdout, proc.stderr
 </pre>
 </div>
 
@@ -1072,14 +1072,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1645<br>
+    <b>Line number: </b>1649<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1644	                            cmd = [&quot;openssl&quot;, subcmd[0], &quot;-inform&quot;, &quot;DER&quot;, &quot;-in&quot;, path] + subcmd[1:]
-1645	                        proc = subprocess.run(cmd, capture_output=True, text=True)
-1646	                        out, err = proc.stdout, proc.stderr
+1648	                            cmd = [&quot;openssl&quot;, subcmd[0], &quot;-inform&quot;, &quot;DER&quot;, &quot;-in&quot;, path] + subcmd[1:]
+1649	                        proc = subprocess.run(cmd, capture_output=True, text=True)
+1650	                        out, err = proc.stdout, proc.stderr
 </pre>
 </div>
 
@@ -1095,18 +1095,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1764<br>
+    <b>Line number: </b>1844<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-1763	        # Run the OpenSSL command to get the raw CRL details.
-1764	        proc = subprocess.Popen(
-1765	            [&quot;openssl&quot;, &quot;crl&quot;, &quot;-noout&quot;, &quot;-text&quot;, &quot;-in&quot;, app.config[&quot;CRL_PATH&quot;] ],
-1766	            stdout=subprocess.PIPE,
-1767	            stderr=subprocess.PIPE
-1768	        )
-1769	        stdout, stderr = proc.communicate()
+1843	        # Run the OpenSSL command to get the raw CRL details.
+1844	        proc = subprocess.Popen(
+1845	            [&quot;openssl&quot;, &quot;crl&quot;, &quot;-noout&quot;, &quot;-text&quot;, &quot;-in&quot;, app.config[&quot;CRL_PATH&quot;] ],
+1846	            stdout=subprocess.PIPE,
+1847	            stderr=subprocess.PIPE
+1848	        )
+1849	        stdout, stderr = proc.communicate()
 </pre>
 </div>
 
@@ -1122,18 +1122,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1764<br>
+    <b>Line number: </b>1844<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-1763	        # Run the OpenSSL command to get the raw CRL details.
-1764	        proc = subprocess.Popen(
-1765	            [&quot;openssl&quot;, &quot;crl&quot;, &quot;-noout&quot;, &quot;-text&quot;, &quot;-in&quot;, app.config[&quot;CRL_PATH&quot;] ],
-1766	            stdout=subprocess.PIPE,
-1767	            stderr=subprocess.PIPE
-1768	        )
-1769	        stdout, stderr = proc.communicate()
+1843	        # Run the OpenSSL command to get the raw CRL details.
+1844	        proc = subprocess.Popen(
+1845	            [&quot;openssl&quot;, &quot;crl&quot;, &quot;-noout&quot;, &quot;-text&quot;, &quot;-in&quot;, app.config[&quot;CRL_PATH&quot;] ],
+1846	            stdout=subprocess.PIPE,
+1847	            stderr=subprocess.PIPE
+1848	        )
+1849	        stdout, stderr = proc.communicate()
 </pre>
 </div>
 
@@ -1149,15 +1149,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>1962<br>
+    <b>Line number: </b>2066<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-1961	                )
-1962	            except Exception:
-1963	                pass
-1964	            flash(&quot;Policy created&quot;, &quot;success&quot;)
+2065	                )
+2066	            except Exception:
+2067	                pass
+2068	            flash(&quot;Policy created&quot;, &quot;success&quot;)
 </pre>
 </div>
 
@@ -1173,15 +1173,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2027<br>
+    <b>Line number: </b>2138<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-2026	                )
-2027	            except Exception:
-2028	                pass
-2029	            flash(&quot;Policy updated&quot;, &quot;success&quot;)
+2137	                )
+2138	            except Exception:
+2139	                pass
+2140	            flash(&quot;Policy updated&quot;, &quot;success&quot;)
 </pre>
 </div>
 
@@ -1197,15 +1197,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2053<br>
+    <b>Line number: </b>2164<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-2052	            )
-2053	        except Exception:
-2054	            pass
-2055	        flash(&quot;Policy deleted&quot;, &quot;success&quot;)
+2163	            )
+2164	        except Exception:
+2165	            pass
+2166	        flash(&quot;Policy deleted&quot;, &quot;success&quot;)
 </pre>
 </div>
 
@@ -1221,14 +1221,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2362<br>
+    <b>Line number: </b>2473<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-2361	            try:
-2362	                subprocess.run(cmd, check=True, capture_output=True, text=True)
-2363	                app.logger.trace(f&quot;[L2011] submit: OpenSSL command executed successfully&quot;)
+2472	            try:
+2473	                subprocess.run(cmd, check=True, capture_output=True, text=True)
+2474	                app.logger.trace(f&quot;[L2011] submit: OpenSSL command executed successfully&quot;)
 </pre>
 </div>
 
@@ -1244,14 +1244,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2457<br>
+    <b>Line number: </b>2568<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-2456	            ])
-2457	            subprocess.run(cmd, check=True, capture_output=True, text=True)
-2458	    except subprocess.CalledProcessError as e:
+2567	            ])
+2568	            subprocess.run(cmd, check=True, capture_output=True, text=True)
+2569	    except subprocess.CalledProcessError as e:
 </pre>
 </div>
 
@@ -1267,15 +1267,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2657<br>
+    <b>Line number: </b>2768<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-2656	                    requests_serials.append(sn)
-2657	        except Exception:
-2658	            pass  # ignore, we already have the first request
-2659	
+2767	                    requests_serials.append(sn)
+2768	        except Exception:
+2769	            pass  # ignore, we already have the first request
+2770	
 </pre>
 </div>
 
@@ -1291,15 +1291,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2712<br>
+    <b>Line number: </b>2823<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-2711	                    break
-2712	        except Exception:
-2713	            pass
-2714	
+2822	                    break
+2823	        except Exception:
+2824	            pass
+2825	
 </pre>
 </div>
 
@@ -1315,20 +1315,20 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2861<br>
+    <b>Line number: </b>2972<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-2860	
-2861	    subprocess.run([
-2862	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
-2863	        &quot;-nocrl&quot;,
-2864	        &quot;-certfile&quot;, app.config[&quot;CHAIN_FILE_PATH&quot;],     # full chain PEM
-2865	        &quot;-outform&quot;, &quot;DER&quot;,
-2866	        &quot;-out&quot;, p7_path
-2867	    ], check=True)
-2868	
+2971	
+2972	    subprocess.run([
+2973	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
+2974	        &quot;-nocrl&quot;,
+2975	        &quot;-certfile&quot;, app.config[&quot;CHAIN_FILE_PATH&quot;],     # full chain PEM
+2976	        &quot;-outform&quot;, &quot;DER&quot;,
+2977	        &quot;-out&quot;, p7_path
+2978	    ], check=True)
+2979	
 </pre>
 </div>
 
@@ -1344,20 +1344,20 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2861<br>
+    <b>Line number: </b>2972<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-2860	
-2861	    subprocess.run([
-2862	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
-2863	        &quot;-nocrl&quot;,
-2864	        &quot;-certfile&quot;, app.config[&quot;CHAIN_FILE_PATH&quot;],     # full chain PEM
-2865	        &quot;-outform&quot;, &quot;DER&quot;,
-2866	        &quot;-out&quot;, p7_path
-2867	    ], check=True)
-2868	
+2971	
+2972	    subprocess.run([
+2973	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
+2974	        &quot;-nocrl&quot;,
+2975	        &quot;-certfile&quot;, app.config[&quot;CHAIN_FILE_PATH&quot;],     # full chain PEM
+2976	        &quot;-outform&quot;, &quot;DER&quot;,
+2977	        &quot;-out&quot;, p7_path
+2978	    ], check=True)
+2979	
 </pre>
 </div>
 
@@ -1373,14 +1373,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2986<br>
+    <b>Line number: </b>3097<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-2985	            app.logger.debug(f&quot;EST: OpenSSL CLI command: {cmd}&quot;)
-2986	            subprocess.run(cmd, check=True, capture_output=True, text=True)
-2987	
+3096	            app.logger.debug(f&quot;EST: OpenSSL CLI command: {cmd}&quot;)
+3097	            subprocess.run(cmd, check=True, capture_output=True, text=True)
+3098	
 </pre>
 </div>
 
@@ -1396,15 +1396,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>2996<br>
+    <b>Line number: </b>3107<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-2995	            os.unlink(cert_filename)
-2996	        except Exception:
-2997	            pass
-2998	
+3106	            os.unlink(cert_filename)
+3107	        except Exception:
+3108	            pass
+3109	
 </pre>
 </div>
 
@@ -1420,20 +1420,20 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3034<br>
+    <b>Line number: </b>3145<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-3033	    pkcs7_path = os.path.join(&quot;pki-misc&quot;, &quot;est_cert_chain.p7&quot;)
-3034	    subprocess.run([
-3035	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
-3036	        &quot;-nocrl&quot;,
-3037	        &quot;-certfile&quot;, signed_cert_path,
-3038	        &quot;-outform&quot;, &quot;DER&quot;,
-3039	        &quot;-out&quot;, pkcs7_path
-3040	    ], check=True)
-3041	
+3144	    pkcs7_path = os.path.join(&quot;pki-misc&quot;, &quot;est_cert_chain.p7&quot;)
+3145	    subprocess.run([
+3146	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
+3147	        &quot;-nocrl&quot;,
+3148	        &quot;-certfile&quot;, signed_cert_path,
+3149	        &quot;-outform&quot;, &quot;DER&quot;,
+3150	        &quot;-out&quot;, pkcs7_path
+3151	    ], check=True)
+3152	
 </pre>
 </div>
 
@@ -1449,20 +1449,20 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3034<br>
+    <b>Line number: </b>3145<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-3033	    pkcs7_path = os.path.join(&quot;pki-misc&quot;, &quot;est_cert_chain.p7&quot;)
-3034	    subprocess.run([
-3035	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
-3036	        &quot;-nocrl&quot;,
-3037	        &quot;-certfile&quot;, signed_cert_path,
-3038	        &quot;-outform&quot;, &quot;DER&quot;,
-3039	        &quot;-out&quot;, pkcs7_path
-3040	    ], check=True)
-3041	
+3144	    pkcs7_path = os.path.join(&quot;pki-misc&quot;, &quot;est_cert_chain.p7&quot;)
+3145	    subprocess.run([
+3146	        &quot;openssl&quot;, &quot;crl2pkcs7&quot;,
+3147	        &quot;-nocrl&quot;,
+3148	        &quot;-certfile&quot;, signed_cert_path,
+3149	        &quot;-outform&quot;, &quot;DER&quot;,
+3150	        &quot;-out&quot;, pkcs7_path
+3151	    ], check=True)
+3152	
 </pre>
 </div>
 
@@ -1478,18 +1478,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3069<br>
+    <b>Line number: </b>3180<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-3068	        # Extract public key from certificate
-3069	        proc = subprocess.run(
-3070	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, cert_path, &quot;-pubkey&quot;, &quot;-noout&quot;],
-3071	            capture_output=True,
-3072	            text=True,
-3073	        )
-3074	        if proc.returncode != 0:
+3179	        # Extract public key from certificate
+3180	        proc = subprocess.run(
+3181	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, cert_path, &quot;-pubkey&quot;, &quot;-noout&quot;],
+3182	            capture_output=True,
+3183	            text=True,
+3184	        )
+3185	        if proc.returncode != 0:
 </pre>
 </div>
 
@@ -1505,18 +1505,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3069<br>
+    <b>Line number: </b>3180<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-3068	        # Extract public key from certificate
-3069	        proc = subprocess.run(
-3070	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, cert_path, &quot;-pubkey&quot;, &quot;-noout&quot;],
-3071	            capture_output=True,
-3072	            text=True,
-3073	        )
-3074	        if proc.returncode != 0:
+3179	        # Extract public key from certificate
+3180	        proc = subprocess.run(
+3181	            [&quot;openssl&quot;, &quot;x509&quot;, &quot;-in&quot;, cert_path, &quot;-pubkey&quot;, &quot;-noout&quot;],
+3182	            capture_output=True,
+3183	            text=True,
+3184	        )
+3185	        if proc.returncode != 0:
 </pre>
 </div>
 
@@ -1532,18 +1532,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3092<br>
+    <b>Line number: </b>3203<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b607_start_process_with_partial_path.html</a><br>
 
 <div class="code">
 <pre>
-3091	        try:
-3092	            pub_proc = subprocess.run(
-3093	                [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-in&quot;, key_path, &quot;-pubout&quot;],
-3094	                capture_output=True,
-3095	                text=True,
-3096	            )
-3097	            if pub_proc.returncode != 0:
+3202	        try:
+3203	            pub_proc = subprocess.run(
+3204	                [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-in&quot;, key_path, &quot;-pubout&quot;],
+3205	                capture_output=True,
+3206	                text=True,
+3207	            )
+3208	            if pub_proc.returncode != 0:
 </pre>
 </div>
 
@@ -1559,18 +1559,18 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3092<br>
+    <b>Line number: </b>3203<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-3091	        try:
-3092	            pub_proc = subprocess.run(
-3093	                [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-in&quot;, key_path, &quot;-pubout&quot;],
-3094	                capture_output=True,
-3095	                text=True,
-3096	            )
-3097	            if pub_proc.returncode != 0:
+3202	        try:
+3203	            pub_proc = subprocess.run(
+3204	                [&quot;openssl&quot;, &quot;pkey&quot;, &quot;-in&quot;, key_path, &quot;-pubout&quot;],
+3205	                capture_output=True,
+3206	                text=True,
+3207	            )
+3208	            if pub_proc.returncode != 0:
 </pre>
 </div>
 
@@ -1586,14 +1586,14 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/78.html" target="_blank">CWE-78</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3155<br>
+    <b>Line number: </b>3266<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b603_subprocess_without_shell_equals_true.html</a><br>
 
 <div class="code">
 <pre>
-3154	    try:
-3155	        proc = subprocess.run(cmd, capture_output=True, text=True)
-3156	        if proc.returncode != 0:
+3265	    try:
+3266	        proc = subprocess.run(cmd, capture_output=True, text=True)
+3267	        if proc.returncode != 0:
 </pre>
 </div>
 
@@ -1609,15 +1609,15 @@ pre {
     <b>Confidence: </b>HIGH<br>
     <b>CWE: </b><a href="https://cwe.mitre.org/data/definitions/703.html" target="_blank">CWE-703</a><br>
     <b>File: </b><a href="C:\Users\uzi\Downloads\projects\PKI\app.py" target="_blank">C:\Users\uzi\Downloads\projects\PKI\app.py</a><br>
-    <b>Line number: </b>3287<br>
+    <b>Line number: </b>3398<br>
     <b>More info: </b><a href="https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html" target="_blank">https://bandit.readthedocs.io/en/1.9.3/plugins/b110_try_except_pass.html</a><br>
 
 <div class="code">
 <pre>
-3286	        log_user_event(&#x27;reset_password&#x27;, current_user.id, {&#x27;by&#x27;: current_user.id, &#x27;username&#x27;: current_user.username, &#x27;actor_username&#x27;: current_user.username})
-3287	    except Exception:
-3288	        pass
-3289	    flash(&quot;Password changed successfully.&quot;, &quot;success&quot;)
+3397	        log_user_event(&#x27;reset_password&#x27;, current_user.id, {&#x27;by&#x27;: current_user.id, &#x27;username&#x27;: current_user.username, &#x27;actor_username&#x27;: current_user.username})
+3398	    except Exception:
+3399	        pass
+3400	    flash(&quot;Password changed successfully.&quot;, &quot;success&quot;)
 </pre>
 </div>
 
