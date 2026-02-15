@@ -169,6 +169,7 @@ def migrate_db():
     ensure_column('profiles', 'user_id', 'INTEGER')
     ensure_column('profiles', 'created_at', 'DATETIME')
     ensure_column('profiles', 'content', 'TEXT')
+    ensure_column('profiles', 'template_name', 'TEXT')
     ensure_column('keys', 'user_id', 'INTEGER')
     ensure_column('csrs', 'user_id', 'INTEGER')
     ensure_column('ra_policies', 'user_id', 'INTEGER')
@@ -234,6 +235,12 @@ def migrate_db():
         print("[migrate_db] Renaming profiles.filename to profiles.name...")
         cur.execute("ALTER TABLE profiles RENAME COLUMN filename TO name")
         print("[migrate_db] Column renamed successfully")
+
+    # Backfill empty template_name values for manually created profiles.
+    # This is idempotent and preserves existing non-empty template_name values.
+    cur.execute(
+        "UPDATE profiles SET template_name = name WHERE TRIM(COALESCE(template_name, '')) = ''"
+    )
 
     # Migrate profile files to database
     print("[migrate_db] Migrating profile files to database...")
