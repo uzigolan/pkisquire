@@ -149,7 +149,7 @@ def list_events():
     else:
         events_to_render = events
     try:
-        current_app.logger.debug(f"[DEBUG /events] Retrieved {len(events_to_render)} events: {events_to_render}")
+        current_app.logger.trace(f"[TRACE /events] Retrieved {len(events_to_render)} events: {events_to_render}")
     except Exception as e:
         current_app.logger.error(f"[DEBUG /events] Logging error: {e}")
     return render_template('events.html', events=events_to_render, show_user_column=show_user_column)
