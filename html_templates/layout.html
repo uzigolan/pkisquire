@@ -669,6 +669,7 @@
     Pikachu CA
     </a>
 
+    {% if current_user.is_authenticated %}
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
       aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
@@ -704,7 +705,6 @@
           <li class="nav-item"><a class="nav-link{% if request.path.startswith('/logs') %} active{% endif %}" href="/logs">Logs</a></li>
         {% endif %}
       </ul>
-    </ul>
     <!-- New version badge to the right -->
     <span class="navbar-text text-muted ml-3">
       v{{ version }} | <a href="/about" class="text-muted">About</a>
@@ -724,6 +724,7 @@
       </span>
     {% endif %}
     </div>
+    {% endif %}
   </nav>
   <div class="app-shell">
     <div class="container-fluid app-container">

@@ -1679,6 +1679,7 @@ def api_doc():
 
 
 @app.route("/about")
+@login_required
 def about():
     return render_template("about.html")
 
