@@ -1776,8 +1776,21 @@ def pip_audit_report_interactive():
     return send_file(report_path, mimetype="text/html")
 
 
-@app.route("/security/pip-licenses-interactive")
+@app.route("/security/pip-licenses-interactive", methods=["GET", "POST"])
+@login_required
 def pip_licenses_report_interactive():
+    if session.get("licenses_report_access_granted") is True:
+        pass
+    elif request.method == "POST":
+        secret = request.form.get("config_secret", "").strip()
+        if secret == app.config.get("DELETE_SECRET"):
+            session["licenses_report_access_granted"] = True
+        else:
+            flash("Incorrect secret.", "error")
+            return redirect(url_for("about"))
+    else:
+        return redirect(url_for("about"))
+
     report_path = Path(current_app.root_path) / "security" / "pip-licenses-interactive.html"
     if not report_path.exists():
         abort(404)
