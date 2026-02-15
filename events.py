@@ -1,5 +1,5 @@
 import sqlite3
-from flask_login import current_user
+from flask_login import current_user, login_required
 
 from flask import Blueprint, request, render_template, g, current_app, abort
 import sqlite3
@@ -118,6 +118,7 @@ def get_user_events(user_id=None, event_type=None, page=1, page_size=20):
 
 
 @bp.route('/', methods=['GET'])
+@login_required
 def list_events():
     # Example: get filters from query params
     filters = {}
@@ -155,6 +156,7 @@ def list_events():
 
 
 @bp.route('/api', methods=['GET'])
+@login_required
 def events_api():
     filters = {}
     for key in ['resource_type', 'event_type', 'resource_name']:
@@ -194,6 +196,7 @@ def events_api():
 
 
 @bp.route('/<int:event_id>', methods=['GET'])
+@login_required
 def event_detail(event_id):
     db_path = current_app.config['DB_PATH']
     with sqlite3.connect(db_path) as conn:
