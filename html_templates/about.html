@@ -69,7 +69,7 @@
               <strong>Vulnerabilities Report (Latest)</strong><br>
               <small class="text-muted">Dependency findings with severity, filter, and sort</small>
             </a>
-            <a href="{{ url_for('pip_licenses_report_interactive') }}" target="_blank" class="list-group-item list-group-item-action">
+            <a href="javascript:void(0);" onclick="openLicensesReport();" class="list-group-item list-group-item-action">
               <strong>Licenses Report (Latest)</strong><br>
               <small class="text-muted">Dependency licenses with unknown-license highlighting</small>
             </a>
@@ -130,4 +130,29 @@
       </p>
     </div>
   </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function openLicensesReport() {
+    var secret = prompt("Enter secret to access licenses report:");
+    if (secret === null || secret.trim() === "") {
+      return;
+    }
+
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = "{{ url_for('pip_licenses_report_interactive') }}";
+    form.target = "_blank";
+
+    var input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "config_secret";
+    input.value = secret;
+
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
+</script>
 {% endblock %}
