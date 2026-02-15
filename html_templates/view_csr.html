@@ -8,15 +8,13 @@
     <div class="col-md-6">
       <p><strong>Name:</strong> {{ csr.name }}</p>
       <p><strong>Key:</strong> {{ key.name if key else "N/A" }}</p>
-      <p><strong>Profile:</strong> {{ profile.filename if profile else "N/A" }}</p>
+      <p><strong>Template:</strong> {{ profile.template_name if profile else "N/A" }}</p>
       {% if profile %}
-        <h2 class="mt-4">Profile Details</h2>
-        <p><strong>Template Name:</strong> {{ profile.template_name }}</p>
         {% if profile_content %}
-          <h4>Profile Configuration Content</h4>
+          <h4>Template Value</h4>
           <pre style="max-width: 520px; white-space: pre-wrap;">{{ profile_content }}</pre>
         {% else %}
-          <p>No configuration content available.</p>
+          <p>No template value available.</p>
         {% endif %}
       {% endif %}
       <p><strong>Created At:</strong> {{ csr.created_at_local.strftime('%Y-%m-%d %H:%M %Z') if csr.created_at_local else '' }}</p>

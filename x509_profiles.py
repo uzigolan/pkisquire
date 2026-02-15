@@ -458,7 +458,8 @@ def new_profile_file():
             new_content_normalized = re.sub(r'\n{3,}', '\n\n', new_content_normalized)
             prof = Profile(
                 name=name, 
-                template_name="", 
+                # Manual profiles do not come from a .j2 template; keep origin non-empty for traceability.
+                template_name=name,
                 profile_type=profile_type, 
                 user_id=current_user.id, 
                 created_at=datetime.utcnow(),
