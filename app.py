@@ -29,7 +29,6 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.backends import default_backend
 from cryptography.x509 import CertificateBuilder, load_pem_x509_certificate, random_serial_number
-from cryptography.x509.ocsp import OCSPResponseBuilder, OCSPCertStatus, load_der_ocsp_request,OCSPResponderEncoding,OCSPResponseStatus
 from cryptography.hazmat.primitives.asymmetric import rsa, ec
 from cryptography.hazmat.primitives import serialization 
 from markupsafe import escape
@@ -40,16 +39,29 @@ except Exception:
 import inspect_logic
 from asn1crypto import x509 as asn1_x509
 
-from ldap_utils import ldap_authenticate, ldap_user_exists
 from user_models import User, get_user_by_id, get_user_theme_style, set_user_theme_style, get_user_theme_color, set_user_theme_color
 # Load shared extensions and blueprints
 from extensions import db           # Shared SQLAlchemy instance
 from x509_profiles import x509_profiles_bp, Profile, X509_PROFILE_DIR
 from x509_keys import x509_keys_bp, Key
 from x509_requests import x509_requests_bp
-from scep import scep_app
 from openssl_utils import get_provider_args
 from ra_policies import RAPolicyManager, DEFAULT_VALIDITY_DAYS
+from edition import get_edition, is_enterprise, feature_enabled
+
+if feature_enabled("ldap"):
+    from ldap_utils import ldap_authenticate, ldap_user_exists
+else:
+    def ldap_authenticate(*args, **kwargs):
+        return None
+
+    def ldap_user_exists(*args, **kwargs):
+        return False
+
+if feature_enabled("scep"):
+    from scep import scep_app
+else:
+    scep_app = None
 
 #from flask import render_template, current_app as app
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -82,6 +94,7 @@ import logging
 app.logger.info(f"[STARTUP] app.config['DB_PATH'] = {app.config.get('DB_PATH')}")
 register_login_signals(app)
 app.register_blueprint(users_bp)
+app.config["APP_EDITION"] = get_edition()
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.jinja_env.auto_reload = True
 # Clear template cache on each load to avoid stale HTML in dev
@@ -195,6 +208,8 @@ app.config["LDAP_PEOPLE_DN"]      = _cfg.get("LDAP", "PEOPLE_DN", fallback=None)
 app.config["LDAP_ADMIN_DN"]       = _cfg.get("LDAP", "ADMIN_DN", fallback=None)
 app.config["LDAP_ADMIN_PASSWORD"] = _cfg.get("LDAP", "ADMIN_PASSWORD", fallback=None)
 app.config["LDAP_ENABLED"]        = _cfg.getboolean("LDAP", "enabled", fallback=bool(_cfg.get("LDAP", "LDAP_HOST", fallback=None)))
+if not feature_enabled("ldap"):
+    app.config["LDAP_ENABLED"] = False
 
 # —— VAULT section —— 
 from config_storage import load_vault_config
@@ -424,7 +439,7 @@ app.register_blueprint(x509_profiles_bp)
 app.register_blueprint(x509_keys_bp)
 app.register_blueprint(x509_requests_bp)
 app.register_blueprint(events_bp)
-if app.config["SCEP_ENABLED"]:
+if app.config["SCEP_ENABLED"] and feature_enabled("scep"):
     app.register_blueprint(scep_app)
 # ---------- Helper Functions ----------
 
@@ -545,7 +560,36 @@ def inject_ca_mode():
 
 @app.context_processor
 def inject_legacy_paths_flag():
-    return {"show_legacy_paths": app.config.get("SHOW_LEGACY_PATHS", False)}
+    return {
+        "show_legacy_paths": app.config.get("SHOW_LEGACY_PATHS", False),
+        "is_enterprise": is_enterprise(),
+        "app_edition": app.config.get("APP_EDITION", "enterprise"),
+    }
+
+
+@app.before_request
+def enforce_enterprise_feature_gates():
+    if is_enterprise():
+        return
+    path = request.path or ""
+    blocked_prefixes = (
+        "/.well-known/est/",
+        "/cgi-bin/pkiclient.exe",
+        "/scep",
+        "/mobileconfig",
+        "/challenge_passwords",
+        "/delete_challenge_password",
+        "/delete_all_expired_challenge_passwords",
+        "/api/challenge_passwords",
+        "/ocsp",
+        "/ocspv",
+        "/users/tokens",
+    )
+    blocked_exact = (
+        "/challenge_passwords/data",
+    )
+    if path in blocked_exact or any(path.startswith(prefix) for prefix in blocked_prefixes):
+        abort(404)
 
 
 OID_TO_NAME = {
@@ -631,103 +675,24 @@ def debug_current_user():
         return {'authenticated': False}
 
 
+def _enterprise_routes_module():
+    from enterprise import routes as enterprise_routes
+
+    return enterprise_routes
+
+
 # --- Individual Challenge Password Deletion Route ---
 @app.route('/delete_challenge_password', methods=['POST'])
 @login_required
 def delete_challenge_password():
-    value = request.form.get('value') or request.args.get('value')
-    if not value:
-        flash('No challenge password specified.', 'error')
-        return redirect(url_for('challenge_passwords'))
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.row_factory = sqlite3.Row
-        row = conn.execute(
-            "SELECT user_id, consumed, created_at, validity FROM challenge_passwords WHERE value = ?",
-            (value,),
-        ).fetchone()
-        if not row:
-            flash('Challenge password not found.', 'error')
-            return redirect(url_for('challenge_passwords'))
-        if not current_user.is_admin() and row['user_id'] != current_user.id:
-            flash('You do not have permission to delete this challenge password.', 'error')
-            return redirect(url_for('challenge_passwords'))
-        if row['consumed']:
-            flash('Consumed challenge passwords cannot be deleted.', 'error')
-            return redirect(url_for('challenge_passwords'))
-        conn.execute("DELETE FROM challenge_passwords WHERE value = ?", (value,))
-        conn.commit()
-        # Event logging
-        try:
-            from events import log_event
-            log_event(
-                event_type="delete",
-                resource_type="challenge_password",
-                resource_name=value,
-                user_id=current_user.id,
-                details={}
-            )
-        except Exception:
-            pass
-    flash('Challenge password deleted.', 'success')
-    return redirect(url_for('challenge_passwords'))
+    return _enterprise_routes_module().delete_challenge_password()
 
 
 
 @app.route('/delete_all_expired_challenge_passwords', methods=['POST'])
 @login_required
 def delete_all_expired_challenge_passwords():
-    from datetime import datetime, timedelta
-    now = datetime.utcnow()
-    scope = request.form.get('scope') or request.args.get('scope', 'own')
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.row_factory = sqlite3.Row
-        if current_user.is_admin() and scope == 'all':
-            rows = conn.execute("SELECT value, created_at, validity, consumed FROM challenge_passwords").fetchall()
-        else:
-            rows = conn.execute("SELECT value, created_at, validity, consumed, user_id FROM challenge_passwords WHERE user_id = ?", (current_user.id,)).fetchall()
-        to_delete = []
-        for row in rows:
-            if row['consumed']:
-                continue
-            expires_at = ''
-            if row['created_at'] and row['validity']:
-                m = re.match(r'^(\d+)([mhd])$', row['validity'])
-                if m:
-                    num, unit = int(m.group(1)), m.group(2)
-                    if unit == 'm':
-                        delta = timedelta(minutes=num)
-                    elif unit == 'h':
-                        delta = timedelta(hours=num)
-                    elif unit == 'd':
-                        delta = timedelta(days=num)
-                    else:
-                        delta = timedelta(minutes=60)
-                    try:
-                        created_dt = datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S UTC')
-                        expires_dt = created_dt + delta
-                        if now > expires_dt:
-                            to_delete.append(row['value'])
-                    except Exception:
-                        continue
-        if to_delete:
-            conn.executemany("DELETE FROM challenge_passwords WHERE value = ?", [(v,) for v in to_delete])
-            conn.commit()
-            # Event logging
-            try:
-                from events import log_event
-                log_event(
-                    event_type="bulk_delete",
-                    resource_type="challenge_password",
-                    resource_name="bulk",
-                    user_id=current_user.id,
-                    details={"count": len(to_delete)}
-                )
-            except Exception:
-                pass
-            flash(f"Deleted {len(to_delete)} expired challenge passwords.", "success")
-        else:
-            flash("No expired challenge passwords to delete.", "info")
-    return redirect(url_for('challenge_passwords'))
+    return _enterprise_routes_module().delete_all_expired_challenge_passwords()
 
 
 
@@ -735,247 +700,17 @@ def delete_all_expired_challenge_passwords():
 @app.route('/challenge_passwords/data', methods=['GET'])
 @login_required
 def challenge_passwords_data():
-    # Return the current challenge password list as JSON from DB
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.row_factory = sqlite3.Row
-        if current_user.is_admin():
-            rows = conn.execute(
-                "SELECT value, user_id, created_at, validity, consumed FROM challenge_passwords ORDER BY created_at DESC"
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT value, user_id, created_at, validity, consumed FROM challenge_passwords WHERE user_id = ? ORDER BY created_at DESC",
-                (current_user.id,),
-            ).fetchall()
-    from user_models import get_username_by_id
-    result = []
-    for row in rows:
-        expires_at_utc = ""
-        expires_at_local = ""
-        expired_flag = False
-        allow_delete = not bool(row["consumed"])
-        if row["created_at"] and row["validity"]:
-            m = re.match(r"^(\d+)([mhd])$", row["validity"])
-            if m:
-                num, unit = int(m.group(1)), m.group(2)
-                if unit == "m":
-                    delta = timedelta(minutes=num)
-                elif unit == "h":
-                    delta = timedelta(hours=num)
-                elif unit == "d":
-                    delta = timedelta(days=num)
-                else:
-                    delta = timedelta(minutes=60)
-                try:
-                    created_dt = datetime.strptime(row["created_at"], "%Y-%m-%d %H:%M:%S UTC").replace(tzinfo=timezone.utc)
-                    expires_dt = created_dt + delta
-                    expires_at_utc = expires_dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-                    expires_at_local = expires_dt.astimezone().strftime("%Y-%m-%d %H:%M")
-                    expired_flag = datetime.now(timezone.utc) > expires_dt
-                except Exception:
-                    pass
-        result.append({
-            'value': row['value'],
-            'user': get_username_by_id(row['user_id']) if row['user_id'] else '',
-            'created_at_utc': row['created_at'],
-            'created_at_local': (
-                datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S UTC')
-                .replace(tzinfo=timezone.utc)
-                .astimezone()
-                .strftime('%Y-%m-%d %H:%M')
-            ) if row['created_at'] else '',
-            'validity': row['validity'],
-            'expires_at_utc': expires_at_utc,
-            'expires_at_local': expires_at_local,
-            'expired': expired_flag,
-            'consumed': bool(row['consumed']),
-            'allow_delete': allow_delete
-        })
-    return jsonify(result)
-
-def _parse_validity_timedelta(validity_str):
-    import re, datetime
-    m = re.match(r"^(\d+)([mhd])$", (validity_str or "").strip())
-    if not m:
-        return datetime.timedelta(minutes=60), "60m"
-    num, unit = int(m.group(1)), m.group(2)
-    if unit == 'm':
-        return datetime.timedelta(minutes=num), validity_str
-    if unit == 'h':
-        return datetime.timedelta(hours=num), validity_str
-    if unit == 'd':
-        return datetime.timedelta(days=num), validity_str
-    return datetime.timedelta(minutes=60), "60m"
+    return _enterprise_routes_module().challenge_passwords_data()
 
 @app.route("/api/challenge_passwords", methods=["POST"])
 def api_create_challenge_password():
-    """
-    Create a new challenge password using an API token.
-    Auth: Authorization: Bearer <token> (or token param/header).
-    """
-    raw_token = None
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.lower().startswith("bearer "):
-        raw_token = auth_header.split(" ", 1)[1].strip()
-    raw_token = raw_token or request.headers.get("X-API-Token") or request.args.get("token") or (request.json.get("token") if request.is_json else None)
-    if not raw_token:
-        return jsonify({"error": "API token required"}), 401
-    token_info = verify_api_token(raw_token)
-    if not token_info:
-        return jsonify({"error": "Invalid or expired API token"}), 401
-    if not app.config.get('SCEP_CHALLENGE_PASSWORD_ENABLED', False):
-        return jsonify({"error": "Challenge password feature is disabled"}), 400
-
-    validity_str = app.config.get('SCEP_CHALLENGE_PASSWORD_VALIDITY', '60m').strip()
-    delta, validity_str = _parse_validity_timedelta(validity_str)
-
-    import secrets, datetime
-    now = datetime.datetime.now(datetime.UTC)
-    value = secrets.token_bytes(16).hex().upper()
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute(
-            "INSERT INTO challenge_passwords (value, user_id, created_at, validity, consumed) VALUES (?, ?, ?, ?, 0)",
-            (value, token_info["user_id"], now.strftime('%Y-%m-%d %H:%M:%S UTC'), validity_str,)
-        )
-        conn.commit()
-    expires_at = (now + delta).strftime('%Y-%m-%d %H:%M:%S UTC')
-    try:
-        from events import log_event
-        log_event(
-            event_type="create",
-            resource_type="challenge_password",
-            resource_name=value,
-            user_id=token_info["user_id"],
-            details={"validity": validity_str, "via": "api_token"}
-        )
-    except Exception:
-        pass
-    return jsonify({
-        "value": value,
-        "user_id": token_info["user_id"],
-        "validity": validity_str,
-        "created_at": now.strftime('%Y-%m-%d %H:%M:%S UTC'),
-        "expires_at": expires_at
-    }), 201
+    return _enterprise_routes_module().api_create_challenge_password(verify_api_token)
 
 # --- Challenge Password Management UI ---
 @app.route('/challenge_passwords', methods=['GET', 'POST'])
 @login_required
 def challenge_passwords():
-    import secrets, datetime
-    validity_str = app.config.get('SCEP_CHALLENGE_PASSWORD_VALIDITY', '60m')
-    # Parse validity string (e.g., 60m, 2h, 1d)
-    import re
-    m = re.match(r'^(\d+)([mhd])$', validity_str)
-    if m:
-        num, unit = int(m.group(1)), m.group(2)
-        if unit == 'm':
-            delta = datetime.timedelta(minutes=num)
-        elif unit == 'h':
-            delta = datetime.timedelta(hours=num)
-        elif unit == 'd':
-            delta = datetime.timedelta(days=num)
-        else:
-            delta = datetime.timedelta(minutes=60)
-    else:
-        delta = datetime.timedelta(minutes=60)
-    from flask import redirect, url_for, session
-    generated = None
-    if request.method == 'POST':
-        now = datetime.datetime.now(datetime.UTC)
-        value = secrets.token_bytes(16).hex().upper()
-        validity = validity_str
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            conn.execute(
-                "INSERT INTO challenge_passwords (value, user_id, created_at, validity, consumed) VALUES (?, ?, ?, ?, 0)",
-                (value, current_user.id, now.strftime('%Y-%m-%d %H:%M:%S UTC'), validity,)
-            )
-            conn.commit()
-        # Event logging
-        try:
-            from events import log_event
-            log_event(
-                event_type="create",
-                resource_type="challenge_password",
-                resource_name=value,
-                user_id=current_user.id,
-                details={"validity": validity}
-            )
-        except Exception:
-            pass
-        session['generated_challenge_password'] = {
-            'value': value,
-            'user': current_user.username,
-            'created_at': now.strftime('%Y-%m-%d %H:%M:%S UTC'),
-            'validity': validity,
-            'consumed': False
-        }
-        return redirect(url_for('challenge_passwords'))
-    generated = session.pop('generated_challenge_password', None)
-    # Fetch challenge passwords from DB (admin: all, user: own only)
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.row_factory = sqlite3.Row
-        if current_user.is_admin():
-            rows = conn.execute("SELECT value, user_id, created_at, validity, consumed FROM challenge_passwords ORDER BY created_at DESC").fetchall()
-        else:
-            rows = conn.execute("SELECT value, user_id, created_at, validity, consumed FROM challenge_passwords WHERE user_id = ? ORDER BY created_at DESC", (current_user.id,)).fetchall()
-    from user_models import get_username_by_id
-    challenge_passwords = []
-    for row in rows:
-        # Calculate expires_at
-        import re, datetime
-        expires_at = ''
-        expires_at_local = ''
-        if row['created_at'] and row['validity']:
-            m = re.match(r'^(\d+)([mhd])$', row['validity'])
-            if m:
-                num, unit = int(m.group(1)), m.group(2)
-                if unit == 'm':
-                    delta = datetime.timedelta(minutes=num)
-                elif unit == 'h':
-                    delta = datetime.timedelta(hours=num)
-                elif unit == 'd':
-                    delta = datetime.timedelta(days=num)
-                else:
-                    delta = datetime.timedelta(minutes=60)
-                try:
-                    created_dt = datetime.datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=datetime.timezone.utc)
-                    expires_dt = created_dt + delta
-                    expires_at = expires_dt.strftime('%Y-%m-%d %H:%M:%S UTC')
-                    expires_at_local = expires_dt.astimezone().strftime('%Y-%m-%d %H:%M')
-                except Exception:
-                    expires_at = ''
-        # Determine expired status
-        expired = False
-        allow_delete = not bool(row['consumed'])
-        if expires_at and not bool(row['consumed']):
-            try:
-                expires_dt = datetime.datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=datetime.timezone.utc)
-                if datetime.datetime.now(datetime.timezone.utc) > expires_dt:
-                    expired = True
-            except Exception:
-                pass
-        challenge_passwords.append({
-            'value': row['value'],
-            'user': get_username_by_id(row['user_id']) if row['user_id'] else '',
-            'created_at_utc': row['created_at'],
-            'created_at_local': (
-                datetime.datetime.strptime(row['created_at'], '%Y-%m-%d %H:%M:%S UTC')
-                .replace(tzinfo=datetime.timezone.utc)
-                .astimezone()
-                .strftime('%Y-%m-%d %H:%M')
-            ) if row['created_at'] else '',
-            'validity': row['validity'],
-            'expires_at_utc': expires_at,
-            'expires_at_local': expires_at_local,
-            'consumed': bool(row['consumed']),
-            'expired': expired,
-            'allow_delete': allow_delete
-        })
-    return render_template('challenge_passwords.html',
-        generated=generated,
-        challenge_passwords=challenge_passwords,
-        is_admin=current_user.is_admin())
+    return _enterprise_routes_module().challenge_passwords()
 
 
 
@@ -1979,7 +1714,7 @@ def ra_policies_page():
     else:
         policies = mgr.list_policies_for_user(current_user.id, include_system=True)
     from flask import current_app
-    challenge_password_enabled = current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
+    challenge_password_enabled = feature_enabled("challenge_passwords") and current_app.config.get("SCEP_CHALLENGE_PASSWORD_ENABLED", False)
     return render_template("ra_policies.html", policies=policies, is_admin=current_user.is_admin(), challenge_password_enabled=challenge_password_enabled)
 
 
@@ -2733,122 +2468,9 @@ def download_chain():
 
 
 # ---------- OCSPV Endpoint ----------
-def _ocsp_hash_algorithm():
-    if app.config.get("OCSP_HASH_ALGORITHM") == "sha256":
-        return hashes.SHA256()
-    return hashes.SHA1()  # nosec B303 - legacy OCSP client compatibility
-
-
-
-from cryptography.x509.ocsp import (
-    load_der_ocsp_request,
-    OCSPResponseBuilder,
-    OCSPResponderEncoding,
-    OCSPCertStatus,
-    OCSPResponseStatus,
-)
-from cryptography.x509.oid import ExtensionOID
-
-
 @app.route("/ocspv", methods=["POST", "GET"])
 def ocspv():
-    app.logger.debug("OCSP endpoint called.")
-    try:
-        # 1) Fetch raw request
-        if request.method == "GET":
-            b64_req = request.args.get("ocsp")
-            if not b64_req:
-                raise ValueError("No OCSP request found in query param")
-            request_data = base64.b64decode(b64_req)
-        else:
-            request_data = request.data
-            if not request_data:
-                raise ValueError("Empty OCSP request body")
-
-        # 2) First parse with cryptography (never breaks on version field)
-        ocsp_req = load_der_ocsp_request(request_data)
-        requests_serials = [ocsp_req.serial_number]
-
-        # 2b) Try to extract *additional* requests with asn1crypto
-        try:
-            asn1_req = asn1_ocsp.OCSPRequest.load(request_data)
-            req_list = asn1_req['tbs_request']['request_list']
-
-            if len(req_list) > 1:
-                requests_serials = []
-                for single in req_list:
-                    sn = single['req_cert']['serial_number'].native
-                    requests_serials.append(sn)
-        except Exception:
-            pass  # ignore, we already have the first request
-
-        # 3) Load CA
-        with open(app.config["SUBCA_CERT_PATH"], "rb") as f:
-            ca_cert = x509.load_pem_x509_certificate(f.read(), default_backend())
-        with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
-            private_key = serialization.load_pem_private_key(f.read(), password=None)
-
-        now = dt.datetime.utcnow()
-        next_update = now + dt.timedelta(days=7)
-        builder = OCSPResponseBuilder()
-
-        # 4) Process each serial number
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            for sn in requests_serials:
-                row = conn.execute(
-                    "SELECT cert_pem, revoked FROM certificates WHERE serial = ?",
-                    (hex(sn),),
-                ).fetchone()
-
-                if not row:
-                    ocsp_resp = OCSPResponseBuilder.build_unsuccessful(
-                        OCSPResponseStatus.UNAUTHORIZED
-                    )
-                    return make_response(
-                        ocsp_resp.public_bytes(serialization.Encoding.DER),
-                        200,
-                        {"Content-Type": "application/ocsp-response"},
-                    )
-
-                cert_pem, revoked_flag = row
-                target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-                revoked = (revoked_flag == 1)
-
-                builder = builder.add_response(
-                    cert=target_cert,
-                    issuer=ca_cert,
-                    algorithm=_ocsp_hash_algorithm(),
-                    cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
-                    this_update=now,
-                    next_update=next_update,
-                    revocation_time=now if revoked else None,
-                    revocation_reason=x509.ReasonFlags.unspecified if revoked else None,
-                )
-
-        # 5) Responder ID
-        builder = builder.responder_id(OCSPResponderEncoding.HASH, ca_cert)
-
-        # 6) Copy nonce (cryptography API works)
-        try:
-            for ext in ocsp_req.extensions:
-                if ext.oid == ExtensionOID.OCSP_NONCE:
-                    builder = builder.add_extension(ext, critical=False)
-                    break
-        except Exception:
-            pass
-
-        # 7) Sign
-        ocsp_response = builder.sign(private_key, hashes.SHA256())
-
-        return make_response(
-            ocsp_response.public_bytes(serialization.Encoding.DER),
-            200,
-            {"Content-Type": "application/ocsp-response"},
-        )
-
-    except Exception as e:
-        app.logger.error(f"OCSP request processing failed: {str(e)}")
-        return f"OCSP request processing failed: {str(e)}", 400
+    return _enterprise_routes_module().ocspv()
 
 
 
@@ -2857,114 +2479,9 @@ def ocspv():
 
 
 
-
-from asn1crypto import ocsp as asn1_ocsp
-import datetime as dt
-
-
 @app.route("/ocsp", methods=["POST", "GET"])
 def ocsp():
-    app.logger.debug("OCSP endpoint called.")
-    try:
-        # 1) Get DER OCSP request (POST body) or base64 (?ocsp=...) for GET
-        if request.method == "GET":
-            b64_req = request.args.get("ocsp")
-            if not b64_req:
-                raise ValueError("No OCSP request found in query param")
-            request_data = base64.b64decode(b64_req)
-        else:
-            request_data = request.data
-            if not request_data:
-                raise ValueError("Empty OCSP request body")
-
-        # 2) Parse with asn1crypto so we can see ALL requests
-        asn1_req = asn1_ocsp.OCSPRequest.load(request_data)
-        tbs_req = asn1_req["tbs_request"]
-        req_list = tbs_req["request_list"]
-
-        # 3) Load issuer (CA) and key once
-        with open(app.config["SUBCA_CERT_PATH"], "rb") as f:
-            ca_cert = x509.load_pem_x509_certificate(f.read(), default_backend())
-
-        with open(app.config["SUBCA_KEY_PATH"], "rb") as f:
-            private_key = serialization.load_pem_private_key(f.read(), password=None)
-
-        now = dt.datetime.utcnow()
-        next_update = now + dt.timedelta(days=7)
-
-        builder = OCSPResponseBuilder()
-
-        # 4) Add a SingleResponse for each request in the OCSPRequest
-        with sqlite3.connect(app.config["DB_PATH"]) as conn:
-            for single_req in req_list:
-                req_cert = single_req["req_cert"]
-                serial_number = req_cert["serial_number"].native  # int
-
-                row = conn.execute(
-                    "SELECT cert_pem, revoked FROM certificates WHERE serial = ?",
-                    (hex(serial_number),),
-                ).fetchone()
-
-                if not row:
-                    #raise ValueError(f"Certificate with serial {hex(serial_number)} not found")
-                    # build an unsuccessful OCSP response and return it
-                    app.logger.debug(f"OCSP: serial {hex(serial_number)} not found; returning UNAUTHORIZED")
-                    ocsp_resp = OCSPResponseBuilder.build_unsuccessful(
-                        OCSPResponseStatus.UNAUTHORIZED
-                    )
-                    return make_response(
-                        ocsp_resp.public_bytes(serialization.Encoding.DER),
-                        200,
-                        {"Content-Type": "application/ocsp-response"},
-                    )
-
-                cert_pem, revoked_flag = row
-                target_cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-                revoked = (revoked_flag == 1)
-                status_str = "REVOKED" if revoked else "GOOD"
-                app.logger.debug(f"OCSP: serial {hex(serial_number)} status {status_str}")
-
-                builder = builder.add_response(
-                    cert=target_cert,
-                    issuer=ca_cert,
-                    algorithm=_ocsp_hash_algorithm(),  # match client CertID hash if you later extract it
-                    cert_status=OCSPCertStatus.REVOKED if revoked else OCSPCertStatus.GOOD,
-                    this_update=now,
-                    next_update=next_update,
-                    revocation_time=now if revoked else None,
-                    revocation_reason=x509.ReasonFlags.unspecified if revoked else None,
-                )
-
-        # 5) Responder ID
-        builder = builder.responder_id(OCSPResponderEncoding.HASH, ca_cert)
-
-        # 6) (Optional) copy nonce from request, if present
-        req_exts = tbs_req["request_extensions"]
-        if req_exts is not None:
-            for ext in req_exts:
-                if ext["extn_id"].native == "ocsp_nonce":
-                    # ext["extn_value"].parsed gives you the raw nonce bytes
-                    nonce_bytes = ext["extn_value"].native
-                    builder = builder.add_extension(
-                        x509.UnrecognizedExtension(
-                            x509.ObjectIdentifier("1.3.6.1.5.5.7.48.1.2"),
-                            nonce_bytes,
-                        ),
-                        critical=False,
-                    )
-
-        # 7) Sign once
-        ocsp_response = builder.sign(private_key=private_key, algorithm=hashes.SHA256())
-
-        return make_response(
-            ocsp_response.public_bytes(serialization.Encoding.DER),
-            200,
-            {"Content-Type": "application/ocsp-response"},
-        )
-
-    except Exception as e:
-        app.logger.error(f"OCSP request processing failed: {str(e)}")
-        return f"OCSP request processing failed: {str(e)}", 400
+    return _enterprise_routes_module().ocsp()
 
 
 
@@ -2978,30 +2495,7 @@ def ocsp():
 
 @app.route("/.well-known/est/cacerts", methods=["GET"])
 def est_cacerts():
-    # 1) Generate a DER-encoded degenerate PKCS#7 containing the full chain
-    #    into a temporary file.
-    with tempfile.NamedTemporaryFile(suffix=".p7", delete=False) as tmp:
-        p7_path = tmp.name
-
-    subprocess.run([
-        "openssl", "crl2pkcs7",
-        "-nocrl",
-        "-certfile", app.config["CHAIN_FILE_PATH"],     # full chain PEM
-        "-outform", "DER",
-        "-out", p7_path
-    ], check=True)
-
-    # 2) Read and Base64-encode it
-    der = open(p7_path, "rb").read()
-    b64 = base64.encodebytes(der).decode("ascii")
-
-    # 3) Return as S/MIME with the required headers
-    headers = {
-        "Content-Type": "application/pkcs7-mime; smime-type=certs",
-        "Content-Transfer-Encoding": "base64",
-        "Content-Disposition": 'attachment; filename="cacerts.p7"'
-    }
-    return Response(b64, headers=headers, status=200)
+    return _enterprise_routes_module().est_cacerts()
 
 
 
@@ -3041,137 +2535,12 @@ def normalize_csr_pem_text(csr_text: str) -> str:
 
 @app.route("/.well-known/est/simpleenroll", methods=["POST"])
 def est_enroll():
-    raw = request.get_data()
-    ext_block = request.form.get("ext_block", "v3_ext")
-    mgr, policy = _resolve_ra_policy(None, None)
-
-    # 1) Normalize CSR to DER, then convert to PEM for CA class
-    try:
-        der_csr = normalize_to_der(raw)
-        # Convert DER to PEM format
-        pem_csr = (
-            b"-----BEGIN CERTIFICATE REQUEST-----\n" +
-            base64.encodebytes(der_csr) +
-            b"-----END CERTIFICATE REQUEST-----\n"
-        )
-        csr_obj = x509.load_pem_x509_csr(pem_csr, default_backend())
-    except Exception as e:
-        app.logger.error(f"Invalid CSR encoding: {e}")
-        return "Invalid CSR encoding", 400
-
-    # ...removed strict CN validation...
-
-    validity_days = mgr.get_validity_days(policy)
-    try:
-        validity_int = int(str(validity_days))
-    except Exception:
-        validity_int = int(DEFAULT_VALIDITY_DAYS)
-
-
-    ca = get_ca_instance()
-    vault_mode = getattr(ca, '_vault_enabled', False)
-    if vault_mode:
-        try:
-            app.logger.debug(f"EST: Signing CSR with CA class (ttl={validity_int} hours) [Vault mode]")
-            cert = ca.sign(csr_obj, ttl=validity_int)
-            cert_pem = cert.public_bytes(serialization.Encoding.PEM).decode()
-        except Exception as e:
-            app.logger.error(f"EST: Vault CA signing failed: {e}")
-            return f"Vault CA signing failed: {e}", 500
-    else:
-        # Use OpenSSL CLI for signing
-        app.logger.debug("EST: Vault not enabled, using OpenSSL CLI for signing.")
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".csr") as csr_file:
-            csr_file.write(der_csr)
-            csr_der_filename = csr_file.name
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pem") as cert_file:
-            cert_filename = cert_file.name
-
-        custom_serial_str = hex(secrets.randbits(64))
-
-        with mgr.temp_extfile(policy) as extfile_path:
-            if not extfile_path:
-                app.logger.error(f"EST: extfile_path is None. CSR file: {csr_der_filename}, Cert file: {cert_filename}")
-                return "No extension config available", 400
-            # Ensure all arguments are strings
-            cmd = [
-                str("openssl"), str("x509"), str("-req"),
-                str("-inform"), str("DER"),
-                str("-in"), str(csr_der_filename),
-                str("-CA"), str(app.config["SUBCA_CERT_PATH"]),
-                str("-CAkey"), str(app.config["SUBCA_KEY_PATH"]),
-                str("-set_serial"), str(custom_serial_str),
-                str("-days"), str(validity_int),
-                str("-out"), str(cert_filename),
-                str("-extfile"), str(extfile_path),
-                str("-extensions"), str(ext_block)
-            ]
-            app.logger.debug(f"EST: OpenSSL CLI command: {cmd}")
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
-
-        with open(cert_filename, "r") as f:
-            cert_pem = f.read()
-        cert = x509.load_pem_x509_certificate(cert_pem.encode(), default_backend())
-
-        # Cleanup temp files
-        try:
-            os.unlink(csr_der_filename)
-            os.unlink(cert_filename)
-        except Exception:
-            pass
-
-    # 4) Record in the database
-    subject_str = ", ".join(f"{attr.oid._name}={attr.value}" for attr in cert.subject)
-    actual_serial = hex(cert.serial_number)
-    from flask_login import current_user
-    
-    # Use current_user.id if authenticated, otherwise None
-    user_id = current_user.id if current_user.is_authenticated else None
-    
-    with sqlite3.connect(app.config["DB_PATH"]) as conn:
-        conn.execute(
-            "INSERT INTO certificates (subject, serial, cert_pem, user_id, issued_via) VALUES (?, ?, ?, ?, ?)",
-            (subject_str, actual_serial, cert_pem, user_id, 'est')
-        )
-
-    # Event logging for EST enrollment
-    try:
-        from events import log_event
-        log_event(
-            event_type="create",
-            resource_type="certificate",
-            resource_name=actual_serial,
-            user_id=user_id if user_id is not None else "est",
-            details={"subject": subject_str}
-        )
-    except Exception as e:
-        app.logger.error(f"Failed to log EST certificate event: {e}")
-
-    # 5) Write the signed cert to a file (for pkcs7 conversion)
-    signed_cert_path = os.path.join("pki-misc", "est_signed_cert.pem")
-    with open(signed_cert_path, "wb") as f:
-        f.write(cert_pem.encode())
-
-    # 6) Build a PKCS#7 container **with only the issued certificate** (no chain)
-
-    pkcs7_path = os.path.join("pki-misc", "est_cert_chain.p7")
-    subprocess.run([
-        "openssl", "crl2pkcs7",
-        "-nocrl",
-        "-certfile", signed_cert_path,
-        "-outform", "DER",
-        "-out", pkcs7_path
-    ], check=True)
-
-    # 7) Read, base64-encode, and return via make_response
-    pkcs7_der = open(pkcs7_path, "rb").read()
-    b64 = base64.encodebytes(pkcs7_der)
-    resp = make_response(b64, 200)
-    resp.headers["Content-Type"]              = "application/pkcs7-mime; smime-type=signed-data"
-    resp.headers["Content-Transfer-Encoding"] = "base64"
-    resp.headers["Content-Disposition"]       = 'attachment; filename="enroll.p7"'
-    return resp
+    return _enterprise_routes_module().est_enroll(
+        normalize_to_der=normalize_to_der,
+        get_ca_instance=get_ca_instance,
+        resolve_ra_policy=_resolve_ra_policy,
+        default_validity_days=DEFAULT_VALIDITY_DAYS,
+    )
 
 
 

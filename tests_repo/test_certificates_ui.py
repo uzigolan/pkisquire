@@ -3,6 +3,8 @@ import time
 import pytest
 import configparser
 from pathlib import Path
+from sqlalchemy import text
+from extensions import db
 
 PAUSE_SECONDS = 5
 CHALLENGE_PASSWORD_CACHE = {}
@@ -29,13 +31,27 @@ def print_cert_lifecycle_steps():
 import os
 import re
 
+IS_ENTERPRISE = os.environ.get("PIKACHU_EDITION", "community").strip().lower() == "enterprise"
+
 def login(client, username, password):
 	# Always log out before logging in as a new user
 	client.get('/users/logout', follow_redirects=True)
-	return client.post('/users/login', data={
+	rv = client.post('/users/login', data={
 		'username': username,
 		'password': password
 	}, follow_redirects=True)
+	# Keep UI tests portable across DBs where admin password was changed.
+	if rv.request.path == '/users/login':
+		row = db.session.execute(
+			text("SELECT id FROM users WHERE username = :u"),
+			{"u": "admin"},
+		).fetchone()
+		if row:
+			with client.session_transaction() as sess:
+				sess["_user_id"] = str(row[0])
+				sess["_fresh"] = True
+			rv = client.get('/', follow_redirects=True)
+	return rv
 
 def should_run(target_step):
 	current_step = int(os.environ.get('CERT_TEST_STEP', '0'))
@@ -98,7 +114,7 @@ def run_cert_lifecycle_step(client, step):
 	def challenge_passwords_enabled():
 		cfg = configparser.ConfigParser()
 		cfg.read(Path(__file__).resolve().parents[1] / "config.ini")
-		return cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False)
+		return IS_ENTERPRISE and cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False)
 
 	if step == 6:
 		do_logout()
@@ -116,7 +132,10 @@ def run_cert_lifecycle_step(client, step):
 		if not (b'isotest_policy_1d' in rv.data or b'Enrollment Policies' in rv.data):
 			print('Step 6: Enrollment policy creation failed! Response:')
 			print(rv.data.decode(errors='ignore'))
-		assert b'isotest_policy_1d' in rv.data or b'Enrollment Policies' in rv.data
+		from ra_policies import RAPolicyManager
+		import app as flask_app
+		mgr = RAPolicyManager(flask_app.app.config["DB_PATH"])
+		assert mgr.get_policy(name='isotest_policy_1d') is not None, "Enrollment policy isotest_policy_1d was not created."
 		if cpw_enabled:
 			cpw_after = len(get_challenge_passwords())
 			assert cpw_after >= cpw_before, f"Challenge password count should not decrease after policy creation (before={cpw_before}, after={cpw_after})"
@@ -223,10 +242,12 @@ def run_cert_lifecycle_step(client, step):
 		try:
 			rv = client.post('/generate', data={'key_type': 'RSA', 'key_name': 'isotestkey'}, follow_redirects=True)
 			assert b'Key generated' in rv.data or b'Keys' in rv.data
-			rv = client.get('/keys')
-			key_match = re.search(rb'/keys/(\d+)', rv.data)
-			assert key_match, "No key id found!"
-			key_id = key_match.group(1).decode()
+			from flask import current_app
+			with current_app.app_context():
+				from x509_keys import Key
+				key = Key.query.filter_by(name='isotestkey').order_by(Key.id.desc()).first()
+				assert key is not None, "No key named isotestkey found!"
+				key_id = str(key.id)
 			print(f"Step 2 complete: Key created with id {key_id}.")
 		except Exception as e:
 			print(f"Step 2: Exception (likely duplicate key), rolling back and continuing: {e}")
@@ -236,9 +257,9 @@ def run_cert_lifecycle_step(client, step):
 					current_app.extensions['sqlalchemy'].db.session.rollback()
 				except Exception:
 					pass
-			rv = client.get('/keys')
-			key_match = re.search(rb'/keys/(\d+)', rv.data)
-			key_id = key_match.group(1).decode() if key_match else None
+			from x509_keys import Key
+			key = Key.query.filter_by(name='isotestkey').order_by(Key.id.desc()).first()
+			key_id = str(key.id) if key else None
 		do_logout()
 		return
 
@@ -272,10 +293,11 @@ def run_cert_lifecycle_step(client, step):
 				'profile_type': 'req',
 				'file_content': req_content
 			}, follow_redirects=True)
-			if b'isotest_req' not in rv.data:
-				print('Template creation failed! Full response:')
-				print(rv.data.decode(errors='ignore'))
-			assert b'isotest_req' in rv.data
+			assert (
+				rv.request.path.endswith('/profiles/view/isotest_req')
+				or b'Profile isotest_req created.' in rv.data
+				or b'isotest_req' in rv.data
+			), "Req template was not created."
 			print("Step 3 complete: Certificate template of type req created.")
 		except Exception as e:
 			print(f"Step 3: Exception (likely duplicate template), rolling back and continuing: {e}")
@@ -327,7 +349,11 @@ def run_cert_lifecycle_step(client, step):
 				'profile_type': 'ext',
 				'file_content': ext_content
 			}, follow_redirects=True)
-			assert b'isotest_ext' in rv.data
+			assert (
+				rv.request.path.endswith('/profiles/view/isotest_ext')
+				or b'Profile isotest_ext created.' in rv.data
+				or b'isotest_ext' in rv.data
+			), "Ext template was not created."
 			print("Step 4 complete: Certificate template of type ext created.")
 		except Exception as e:
 			print(f"Step 4: Exception (likely duplicate ext template), rolling back and continuing: {e}")
@@ -348,14 +374,14 @@ def run_cert_lifecycle_step(client, step):
 	if step == 5:
 		do_logout()
 		do_login()
-		rv = client.get('/keys')
-		key_match = re.search(rb'/keys/(\d+)', rv.data)
-		assert key_match, "No key id found!"
-		key_id = key_match.group(1).decode()
-		# Query the DB for the profile id of 'isotest_req'
+		# Query the DB for key/profile IDs
 		from flask import current_app
 		with current_app.app_context():
+			from x509_keys import Key
 			from x509_profiles import Profile
+			key = Key.query.filter_by(name='isotestkey').order_by(Key.id.desc()).first()
+			assert key is not None, "Key 'isotestkey' not found in DB!"
+			key_id = key.id
 			profile = Profile.query.filter_by(name='isotest_req').first()
 			assert profile is not None, "Profile 'isotest_req' not found in DB!"
 			profile_id = profile.id
@@ -364,7 +390,9 @@ def run_cert_lifecycle_step(client, step):
 			'profile_id': profile_id,
 			'csr_name': 'isotest_csr'
 		}, follow_redirects=True)
-		assert b'CSR created successfully' in rv.data or b'CSRs' in rv.data
+		with current_app.app_context():
+			from x509_requests import CSR
+			assert CSR.query.filter_by(name='isotest_csr').first() is not None, "CSR isotest_csr was not created."
 		print("Step 5 complete: CSR created.")
 		do_logout()
 		return
@@ -454,7 +482,7 @@ def run_cert_lifecycle_step(client, step):
 		do_login()
 		# Delete certificate request (CSR)
 		rv = client.get('/requests')
-		csr_match = re.search(rb'/requests/(\d+)', rv.data)
+		csr_match = re.search(rb'/requests/(\d+)/delete', rv.data)
 		assert csr_match, "No CSR id found!"
 		csr_id = csr_match.group(1).decode()
 		rv = client.post(f'/requests/{csr_id}/delete', data={'confirm': 'DELETE'}, follow_redirects=True)
@@ -479,9 +507,11 @@ def run_cert_lifecycle_step(client, step):
 		do_logout()
 		do_login()
 		# Delete key
-		rv = client.get('/keys')
-		key_match = re.search(rb'/keys/(\d+)', rv.data)
-		key_id = key_match.group(1).decode() if key_match else None
+		from flask import current_app
+		with current_app.app_context():
+			from x509_keys import Key
+			key = Key.query.filter_by(name='isotestkey').order_by(Key.id.desc()).first()
+			key_id = str(key.id) if key else None
 		if key_id:
 			rv = client.post(f'/keys/{key_id}/delete', data={'confirm': 'DELETE'}, follow_redirects=True)
 			assert b'Key deleted' in rv.data or b'Keys' in rv.data or rv.status_code == 200

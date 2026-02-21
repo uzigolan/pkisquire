@@ -1,4 +1,5 @@
 import configparser
+import os
 import sqlite3
 import subprocess
 import sys
@@ -12,6 +13,11 @@ import requests
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = ROOT_DIR / "tests" / "scripts"
+EDITION = (os.getenv("PIKACHU_EDITION") or "community").strip().lower()
+
+
+def _is_enterprise():
+    return EDITION == "enterprise"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -131,6 +137,8 @@ def test_api_basic_endpoints(request):
 
 def test_est_enrollment_via_estclient_go(request):
     """EST enrollment using estclient-go (non-mTLS)."""
+    if not _is_enterprise():
+        pytest.skip("EST is enterprise-only in community mode")
     proc = _run_ps_script("test_estclient_go.ps1", timeout=240)
     _skip_if_missing_tool(proc, ["estclient", "wsl"])
     _emit_and_attach(request, "test_estclient_go.ps1 output", proc)
@@ -140,6 +148,8 @@ def test_est_enrollment_via_estclient_go(request):
 
 def test_est_enrollment_via_estclient_go_mtls(request):
     """EST enrollment using estclient-go with mTLS."""
+    if not _is_enterprise():
+        pytest.skip("EST mTLS is enterprise-only in community mode")
     proc = _run_ps_script("test_estclient_go_mtls.ps1", timeout=240)
     _skip_if_missing_tool(proc, ["estclient", "wsl"])
     _emit_and_attach(request, "test_estclient_go_mtls.ps1 output", proc)
@@ -149,6 +159,8 @@ def test_est_enrollment_via_estclient_go_mtls(request):
 
 def test_sscep_core(request):
     """SCEP tests without challenge password (sscep.exe)."""
+    if not _is_enterprise():
+        pytest.skip("SCEP is enterprise-only in community mode")
     proc = _run_ps_script("test_sscep.ps1", timeout=180)
     _skip_if_missing_tool(proc, ["sscep.exe", "openssl"])
     _emit_and_attach(request, "test_sscep.ps1 output", proc)
@@ -193,6 +205,8 @@ def _generate_challenge_password():
 
 def test_sscep_with_challenge_password(request):
     """SCEP tests with challenge password (sscep.exe + challenge)."""
+    if not _is_enterprise():
+        pytest.skip("SCEP challenge password is enterprise-only in community mode")
     challenge = _generate_challenge_password()
     if not challenge or challenge.startswith(("LOGIN_FAILED", "GEN_FAILED", "DATA_FAILED", "NO_PASSWORDS", "EMPTY_PASSWORD", "PARSE_FAILED")):
         pytest.skip(f"Could not generate challenge password ({challenge})")
@@ -201,3 +215,30 @@ def test_sscep_with_challenge_password(request):
     _skip_if_missing_tool(proc, ["sscep.exe", "openssl"])
     if proc.returncode != 0:
         pytest.fail(f"test_sscep_pass.ps1 failed:\n{output}")
+
+
+def test_enterprise_endpoint_est_present(client):
+    """Edition-aware check for EST endpoint."""
+    resp = client.get("/.well-known/est/cacerts")
+    if _is_enterprise():
+        assert resp.status_code != 404, "EST endpoint is unavailable in enterprise mode"
+    else:
+        assert resp.status_code == 404, "EST endpoint should be blocked in community mode"
+
+
+def test_enterprise_endpoint_scep_present(client):
+    """Edition-aware check for SCEP endpoint."""
+    resp = client.get("/scep?operation=GetCACaps")
+    if _is_enterprise():
+        assert resp.status_code != 404, "SCEP endpoint is unavailable in enterprise mode"
+    else:
+        assert resp.status_code == 404, "SCEP endpoint should be blocked in community mode"
+
+
+def test_enterprise_endpoint_ocsp_present(client):
+    """Edition-aware check for OCSP endpoint."""
+    resp = client.get("/ocsp")
+    if _is_enterprise():
+        assert resp.status_code != 404, "OCSP endpoint is unavailable in enterprise mode"
+    else:
+        assert resp.status_code == 404, "OCSP endpoint should be blocked in community mode"

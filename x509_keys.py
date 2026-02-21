@@ -9,6 +9,7 @@ from flask import Blueprint, request, render_template, redirect, url_for, flash,
 from flask_login import login_required, current_user
 from extensions import db
 from openssl_utils import get_provider_args, is_pqc_available
+from edition import feature_enabled
 
 x509_keys_bp = Blueprint("keys", __name__, template_folder="html_templates")
 
@@ -29,6 +30,8 @@ class Key(db.Model):
 @x509_keys_bp.route("/generate", methods=["GET", "POST"])
 @login_required
 def generate_key():
+    pqc_enabled = feature_enabled("pqc_keys")
+    pqc_available = is_pqc_available()
     if request.method == "POST":
         key_name = request.form.get("key_name")
         if not key_name:
@@ -55,6 +58,14 @@ def generate_key():
                        "-noout", "-out", priv_path]
 
             elif key_type == "PQC":
+                if not pqc_enabled:
+                    flash("PQC key generation is available in Enterprise edition only.", "error")
+                    os.unlink(priv_path)
+                    return redirect(url_for("keys.generate_key"))
+                if not pqc_available:
+                    flash("PQC key generation is unavailable (oqs-provider not installed).", "error")
+                    os.unlink(priv_path)
+                    return redirect(url_for("keys.generate_key"))
                 # pull the PQC algorithm choice
                 pqc_alg = request.form.get("pqc_alg", "mldsa44")
                 cmd = ["openssl", "genpkey", "-algorithm", pqc_alg]
@@ -125,7 +136,7 @@ def generate_key():
         flash("Key generated successfully.", "success")
         return redirect(url_for("keys.list_keys"))
 
-    return render_template("generate_key.html", pqc_available=is_pqc_available())
+    return render_template("generate_key.html", pqc_available=pqc_available, pqc_enabled=pqc_enabled)
 
 def generate_keyX():
     if request.method == "POST":

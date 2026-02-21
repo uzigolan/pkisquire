@@ -1,4 +1,4 @@
-{% extends "layout.html" %}
+﻿{% extends "layout.html" %}
 {% block content %}
   <h1 class="mb-4">Generate a New Key</h1>
   <form method="post" class="mb-4">
@@ -12,8 +12,8 @@
         <select name="key_type" id="key_type" class="form-control" required data-testid="select-key-type">
         <option value="RSA">RSA</option>
         <option value="EC">EC</option>
-        {% if pqc_available %}
-        <option value="PQC">PQC (post‑quantum)</option>
+        {% if pqc_available and pqc_enabled %}
+        <option value="PQC">PQC (post-quantum)</option>
         {% endif %}
       </select>
     </div>
@@ -59,4 +59,5 @@
     });
   </script>
 {% endblock %}
+
 

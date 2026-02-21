@@ -16,6 +16,61 @@ Pikachu CA provides certificate lifecycle management for devices and services:
 - Automate enrollment with SCEP and EST
 - TLS authentication for MQTT with CRL enforcement
 
+## Editions
+
+Pikachu CA supports two runtime editions controlled by `PIKACHU_EDITION`.
+
+- `community` (default): core CA UI/API features.
+- `enterprise`: enables enterprise protocol and security modules.
+
+Set edition before starting the server:
+
+```powershell
+$env:PIKACHU_EDITION = "community"   # or "enterprise"
+python app.py
+```
+
+Enterprise-only features include:
+- EST (`/.well-known/est/*`)
+- SCEP (`/scep`, `/cgi-bin/pkiclient.exe`)
+- OCSP responder endpoints (`/ocsp`, `/ocspv`)
+- Challenge password workflows
+- User API tokens
+- LDAP auth integration
+- HashiCorp Vault integration
+- PQC key generation from UI (`/generate` -> `PQC`) when `oqs-provider` is installed
+- Code vulnerabilities reports (`/security/bandit-report-interactive`, `/security/pip-audit-interactive`, `/security/pip-licenses-interactive`)
+
+### Feature Matrix
+
+| Feature | Community | Enterprise |
+| --- | --- | --- |
+| Web UI + core REST API | Yes | Yes |
+| Certificates (`/certs`) | Yes | Yes |
+| RA Sign (`/sign`) | Yes | Yes |
+| CSRs (`/requests`) | Yes | Yes |
+| Keys (`/keys`) | Yes | Yes |
+| Enrollment Policies (`/ra_policies`) | Yes | Yes |
+| Certificate Templates (`/profiles`) | Yes | Yes |
+| VA/CRL (`/va`) | Yes | Yes |
+| CA management (`/ca`) | Yes | Yes |
+| Events (`/events`) | Yes | Yes |
+| Inspect (`/inspect`) | Yes | Yes |
+| Logs (`/logs`) | Yes | Yes |
+| User management (`/users/manage`, admin) | Yes | Yes |
+| Certificate issuance/revocation/CRL | Yes | Yes |
+| Automated tests (UI/API reports) | Yes | Yes |
+| HashiCorp Vault integration | No | Yes |
+| Multi-tenant RBAC | Yes | Yes |
+| SCEP enrollment | No | Yes |
+| EST enrollment | No | Yes |
+| OCSP responder endpoints (`/ocsp`, `/ocspv`) | No | Yes |
+| Challenge password workflows | No | Yes |
+| User API tokens | No | Yes |
+| LDAP authentication | No | Yes |
+| PQC key generation in UI (`PQC`) | No | Yes |
+| Code vulnerabilities reports | No | Yes |
+
 ---
 
 ## Features

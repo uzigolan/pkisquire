@@ -6,9 +6,11 @@
     <li class="nav-item">
       <a class="nav-link active" id="tab-password" data-toggle="tab" href="#panel-password" role="tab" aria-controls="panel-password" aria-selected="true">Change Password</a>
     </li>
+    {% if is_enterprise %}
     <li class="nav-item">
       <a class="nav-link" id="tab-tokens" data-toggle="tab" href="#panel-tokens" role="tab" aria-controls="panel-tokens" aria-selected="false">API Tokens</a>
     </li>
+    {% endif %}
     <li class="nav-item">
       <a class="nav-link" id="tab-appearance" data-toggle="tab" href="#panel-appearance" role="tab" aria-controls="panel-appearance" aria-selected="false">Appearance</a>
     </li>
@@ -38,10 +40,12 @@
       <div class="alert alert-info mb-0">Password changes are managed by your authentication provider.</div>
       {% endif %}
     </div>
+    {% if is_enterprise %}
     <div class="tab-pane fade" id="panel-tokens" role="tabpanel" aria-labelledby="tab-tokens">
       <p class="mb-2">Create and manage personal API tokens for automated access.</p>
       <a href="{{ url_for('users.api_tokens') }}" class="btn btn-primary">Manage API Tokens</a>
     </div>
+    {% endif %}
     <div class="tab-pane fade" id="panel-appearance" role="tabpanel" aria-labelledby="tab-appearance">
       <form method="POST" action="{{ url_for('account_theme') }}">
         <div class="form-group">

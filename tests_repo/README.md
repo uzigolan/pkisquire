@@ -8,6 +8,9 @@ Two pytest suites live here:
 - Activate venv: `.\.venv\Scripts\activate`
 - Install deps: `pip install -r requirements.txt`
 - Always run from repo root and set PYTHONPATH: `$env:PYTHONPATH = (Resolve-Path .)`
+- Set edition explicitly for predictable results:
+  - Community: `$env:PIKACHU_EDITION = "community"`
+  - Enterprise: `$env:PIKACHU_EDITION = "enterprise"`
 - API extras:
   - `estclient` installed in WSL (default `~/go/bin/estclient`)
   - WSL `/etc/hosts` maps `localhost-wsl-win` to your Windows IP
@@ -63,6 +66,10 @@ Two pytest suites live here:
   | `test_est_enrollment_via_estclient_go_mtls` | EST mTLS enrollment via estclient-go              |
   | `test_sscep_core`                           | SCEP core flow (no challenge password)            |
   | `test_sscep_with_challenge_password`        | SCEP flow using challenge password via API token  |
+
+- Edition behavior:
+  - In `community`, enterprise-only API/protocol tests are skipped or assert `404`.
+  - In `enterprise`, those tests are expected to run.
 
 - Full run (self-contained HTML, minute timestamp):
   ```powershell
