@@ -1,7 +1,7 @@
 ﻿# User Management Implementation Instructions
 
 ## Overview
-Implement a user authentication and management system for pkisquire CA with two user roles: **User** and **Admin**, with **multi-tenancy support** where each resource is owned by a specific user.
+Implement a user authentication and management system for PKISquire CA with two user roles: **User** and **Admin**, with **multi-tenancy support** where each resource is owned by a specific user.
 
 ---
 
@@ -1606,7 +1606,7 @@ def submit():
 - Resource usage statistics per user
 - Export user's resources as ZIP
 - Batch operations on user's resourcess="card-header">
-                    <h3>ðŸ” Login to pkisquire CA</h3>
+                    <h3>ðŸ” Login to PKISquire CA</h3>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('login') }}">
@@ -1741,7 +1741,7 @@ Add user info and logout to navigation:
 ```html
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="/">pkisquire CA</a>
+        <a class="navbar-brand" href="/">PKISquire CA</a>
         <!-- existing nav items -->
         
         <div class="navbar-nav ms-auto">
@@ -1990,4 +1990,5 @@ To maintain backward compatibility during transition:
 ---
 
 *Remember: Following Rule 2 from copilot-instructions.md - Never hard-code paths, require DELETE_SECRET for destructive operations, maintain backward compatibility.*
+
 

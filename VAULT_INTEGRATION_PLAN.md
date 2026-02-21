@@ -1,5 +1,5 @@
 ﻿# Software Key Vault Integration Plan
-## HashiCorp Vault PKI Engine Integration for pkisquire CA
+## HashiCorp Vault PKI Engine Integration for PKISquire CA
 
 ---
 
@@ -274,7 +274,7 @@ Current Setup (Phase 1):
 â”‚     Same Rocky Linux 9 Server           â”‚
 â”‚                                          â”‚
 â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”‚
-â”‚  â”‚ pkisquire CA Application         â”‚     â”‚
+â”‚  â”‚ PKISquire CA Application         â”‚     â”‚
 â”‚  â”‚ - Flask on port 5000           â”‚     â”‚
 â”‚  â”‚ - SCEP on port 8090            â”‚     â”‚
 â”‚  â”‚ - User: pki_app                â”‚     â”‚
@@ -296,7 +296,7 @@ Future Setup (Phase 2 - Simple Migration):
 â”‚ Rocky Linux 9       â”‚         â”‚ Rocky Linux 9       â”‚
 â”‚ PKI App Server      â”‚  API    â”‚ Vault Server        â”‚
 â”‚                     â”‚ â—„â”€â”€â”€â”€â”€â–º â”‚                     â”‚
-â”‚ pkisquire CA          â”‚  8200   â”‚ HashiCorp Vault     â”‚
+â”‚ PKISquire CA          â”‚  8200   â”‚ HashiCorp Vault     â”‚
 â”‚ (192.168.1.10)      â”‚  HTTPS  â”‚ (192.168.1.20)      â”‚
 â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜         â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
@@ -381,7 +381,7 @@ sudo chmod 750 /etc/vault.d
 ```bash
 # Create Vault configuration file
 sudo tee /etc/vault.d/vault.hcl <<'EOF'
-# Vault Configuration for pkisquire CA Integration
+# Vault Configuration for PKISquire CA Integration
 # This config works for both same-server and separate-server deployment
 
 # Storage backend - file-based (change to Consul/etcd for HA)
@@ -453,7 +453,7 @@ IP.2 = 192.168.1.20
 EOF
 
 # Sign with your CA (or use self-signed for testing)
-# Using pkisquire CA:
+# Using PKISquire CA:
 # sudo openssl x509 -req -in vault.csr \
 #   -CA /path/to/ca.crt -CAkey /path/to/ca.key \
 #   -out vault-cert.pem -days 3650 \
@@ -1711,6 +1711,7 @@ def hybrid_sign(data: bytes) -> Tuple[bytes, bytes]:
 
 **Document Version**: 1.0  
 **Date**: December 5, 2025  
-**Author**: pkisquire CA Team  
+**Author**: PKISquire CA Team  
 **Status**: Planning Phase
+
 

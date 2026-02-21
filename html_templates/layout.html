@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}pkisquire CA{% endblock %}</title>
+  <title>{% block title %}PKISquire CA{% endblock %}</title>
 
   <!-- FAVICONS -->
   <link rel="icon"
@@ -790,7 +790,7 @@
       class="d-inline-block align-middle mr-2"
       alt="CA logo"
     >
-    pkisquire CA
+    PKISquire CA
     </a>
 
     {% if current_user.is_authenticated %}
@@ -820,7 +820,7 @@
             <a class="nav-link" href="javascript:void(0);" onclick="openConfig();">Config</a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="https://chatgpt.com/g/g-685321c0890c81919b8ba960251c95ae-pkisquire-ca" target="_blank">Chatpkisquire</a>
+            <a class="nav-link" href="https://chatgpt.com/g/g-685321c0890c81919b8ba960251c95ae-pkisquire-ca" target="_blank">ChatPKISquire</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('static', filename='help.pdf') }}" target="_blank">Help</a>
@@ -831,7 +831,7 @@
       </ul>
     <!-- New version badge to the right -->
     <span class="navbar-text text-muted ml-3">
-      v{{ version }} | <a href="/about" class="text-muted">About</a>
+      v{{ version }} | <a href="/about" class="text-muted">About</a> | {{ app_edition|default('community')|capitalize }}
       <span class="badge badge-light ml-2">
         Theme: {{ theme_style|default('modern')|capitalize }} / {{ theme_color|default('snow')|capitalize }}
       </span>
@@ -983,5 +983,7 @@
 {% block scripts %}{% endblock %}
 </body>
 </html>
+
+
 
 

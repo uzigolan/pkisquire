@@ -1,4 +1,4 @@
-﻿# Initialize Vault PKI Engines for pkisquire CA
+﻿# Initialize Vault PKI Engines for PKISquire CA
 
 param(
     [Parameter(Mandatory=$true)]
@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "Initializing Vault PKI for pkisquire CA" -ForegroundColor Cyan
+Write-Host "Initializing Vault PKI for PKISquire CA" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -154,4 +154,5 @@ Write-Host "`$env:VAULT_ROLE_ID = `"$RoleIdOutput`"" -ForegroundColor Gray
 Write-Host "`$env:VAULT_SECRET_ID = `"$SecretIdOutput`"" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Next: .\scripts\migrate_keys_to_vault.ps1" -ForegroundColor Yellow
+
 

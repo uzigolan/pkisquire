@@ -1,6 +1,6 @@
 ﻿# Vault Management Scripts
 
-This directory contains PowerShell scripts for managing HashiCorp Vault integration with pkisquire CA.
+This directory contains PowerShell scripts for managing HashiCorp Vault integration with PKISquire CA.
 
 ## Quick Start
 
@@ -45,7 +45,7 @@ Use `-DryRun` to test without making changes:
 .\migrate_keys_to_vault.ps1 -DryRun
 ```
 
-### 6. Enable Vault in pkisquire CA
+### 6. Enable Vault in PKISquire CA
 Edit `config.ini`:
 ```ini
 [VAULT]
@@ -105,7 +105,7 @@ Gracefully stops running Vault server.
 ```
 
 ### init_vault_pki.ps1
-Initializes Vault PKI engines and authentication for pkisquire CA.
+Initializes Vault PKI engines and authentication for PKISquire CA.
 
 **Parameters:**
 - `-RootToken` - Vault root token (required)
@@ -219,7 +219,7 @@ Comprehensive health check for Vault configuration.
    enabled = true
    ```
 
-10. **Restart pkisquire CA:**
+10. **Restart PKISquire CA:**
     ```powershell
     .\restart_server.ps1
     ```
@@ -273,7 +273,7 @@ Follow suggestions in output.
 
 ## Environment Variables
 
-Set these for pkisquire CA to use Vault:
+Set these for PKISquire CA to use Vault:
 
 ```powershell
 # Vault server address
@@ -311,4 +311,5 @@ Make permanent (User level):
 - [PKI Secrets Engine](https://developer.hashicorp.com/vault/docs/secrets/pki)
 - [AppRole Auth Method](https://developer.hashicorp.com/vault/docs/auth/approle)
 - [Transit Secrets Engine](https://developer.hashicorp.com/vault/docs/secrets/transit)
+
 

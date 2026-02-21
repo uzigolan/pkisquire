@@ -1,4 +1,4 @@
-﻿# pkisquire CA - PKI Certificate Authority Server
+﻿# PKISquire CA - PKI Certificate Authority Server
 
 Flask-based PKI service for issuing, managing, and validating certificates with SCEP, EST, and OCSP support.
 
@@ -8,7 +8,7 @@ Flask-based PKI service for issuing, managing, and validating certificates with 
 
 ## Overview
 
-pkisquire CA provides certificate lifecycle management for devices and services:
+PKISquire CA provides certificate lifecycle management for devices and services:
 - Generate RSA, ECC, and optional post-quantum keys
 - Submit and sign CSRs via UI or API
 - Revoke certificates and publish CRLs
@@ -20,7 +20,7 @@ Note: any keys, certificates, and PKI artifacts included in this repository are 
 
 ## Editions
 
-pkisquire CA supports two runtime editions controlled by `PIKACHU_EDITION`.
+PKISquire CA supports two runtime editions controlled by `PIKACHU_EDITION`.
 
 - `community` (default): core CA UI/API features.
 - `enterprise`: enables enterprise protocol and security modules.
@@ -221,4 +221,5 @@ For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 This project is dual-licensed under your choice of the MIT License or the Apache License, Version 2.0.
 See `LICENSE.md` for full text.
+
 
