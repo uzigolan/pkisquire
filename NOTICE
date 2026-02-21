@@ -1,13 +1,8 @@
-﻿PKISquire CA - PKI Certificate Authority Server
+﻿PKISquire CA - Development Repository
 Copyright (c) 2025 Uzi Golan
 Contact: uzi.golan@gmail.com
 
-This product includes software developed by Uzi Golan.
+Community components are dual-licensed (MIT OR Apache-2.0).
+Enterprise components are proprietary and commercial.
 
-Licensed under either:
-- The MIT License
-- The Apache License, Version 2.0
-
-See LICENSE.md for details.
-
-
+See LICENSE.md and applicable commercial agreements.

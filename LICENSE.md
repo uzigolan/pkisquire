@@ -1,3 +1,15 @@
+﻿Mixed Licensing Notice
+
+This repository contains development/staging sources for both Community and Enterprise features.
+
+- Community components are dual-licensed under MIT OR Apache-2.0.
+- Enterprise components are proprietary and governed by separate commercial terms.
+
+For public distribution, use:
+- Community: https://github.com/uzigolan/pkisquire
+- Enterprise: https://github.com/uzigolan/pkisquire-ee
+
+===============================================================================
 MIT OR Apache-2.0
 
 Copyright (c) 2025 Uzi Golan
@@ -211,4 +223,5 @@ Apache License, Version 2.0
       of your accepting any such warranty or additional liability.
 
    END OF TERMS AND CONDITIONS
+
 
