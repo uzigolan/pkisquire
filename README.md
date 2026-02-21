@@ -24,6 +24,15 @@ Note: any keys, certificates, and PKI artifacts included in this repository are 
 - Enterprise features are distributed separately in `pkisquire-ee` under a commercial proprietary license.
 - The Community Edition license does not grant rights to Enterprise Edition code.
 
+## Enterprise Access
+
+pkisquire-ee is private and available under a commercial license.
+
+To request access, contact uzi.golan@gmail.com and include:
+- Company name
+- Use case
+- Expected deployment size
+- Timeline
 ## Editions
 
 PKISquire CA supports two runtime editions controlled by `PIKACHU_EDITION`.
@@ -227,6 +236,7 @@ For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 This project is dual-licensed under your choice of the MIT License or the Apache License, Version 2.0.
 See `LICENSE.md` for full text.
+
 
 
 
