@@ -1,7 +1,7 @@
-# User Management Implementation Instructions
+﻿# User Management Implementation Instructions
 
 ## Overview
-Implement a user authentication and management system for Pikachu CA with two user roles: **User** and **Admin**, with **multi-tenancy support** where each resource is owned by a specific user.
+Implement a user authentication and management system for PKISquire CA with two user roles: **User** and **Admin**, with **multi-tenancy support** where each resource is owned by a specific user.
 
 ---
 
@@ -970,8 +970,8 @@ def get_certificate_by_id(cert_id, user_id=None, is_admin=False):
 ### User Management Tests
 - [ ] Admin can view user list
 - [ ] Admin can create new user
-- [ ] Admin can change user role (user → admin)
-- [ ] Admin can change user role (admin → user)
+- [ ] Admin can change user role (user â†’ admin)
+- [ ] Admin can change user role (admin â†’ user)
 - [ ] Admin can delete user
 - [ ] Admin can delete user with cascade options
 - [ ] Admin cannot delete themselves
@@ -1606,7 +1606,7 @@ def submit():
 - Resource usage statistics per user
 - Export user's resources as ZIP
 - Batch operations on user's resourcess="card-header">
-                    <h3>🔐 Login to Pikachu CA</h3>
+                    <h3>ðŸ” Login to PKISquire CA</h3>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="{{ url_for('login') }}">
@@ -1634,7 +1634,7 @@ def submit():
 
 {% block content %}
 <div class="container mt-4">
-    <h2>👥 User Management</h2>
+    <h2>ðŸ‘¥ User Management</h2>
     
     <!-- Create New User Form -->
     <div class="card mb-4">
@@ -1741,19 +1741,19 @@ Add user info and logout to navigation:
 ```html
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="/">Pikachu CA</a>
+        <a class="navbar-brand" href="/">PKISquire CA</a>
         <!-- existing nav items -->
         
         <div class="navbar-nav ms-auto">
             {% if current_user.is_authenticated %}
                 <span class="navbar-text me-3">
-                    👤 {{ current_user.username }}
+                    ðŸ‘¤ {{ current_user.username }}
                     {% if current_user.is_admin() %}
                         <span class="badge bg-danger">Admin</span>
                     {% endif %}
                 </span>
                 {% if current_user.is_admin() %}
-                    <a class="nav-link" href="{{ url_for('manage_users') }}">👥 Users</a>
+                    <a class="nav-link" href="{{ url_for('manage_users') }}">ðŸ‘¥ Users</a>
                 {% endif %}
                 <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
             {% endif %}
@@ -1847,7 +1847,7 @@ def init_users_table():
         password_hash = generate_password_hash('admin123')
         cur.execute(
             "INSERT INTO users (username, password_hash, role, email) VALUES (?, ?, ?, ?)",
-            ('admin', password_hash, 'admin', 'admin@pikachu-ca.local')
+            ('admin', password_hash, 'admin', 'admin@pkisquire-ca.local')
         )
         app.logger.info("Default admin user created (username: admin, password: admin123)")
     
@@ -1917,8 +1917,8 @@ max_login_attempts = 5
 - [ ] Logout functionality
 - [ ] Admin can view user list
 - [ ] Admin can create new user
-- [ ] Admin can change user role (user → admin)
-- [ ] Admin can change user role (admin → user)
+- [ ] Admin can change user role (user â†’ admin)
+- [ ] Admin can change user role (admin â†’ user)
 - [ ] Admin can delete user
 - [ ] Admin cannot delete themselves
 - [ ] Admin cannot change their own role
@@ -1990,3 +1990,5 @@ To maintain backward compatibility during transition:
 ---
 
 *Remember: Following Rule 2 from copilot-instructions.md - Never hard-code paths, require DELETE_SECRET for destructive operations, maintain backward compatibility.*
+
+

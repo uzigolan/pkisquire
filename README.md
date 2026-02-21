@@ -1,14 +1,14 @@
-# Pikachu CA - PKI Certificate Authority Server
+﻿# PKISquire CA - PKI Certificate Authority Server
 
 Flask-based PKI service for issuing, managing, and validating certificates with SCEP, EST, and OCSP support.
 
-**GitHub:** https://github.com/uzigolan/pikachu-ca
+**GitHub:** https://github.com/uzigolan/pkisquire
 
 ---
 
 ## Overview
 
-Pikachu CA provides certificate lifecycle management for devices and services:
+PKISquire CA provides certificate lifecycle management for devices and services:
 - Generate RSA, ECC, and optional post-quantum keys
 - Submit and sign CSRs via UI or API
 - Revoke certificates and publish CRLs
@@ -20,7 +20,7 @@ Note: any keys, certificates, and PKI artifacts included in this repository are 
 
 ## Editions
 
-Pikachu CA supports two runtime editions controlled by `PIKACHU_EDITION`.
+PKISquire CA supports two runtime editions controlled by `PIKACHU_EDITION`.
 
 - `community` (default): core CA UI/API features.
 - `enterprise`: enables enterprise protocol and security modules.
@@ -92,8 +92,8 @@ Enterprise-only features include:
 > Requirements: Rocky Linux 9.x, Python 3, Flask, OpenSSL, optional oqs-provider
 
 ```bash
-git clone https://github.com/uzigolan/pikachu-ca.git
-cd pikachu-ca
+git clone https://github.com/uzigolan/pkisquire.git
+cd pkisquire
 pip install -r requirements.txt
 python app.py
 ```
@@ -176,28 +176,20 @@ python migrate_db.py
 
 ---
 
-## Testing SCEP, EST, and OCSP
+## Testing
 
 Tests live under `tests/` and should be run from the repo root.
 
-**SCEP (port 8090, RSA mode):**
+**Community repo examples:**
 ```powershell
-.\tests\scripts\test_sscep.ps1      # compiled sscep client
+.\tests\scripts\test_basic.ps1
 .\tests\scripts\test_pyscep.ps1     # Python implementation
-```
-
-**EST (port 443, RSA or EC):**
-```powershell
 .\tests\scripts\test_estclient_curl.ps1   # recommended
-.\tests\scripts\test_estclient_go.ps1     # Go client
-```
-
-**OCSP (port 80):**
-```powershell
 .\tests\scripts\test_ocsp.ps1
 ```
 
-Test artifacts (certs, keys, CSRs, OCSP responses) are written to `tests/results/` and `tests/estclient/`. For detailed flows and troubleshooting, see `tests/README.md`.
+Enterprise protocol assets and full enterprise validation flows are maintained in `pkisquire-ee`.
+For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 ---
 
@@ -229,3 +221,5 @@ Test artifacts (certs, keys, CSRs, OCSP responses) are written to `tests/results
 
 This project is dual-licensed under your choice of the MIT License or the Apache License, Version 2.0.
 See `LICENSE.md` for full text.
+
+

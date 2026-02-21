@@ -1,4 +1,4 @@
-import datetime
+﻿import datetime
 import time
 import pytest
 import configparser
@@ -337,12 +337,12 @@ def run_cert_lifecycle_step(client, step):
 				'crlDistributionPoints   = @crl_section\n'
 				'\n'
 				'[ aia_section ]\n'
-				'OCSP;URI.0 = https://pikachu-ca.rnd-rad.com/ocsp\n'
-				'OCSP;URI.1 = https://pikachu-ca.rnd-rad.com/ocsp\n'
-				'caIssuers;URI.0 = https://pikachu-ca.rnd-rad.com/ocsp\n'
+				'OCSP;URI.0 = https://pkisquire-ca.rnd-rad.com/ocsp\n'
+				'OCSP;URI.1 = https://pkisquire-ca.rnd-rad.com/ocsp\n'
+				'caIssuers;URI.0 = https://pkisquire-ca.rnd-rad.com/ocsp\n'
 				'\n'
 				'[ crl_section ]\n'
-				'URI.0 = https://pikachu-ca.rnd-rad.com/downloads/crl\n'
+				'URI.0 = https://pkisquire-ca.rnd-rad.com/downloads/crl\n'
 			)
 			rv = client.post('/profiles/new', data={
 				'filename': 'isotest_ext',
@@ -582,3 +582,4 @@ def test_certificate_lifecycle_step(client, html_step_logger, step, desc):
 	except Exception as exc:
 		html_step_logger.append(f"Step {step}: {desc} - FAILED ({exc})")
 		pytest.fail(f"Step {step} ({desc}) failed: {exc}")
+
