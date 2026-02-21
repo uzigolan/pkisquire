@@ -16,6 +16,8 @@ Pikachu CA provides certificate lifecycle management for devices and services:
 - Automate enrollment with SCEP and EST
 - TLS authentication for MQTT with CRL enforcement
 
+Note: any keys, certificates, and PKI artifacts included in this repository are for example/testing purposes only and must not be used in production.
+
 ## Editions
 
 Pikachu CA supports two runtime editions controlled by `PIKACHU_EDITION`.
