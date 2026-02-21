@@ -2,6 +2,17 @@
 
 This directory contains SCEP and EST client implementations and test scripts for the PKI CA server.
 
+## Edition requirement
+
+Protocol tests in this folder require Enterprise edition at runtime.
+
+```powershell
+$env:PIKACHU_EDITION = "enterprise"
+python app.py
+```
+
+In Community edition, enterprise protocol endpoints (SCEP/EST/OCSP) are intentionally unavailable.
+
 ## Directory Structure
 
 ```

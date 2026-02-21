@@ -14,6 +14,12 @@
 			"command": "$env:Path=\"C:\\Program Files\\OpenSSL-Win64\\bin;\" + $env:Path; $env:FLASK_ENV=\"production\"; $env:FLASK_APP=\"app.py\"; C:/Users/uzi_g/AppData/Local/Python/pythoncore-3.14-64/python.exe app.py",
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "Run SCEP/EST PowerShell Enrollment Tests",
+			"type": "shell",
+			"command": "powershell -ExecutionPolicy Bypass -File tests/scripts/test_estclient_go.ps1; powershell -ExecutionPolicy Bypass -File tests/scripts/test_estclient_go_mtls.ps1; powershell -ExecutionPolicy Bypass -File tests/scripts/test_sscep.ps1; powershell -ExecutionPolicy Bypass -File tests/scripts/test_sscep_pass.ps1 testpass123",
+			"group": "test"
 		}
 	]
 }

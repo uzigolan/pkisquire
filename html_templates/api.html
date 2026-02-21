@@ -1,6 +1,14 @@
 {% extends "layout.html" %}
 {% block content %}
   <h1 class="mb-4">Server APIs &amp; CLI Commands</h1>
+  <div class="alert {% if is_enterprise %}alert-success{% else %}alert-info{% endif %} py-2">
+    <strong>Current Edition:</strong>
+    {% if is_enterprise %}
+      Enterprise
+    {% else %}
+      Community
+    {% endif %}
+  </div>
   <table class="table table-bordered table-hover small" data-testid="api-table">
     <thead class="thead-dark">
       <tr>
@@ -13,7 +21,7 @@
     <tbody>
       <!-- CA General -->
       <tr>
-        <td rowspan="5">CA General</td>
+        <td rowspan="5">CA General<br><small class="text-muted">Community + Enterprise</small></td>
         <td>Download CA Chain</td>
         <td>
           <pre>curl -k https://pikachu-ca.iot-rad.com/downloads/chain</pre>
@@ -52,7 +60,7 @@
 
       <!-- SCEP -->
       <tr>
-        <td rowspan="4">SCEP</td>
+        <td rowspan="4">SCEP<br><small class="text-muted">Enterprise only</small></td>
         <td>SCEP GetCaps</td>
         <td>
           <pre>sscep getcaps -u http://localhost:8090/scep</pre>
@@ -95,7 +103,7 @@
 
       <!-- EST -->
       <tr>
-        <td rowspan="4">EST</td>
+        <td rowspan="4">EST<br><small class="text-muted">Enterprise only</small></td>
         <td>EST Enrollment</td>
         <td>
           <pre>curl -k -X POST \
@@ -159,7 +167,7 @@
 
       <!-- OCSP -->
       <tr>
-        <td>OCSP</td>
+        <td>OCSP<br><small class="text-muted">Enterprise only</small></td>
         <td>OCSP Responder</td>
         <td>
           <pre>openssl ocsp \

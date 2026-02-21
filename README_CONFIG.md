@@ -4,6 +4,20 @@ This document describes all options available in `config.ini` for the Pikachu CA
 
 ---
 
+## Edition Selection
+- Runtime edition is controlled by environment variable `PIKACHU_EDITION`.
+- Supported values: `community` (default), `enterprise`.
+- This is not configured in `config.ini`.
+- In `community`, enterprise-only routes/features are unavailable (return `404`).
+
+Example:
+```powershell
+$env:PIKACHU_EDITION = "enterprise"
+python app.py
+```
+
+---
+
 ## [DEFAULT]
 - **SECRET_KEY**: Flask secret key for session security.
 - **http_port**: HTTP port for unauthenticated OCSP (default: 80).

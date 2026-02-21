@@ -2,6 +2,18 @@
 
 This directory contains PowerShell scripts for managing the PKI Flask server and database.
 
+## Edition selection
+
+Set `PIKACHU_EDITION` before server start when needed:
+
+```powershell
+$env:PIKACHU_EDITION = "community"   # default
+# or
+$env:PIKACHU_EDITION = "enterprise"
+```
+
+Enterprise mode enables protocol/security modules such as SCEP, EST, OCSP, challenge passwords, API tokens, LDAP, and PQC key generation in the UI.
+
 ## Quick Start Guide
 
 ### Complete Workflow (Vault Mode)
