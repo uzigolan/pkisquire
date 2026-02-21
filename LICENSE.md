@@ -1,7 +1,7 @@
-MIT OR Apache-2.0
+﻿MIT OR Apache-2.0
 
 Copyright (c) 2025 Uzi Golan
-Contact: uzi.golan@gmail.com
+Contact: https://github.com/uzigolan
 
 This project is dual-licensed at your option under either:
 - The MIT License
@@ -211,4 +211,5 @@ Apache License, Version 2.0
       of your accepting any such warranty or additional liability.
 
    END OF TERMS AND CONDITIONS
+
 
