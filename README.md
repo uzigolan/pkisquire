@@ -1,4 +1,4 @@
-# Pikachu CA - PKI Certificate Authority Server
+﻿# Pikachu CA - PKI Certificate Authority Server
 
 Flask-based PKI service for issuing, managing, and validating certificates with SCEP, EST, and OCSP support.
 
@@ -176,28 +176,20 @@ python migrate_db.py
 
 ---
 
-## Testing SCEP, EST, and OCSP
+## Testing
 
 Tests live under `tests/` and should be run from the repo root.
 
-**SCEP (port 8090, RSA mode):**
+**Community repo examples:**
 ```powershell
-.\tests\scripts\test_sscep.ps1      # compiled sscep client
+.\tests\scripts\test_basic.ps1
 .\tests\scripts\test_pyscep.ps1     # Python implementation
-```
-
-**EST (port 443, RSA or EC):**
-```powershell
-.\tests\scripts\test_estclient_curl.ps1   # recommended
-.\tests\scripts\test_estclient_go.ps1     # Go client
-```
-
-**OCSP (port 80):**
-```powershell
+.\tests\scripts\test_estclient_curl.ps1   # curl-based checks
 .\tests\scripts\test_ocsp.ps1
 ```
 
-Test artifacts (certs, keys, CSRs, OCSP responses) are written to `tests/results/` and `tests/estclient/`. For detailed flows and troubleshooting, see `tests/README.md`.
+Enterprise protocol assets and full enterprise validation flows are maintained in `pkisquire-ee`.
+For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 ---
 
