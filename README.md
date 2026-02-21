@@ -1,8 +1,8 @@
-﻿# PKISquire CA - PKI Certificate Authority Server
+﻿# PKISquire CA - Community Edition
 
 Flask-based PKI service for issuing, managing, and validating certificates with SCEP, EST, and OCSP support.
 
-**GitHub:** https://github.com/uzigolan/pkisquire-ca
+**GitHub:** https://github.com/uzigolan/pkisquire
 
 ---
 
@@ -17,6 +17,12 @@ PKISquire CA provides certificate lifecycle management for devices and services:
 - TLS authentication for MQTT with CRL enforcement
 
 Note: any keys, certificates, and PKI artifacts included in this repository are for example/testing purposes only and must not be used in production.
+
+## Licensing
+
+- This repository is the **Community Edition** and is open source under `LICENSE.md` (MIT OR Apache-2.0).
+- Enterprise features are distributed separately in `pkisquire-ee` under a commercial proprietary license.
+- The Community Edition license does not grant rights to Enterprise Edition code.
 
 ## Editions
 
@@ -221,5 +227,10 @@ For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 This project is dual-licensed under your choice of the MIT License or the Apache License, Version 2.0.
 See `LICENSE.md` for full text.
+
+
+
+
+
 
 
