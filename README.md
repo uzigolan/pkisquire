@@ -28,7 +28,8 @@ Note: any keys, certificates, and PKI artifacts included in this repository are 
 
 pkisquire-ee is private and available under a commercial license.
 
-To request access, contact uzi.golan@gmail.com and include:
+To request access, contact via GitHub profile: https://github.com/uzigolan
+(or open an issue titled `Enterprise Access Request`) and include:
 - Company name
 - Use case
 - Expected deployment size
@@ -236,6 +237,8 @@ For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 This project is dual-licensed under your choice of the MIT License or the Apache License, Version 2.0.
 See `LICENSE.md` for full text.
+
+
 
 
 
