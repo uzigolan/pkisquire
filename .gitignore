@@ -18,6 +18,9 @@ pki-subca/*.crt
 pki-subca/dumps/*
 pki-root/*.crt
 db/*.db
+db/*.sqlite
+db/*.sqlite3
+db/pki.sqlite
 db_tools/*
 x509_profiles/*
 tests/results/*
