@@ -1,14 +1,14 @@
-﻿# Pikachu CA - PKI Certificate Authority Server
+﻿# pkisquire CA - PKI Certificate Authority Server
 
 Flask-based PKI service for issuing, managing, and validating certificates with SCEP, EST, and OCSP support.
 
-**GitHub:** https://github.com/uzigolan/pikachu-ca
+**GitHub:** https://github.com/uzigolan/pkisquire-ca
 
 ---
 
 ## Overview
 
-Pikachu CA provides certificate lifecycle management for devices and services:
+pkisquire CA provides certificate lifecycle management for devices and services:
 - Generate RSA, ECC, and optional post-quantum keys
 - Submit and sign CSRs via UI or API
 - Revoke certificates and publish CRLs
@@ -20,7 +20,7 @@ Note: any keys, certificates, and PKI artifacts included in this repository are 
 
 ## Editions
 
-Pikachu CA supports two runtime editions controlled by `PIKACHU_EDITION`.
+pkisquire CA supports two runtime editions controlled by `PIKACHU_EDITION`.
 
 - `community` (default): core CA UI/API features.
 - `enterprise`: enables enterprise protocol and security modules.
@@ -92,8 +92,8 @@ Enterprise-only features include:
 > Requirements: Rocky Linux 9.x, Python 3, Flask, OpenSSL, optional oqs-provider
 
 ```bash
-git clone https://github.com/uzigolan/pikachu-ca.git
-cd pikachu-ca
+git clone https://github.com/uzigolan/pkisquire-ca.git
+cd pkisquire-ca
 pip install -r requirements.txt
 python app.py
 ```
@@ -221,3 +221,4 @@ For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 This project is dual-licensed under your choice of the MIT License or the Apache License, Version 2.0.
 See `LICENSE.md` for full text.
+

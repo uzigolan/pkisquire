@@ -1,6 +1,6 @@
-# Pikachu CA Configuration Reference
+﻿# pkisquire CA Configuration Reference
 
-This document describes all options available in `config.ini` for the Pikachu CA server.
+This document describes all options available in `config.ini` for the pkisquire CA server.
 
 ---
 
@@ -94,3 +94,4 @@ python app.py
 ---
 
 For any option not listed here, see comments in `config.ini` or ask for further details.
+

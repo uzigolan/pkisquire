@@ -1,4 +1,4 @@
-﻿# Initialize Vault PKI Engines for Pikachu CA
+﻿# Initialize Vault PKI Engines for pkisquire CA
 
 param(
     [Parameter(Mandatory=$true)]
@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "Initializing Vault PKI for Pikachu CA" -ForegroundColor Cyan
+Write-Host "Initializing Vault PKI for pkisquire CA" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -112,12 +112,12 @@ path "transit/sign/ocsp-signing" { capabilities = ["create", "update"] }
 path "transit/verify/ocsp-signing" { capabilities = ["create", "update"] }
 '@
 
-$PolicyFile = "$env:TEMP\pikachu-ca-policy.hcl"
+$PolicyFile = "$env:TEMP\pkisquire-ca-policy.hcl"
 Set-Content -Path $PolicyFile -Value $PolicyContent -Encoding UTF8
 
-Write-Host "Creating pikachu-ca policy..." -ForegroundColor Yellow
-vault policy write pikachu-ca $PolicyFile 2>&1 | Out-Null
-Write-Host "OK: pikachu-ca policy created" -ForegroundColor Green
+Write-Host "Creating pkisquire-ca policy..." -ForegroundColor Yellow
+vault policy write pkisquire-ca $PolicyFile 2>&1 | Out-Null
+Write-Host "OK: pkisquire-ca policy created" -ForegroundColor Green
 
 Remove-Item $PolicyFile -Force
 
@@ -125,16 +125,16 @@ Write-Host ""
 Write-Host "Step 7: Create AppRole" -ForegroundColor Cyan
 Write-Host "----------------------" -ForegroundColor Cyan
 
-Write-Host "Creating pikachu-ca AppRole..." -ForegroundColor Yellow
-vault write auth/approle/role/pikachu-ca token_policies="pikachu-ca" token_ttl=1h token_max_ttl=24h secret_id_ttl=0 secret_id_num_uses=0 2>&1 | Out-Null
-Write-Host "OK: pikachu-ca AppRole created" -ForegroundColor Green
+Write-Host "Creating pkisquire-ca AppRole..." -ForegroundColor Yellow
+vault write auth/approle/role/pkisquire-ca token_policies="pkisquire-ca" token_ttl=1h token_max_ttl=24h secret_id_ttl=0 secret_id_num_uses=0 2>&1 | Out-Null
+Write-Host "OK: pkisquire-ca AppRole created" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "Step 8: Get AppRole Credentials" -ForegroundColor Cyan
 Write-Host "-------------------------------" -ForegroundColor Cyan
 
-$RoleIdOutput = vault read -field=role_id auth/approle/role/pikachu-ca/role-id
-$SecretIdOutput = vault write -field=secret_id -f auth/approle/role/pikachu-ca/secret-id
+$RoleIdOutput = vault read -field=role_id auth/approle/role/pkisquire-ca/role-id
+$SecretIdOutput = vault write -field=secret_id -f auth/approle/role/pkisquire-ca/secret-id
 
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Cyan
@@ -154,3 +154,4 @@ Write-Host "`$env:VAULT_ROLE_ID = `"$RoleIdOutput`"" -ForegroundColor Gray
 Write-Host "`$env:VAULT_SECRET_ID = `"$SecretIdOutput`"" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Next: .\scripts\migrate_keys_to_vault.ps1" -ForegroundColor Yellow
+

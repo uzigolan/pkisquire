@@ -1,4 +1,4 @@
-# ==== Server certificate v3 extensions ====
+﻿# ==== Server certificate v3 extensions ====
 # Usage:
 # openssl x509 -req -in server.csr \
 #   -CA {{ issuing_ca_cert | default("subCA.pem") }} \
@@ -13,12 +13,13 @@ keyUsage         = critical, digitalSignature
 extendedKeyUsage = serverAuth
 
 authorityInfoAccess = \
-    OCSP;URI=http://pikachu-ca.rnd-rad.com/ocsp, \
-    caIssuers;URI=http://pikachu-ca.rnd-rad.com/certs/{{ ca_issuers_file | default("RADSubTestECDSA.crt") }}
+    OCSP;URI=http://pkisquire-ca.rnd-rad.com/ocsp, \
+    caIssuers;URI=http://pkisquire-ca.rnd-rad.com/certs/{{ ca_issuers_file | default("RADSubTestECDSA.crt") }}
 
-crlDistributionPoints = URI=http://pikachu-ca.rnd-rad.com/downloads/crl
+crlDistributionPoints = URI=http://pkisquire-ca.rnd-rad.com/downloads/crl
 
 # Optional if CA doesn't auto-set:
 # subjectKeyIdentifier   = hash
 # authorityKeyIdentifier = keyid,issuer
+
 

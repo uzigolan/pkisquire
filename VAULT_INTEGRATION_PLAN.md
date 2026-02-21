@@ -1,9 +1,9 @@
-# Software Key Vault Integration Plan
-## HashiCorp Vault PKI Engine Integration for Pikachu CA
+﻿# Software Key Vault Integration Plan
+## HashiCorp Vault PKI Engine Integration for pkisquire CA
 
 ---
 
-## 📋 Executive Summary
+## ðŸ“‹ Executive Summary
 
 **Objective**: Integrate HashiCorp Vault (or similar software key vault) to provide hardware-like isolation for CA private keys and Post-Quantum Cryptography (PQC) keys, protecting them from the main application server's process memory and file system.
 
@@ -11,7 +11,7 @@
 
 ---
 
-## 🎯 Goals
+## ðŸŽ¯ Goals
 
 1. **Key Isolation**: Remove CA private keys from filesystem and application memory
 2. **Secure Signing Operations**: Perform all signing operations within Vault's secure boundary
@@ -22,33 +22,33 @@
 
 ---
 
-## 🏗️ Current Architecture Analysis
+## ðŸ—ï¸ Current Architecture Analysis
 
 ### Current Key Management
 ```
 File System (Plain or Encrypted PEM files)
-    ├── pki-subca/rad_ca_sub_rsa.key  (RSA private key)
-    ├── pki-subca/rad_ca_sub_ec.key   (ECC private key)
-    └── pki-root/rad_ca_root.key      (Root CA key)
+    â”œâ”€â”€ pki-subca/rad_ca_sub_rsa.key  (RSA private key)
+    â”œâ”€â”€ pki-subca/rad_ca_sub_ec.key   (ECC private key)
+    â””â”€â”€ pki-root/rad_ca_root.key      (Root CA key)
 ```
 
 ### Current Signing Flow
 ```
 1. Load private key from filesystem (ca.py:15)
-   └── CertificateAuthority.__init__() loads key into memory
+   â””â”€â”€ CertificateAuthority.__init__() loads key into memory
 
 2. Sign operations:
    a) Certificate signing (ca.py:62)
-      └── builder.sign(self.private_key, hash_alg(), backend)
+      â””â”€â”€ builder.sign(self.private_key, hash_alg(), backend)
    
    b) CSR signing via OpenSSL subprocess (app.py:2476, scep.py:186)
-      └── openssl x509 -req -CAkey <key_path>
+      â””â”€â”€ openssl x509 -req -CAkey <key_path>
    
    c) CRL signing (app.py:2060)
-      └── builder.sign(private_key=ca_key, algorithm=hashes.SHA256())
+      â””â”€â”€ builder.sign(private_key=ca_key, algorithm=hashes.SHA256())
    
    d) OCSP signing (app.py:2206, 2319, 2380)
-      └── builder.sign(private_key, hashes.SHA256())
+      â””â”€â”€ builder.sign(private_key, hashes.SHA256())
 ```
 
 ### Key Components Requiring Modification
@@ -64,32 +64,32 @@ File System (Plain or Encrypted PEM files)
 
 ---
 
-## 🔐 Target Architecture
+## ðŸ” Target Architecture
 
 ### Vault PKI Engine Structure (When enabled=true)
 ```
 Vault
-├── PKI Engine: pki-root/
-│   ├── Root CA Certificate
-│   ├── Root CA Private Key (sealed)
-│   └── Roles: root-issuer
-│
-├── PKI Engine: pki-subca-rsa/
-│   ├── Intermediate Certificate (RSA)
-│   ├── Intermediate Private Key (sealed)
-│   └── Roles: 
-│       ├── server-cert
-│       ├── client-cert
-│       └── scep-enrollment
-│
-├── PKI Engine: pki-subca-ec/
-│   ├── Intermediate Certificate (ECC)
-│   ├── Intermediate Private Key (sealed)
-│   └── Roles: (similar to RSA)
-│
-└── Transit Engine: pqc-signing/
-    ├── PQC Keys (Dilithium/ML-DSA)
-    └── Custom signing operations
+â”œâ”€â”€ PKI Engine: pki-root/
+â”‚   â”œâ”€â”€ Root CA Certificate
+â”‚   â”œâ”€â”€ Root CA Private Key (sealed)
+â”‚   â””â”€â”€ Roles: root-issuer
+â”‚
+â”œâ”€â”€ PKI Engine: pki-subca-rsa/
+â”‚   â”œâ”€â”€ Intermediate Certificate (RSA)
+â”‚   â”œâ”€â”€ Intermediate Private Key (sealed)
+â”‚   â””â”€â”€ Roles: 
+â”‚       â”œâ”€â”€ server-cert
+â”‚       â”œâ”€â”€ client-cert
+â”‚       â””â”€â”€ scep-enrollment
+â”‚
+â”œâ”€â”€ PKI Engine: pki-subca-ec/
+â”‚   â”œâ”€â”€ Intermediate Certificate (ECC)
+â”‚   â”œâ”€â”€ Intermediate Private Key (sealed)
+â”‚   â””â”€â”€ Roles: (similar to RSA)
+â”‚
+â””â”€â”€ Transit Engine: pqc-signing/
+    â”œâ”€â”€ PQC Keys (Dilithium/ML-DSA)
+    â””â”€â”€ Custom signing operations
 ```
 
 ### Configuration-Based Architecture
@@ -99,11 +99,11 @@ The system supports **two operational modes** controlled by `config.ini`:
 #### Mode 1: Legacy File-Based Keys (enabled=false)
 ```
 Application
-    ↓
+    â†“
 Load keys from filesystem
-    ↓
+    â†“
 Sign operations in-process
-    ↓
+    â†“
 Private keys in memory
 ```
 
@@ -120,11 +120,11 @@ SUBCA_KEY_PATH_EC = pki-subca/rad_ca_sub_ec.key
 #### Mode 2: Vault-Isolated Keys (enabled=true)
 ```
 Application
-    ↓
+    â†“
 Vault API calls
-    ↓
+    â†“
 Sign operations in Vault
-    ↓
+    â†“
 Keys never leave Vault
 ```
 
@@ -142,28 +142,28 @@ address = https://vault.example.com:8200
 ### New Signing Flow
 ```
 1. Application requests signing from Vault
-   └── No private key in app memory
+   â””â”€â”€ No private key in app memory
 
 2. Sign operations via Vault API:
    a) Certificate signing
-      └── POST /v1/pki-subca-rsa/sign/<role>
+      â””â”€â”€ POST /v1/pki-subca-rsa/sign/<role>
    
    b) CSR signing
-      └── POST /v1/pki-subca-rsa/sign/<role>
+      â””â”€â”€ POST /v1/pki-subca-rsa/sign/<role>
    
    c) CRL generation
-      └── GET /v1/pki-subca-rsa/crl/pem
+      â””â”€â”€ GET /v1/pki-subca-rsa/crl/pem
    
    d) OCSP signing
-      └── POST /v1/transit/pqc-signing/sign/<key>
+      â””â”€â”€ POST /v1/transit/pqc-signing/sign/<key>
    
    e) Raw signature (for SCEP/EST)
-      └── POST /v1/transit/sign/<key>
+      â””â”€â”€ POST /v1/transit/sign/<key>
 ```
 
 ---
 
-## 🛠️ Implementation Plan
+## ðŸ› ï¸ Implementation Plan
 
 ### Phase 1: Infrastructure Setup (Week 1)
 
@@ -173,24 +173,24 @@ address = https://vault.example.com:8200
 
 ##### Option 1: Separate Dedicated Server (RECOMMENDED for Production)
 ```
-┌─────────────────────┐         ┌─────────────────────┐
-│   PKI Application   │  API    │   Vault Server      │
-│   (Rocky Linux 9)   │ ◄─────► │   (Linux/Any OS)    │
-│   Port 5000, 8090   │  HTTPS  │   Port 8200         │
-└─────────────────────┘         └─────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”         â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚   PKI Application   â”‚  API    â”‚   Vault Server      â”‚
+â”‚   (Rocky Linux 9)   â”‚ â—„â”€â”€â”€â”€â”€â–º â”‚   (Linux/Any OS)    â”‚
+â”‚   Port 5000, 8090   â”‚  HTTPS  â”‚   Port 8200         â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜         â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 **Pros:**
-- ✅ **Best security** - Physical/network isolation from application
-- ✅ **Independent scaling** - Vault can serve multiple applications
-- ✅ **Easier to harden** - Dedicated security policies
-- ✅ **High availability** - Can use Vault cluster (3-5 nodes)
-- ✅ **OS independence** - Vault runs on Linux, Windows, macOS, Docker
+- âœ… **Best security** - Physical/network isolation from application
+- âœ… **Independent scaling** - Vault can serve multiple applications
+- âœ… **Easier to harden** - Dedicated security policies
+- âœ… **High availability** - Can use Vault cluster (3-5 nodes)
+- âœ… **OS independence** - Vault runs on Linux, Windows, macOS, Docker
 
 **Cons:**
-- ⚠️ Network latency (~5-15ms additional per operation)
-- ⚠️ Requires separate infrastructure
-- ⚠️ More complex deployment
+- âš ï¸ Network latency (~5-15ms additional per operation)
+- âš ï¸ Requires separate infrastructure
+- âš ï¸ More complex deployment
 
 **Best for:** Production environments, multiple CA instances, high-security requirements
 
@@ -198,32 +198,32 @@ address = https://vault.example.com:8200
 
 ##### Option 2: Same Server (Acceptable for Dev/Testing)
 ```
-┌─────────────────────────────────┐
-│      Same Linux Server          │
-│                                 │
-│  ┌──────────────────┐           │
-│  │ PKI Application  │           │
-│  │ localhost:5000   │           │
-│  └──────────────────┘           │
-│           ↓ localhost           │
-│  ┌──────────────────┐           │
-│  │ Vault Server     │           │
-│  │ localhost:8200   │           │
-│  └──────────────────┘           │
-└─────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚      Same Linux Server          â”‚
+â”‚                                 â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”           â”‚
+â”‚  â”‚ PKI Application  â”‚           â”‚
+â”‚  â”‚ localhost:5000   â”‚           â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜           â”‚
+â”‚           â†“ localhost           â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”           â”‚
+â”‚  â”‚ Vault Server     â”‚           â”‚
+â”‚  â”‚ localhost:8200   â”‚           â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜           â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 **Pros:**
-- ✅ **Simple setup** - Single server to manage
-- ✅ **No network latency** - Unix socket or localhost communication
-- ✅ **Lower infrastructure cost**
-- ✅ **Easy for development/testing**
+- âœ… **Simple setup** - Single server to manage
+- âœ… **No network latency** - Unix socket or localhost communication
+- âœ… **Lower infrastructure cost**
+- âœ… **Easy for development/testing**
 
 **Cons:**
-- ❌ **Shared security boundary** - Compromise of app server = access to Vault
-- ❌ **Single point of failure** - Server down = both services down
-- ❌ **Resource contention** - App and Vault compete for CPU/memory
-- ❌ **Limited isolation benefit** - Reduces security advantage
+- âŒ **Shared security boundary** - Compromise of app server = access to Vault
+- âŒ **Single point of failure** - Server down = both services down
+- âŒ **Resource contention** - App and Vault compete for CPU/memory
+- âŒ **Limited isolation benefit** - Reduces security advantage
 
 **Best for:** Development, testing, small deployments, proof-of-concept
 
@@ -231,22 +231,22 @@ address = https://vault.example.com:8200
 
 ##### Option 3: Containerized Vault (Modern Approach)
 ```
-┌─────────────────────────────────────────┐
-│         Docker Host / Kubernetes        │
-│                                         │
-│  ┌─────────────┐   ┌────────────────┐  │
-│  │ PKI App     │   │ Vault          │  │
-│  │ Container   │───│ Container      │  │
-│  │             │   │ (Isolated)     │  │
-│  └─────────────┘   └────────────────┘  │
-└─────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚         Docker Host / Kubernetes        â”‚
+â”‚                                         â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”‚
+â”‚  â”‚ PKI App     â”‚   â”‚ Vault          â”‚  â”‚
+â”‚  â”‚ Container   â”‚â”€â”€â”€â”‚ Container      â”‚  â”‚
+â”‚  â”‚             â”‚   â”‚ (Isolated)     â”‚  â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 **Pros:**
-- ✅ **Container isolation** - Better than same-process
-- ✅ **Easy deployment** - Docker Compose or Kubernetes
-- ✅ **Portable** - Runs anywhere with container runtime
-- ✅ **Resource limits** - CPU/memory controls
+- âœ… **Container isolation** - Better than same-process
+- âœ… **Easy deployment** - Docker Compose or Kubernetes
+- âœ… **Portable** - Runs anywhere with container runtime
+- âœ… **Resource limits** - CPU/memory controls
 
 **Best for:** Cloud deployments, Kubernetes environments, microservices
 
@@ -264,41 +264,41 @@ address = https://vault.example.com:8200
 
 ---
 
-#### 🎯 Chosen Architecture for This Implementation
+#### ðŸŽ¯ Chosen Architecture for This Implementation
 
 **Separate Vault Application - Portable Design**
 
 ```
 Current Setup (Phase 1):
-┌──────────────────────────────────────────┐
-│     Same Rocky Linux 9 Server           │
-│                                          │
-│  ┌────────────────────────────────┐     │
-│  │ Pikachu CA Application         │     │
-│  │ - Flask on port 5000           │     │
-│  │ - SCEP on port 8090            │     │
-│  │ - User: pki_app                │     │
-│  │ - Config: /opt/pikachu-ca      │     │
-│  └────────────────────────────────┘     │
-│              ↓ Network API               │
-│              (127.0.0.1:8200)            │
-│  ┌────────────────────────────────┐     │
-│  │ HashiCorp Vault (Standalone)   │     │
-│  │ - Vault on port 8200           │     │
-│  │ - User: vault                  │     │
-│  │ - Config: /etc/vault.d         │     │
-│  │ - Data: /opt/vault/data        │     │
-│  └────────────────────────────────┘     │
-└──────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚     Same Rocky Linux 9 Server           â”‚
+â”‚                                          â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”‚
+â”‚  â”‚ pkisquire CA Application         â”‚     â”‚
+â”‚  â”‚ - Flask on port 5000           â”‚     â”‚
+â”‚  â”‚ - SCEP on port 8090            â”‚     â”‚
+â”‚  â”‚ - User: pki_app                â”‚     â”‚
+â”‚  â”‚ - Config: /opt/pkisquire-ca      â”‚     â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â”‚
+â”‚              â†“ Network API               â”‚
+â”‚              (127.0.0.1:8200)            â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”‚
+â”‚  â”‚ HashiCorp Vault (Standalone)   â”‚     â”‚
+â”‚  â”‚ - Vault on port 8200           â”‚     â”‚
+â”‚  â”‚ - User: vault                  â”‚     â”‚
+â”‚  â”‚ - Config: /etc/vault.d         â”‚     â”‚
+â”‚  â”‚ - Data: /opt/vault/data        â”‚     â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 Future Setup (Phase 2 - Simple Migration):
-┌─────────────────────┐         ┌─────────────────────┐
-│ Rocky Linux 9       │         │ Rocky Linux 9       │
-│ PKI App Server      │  API    │ Vault Server        │
-│                     │ ◄─────► │                     │
-│ Pikachu CA          │  8200   │ HashiCorp Vault     │
-│ (192.168.1.10)      │  HTTPS  │ (192.168.1.20)      │
-└─────────────────────┘         └─────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”         â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ Rocky Linux 9       â”‚         â”‚ Rocky Linux 9       â”‚
+â”‚ PKI App Server      â”‚  API    â”‚ Vault Server        â”‚
+â”‚                     â”‚ â—„â”€â”€â”€â”€â”€â–º â”‚                     â”‚
+â”‚ pkisquire CA          â”‚  8200   â”‚ HashiCorp Vault     â”‚
+â”‚ (192.168.1.10)      â”‚  HTTPS  â”‚ (192.168.1.20)      â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜         â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 
 **Migration: Just change config.ini address from 127.0.0.1 to 192.168.1.20**
 
@@ -317,12 +317,12 @@ address = https://192.168.1.20:8200
 ```
 
 **Design Principles:**
-- ✅ **Completely separate applications** - Different users, configs, data directories
-- ✅ **Network-based communication** - No shared files or memory
-- ✅ **Zero-dependency installation** - Each can be installed/removed independently
-- ✅ **Location transparent** - Works on localhost or remote server
-- ✅ **Easy migration** - Change IP address in config, no code changes
-- ✅ **Service isolation** - Separate systemd services, independent restarts
+- âœ… **Completely separate applications** - Different users, configs, data directories
+- âœ… **Network-based communication** - No shared files or memory
+- âœ… **Zero-dependency installation** - Each can be installed/removed independently
+- âœ… **Location transparent** - Works on localhost or remote server
+- âœ… **Easy migration** - Change IP address in config, no code changes
+- âœ… **Service isolation** - Separate systemd services, independent restarts
 
 ---
 
@@ -381,7 +381,7 @@ sudo chmod 750 /etc/vault.d
 ```bash
 # Create Vault configuration file
 sudo tee /etc/vault.d/vault.hcl <<'EOF'
-# Vault Configuration for Pikachu CA Integration
+# Vault Configuration for pkisquire CA Integration
 # This config works for both same-server and separate-server deployment
 
 # Storage backend - file-based (change to Consul/etcd for HA)
@@ -453,7 +453,7 @@ IP.2 = 192.168.1.20
 EOF
 
 # Sign with your CA (or use self-signed for testing)
-# Using Pikachu CA:
+# Using pkisquire CA:
 # sudo openssl x509 -req -in vault.csr \
 #   -CA /path/to/ca.crt -CAkey /path/to/ca.key \
 #   -out vault-cert.pem -days 3650 \
@@ -640,7 +640,7 @@ When you're ready to move Vault to a different machine:
 # 6. Unseal Vault
 
 # On PKI app server:
-# 1. Edit /opt/pikachu-ca/config.ini:
+# 1. Edit /opt/pkisquire-ca/config.ini:
 #    [VAULT]
 #    address = https://192.168.1.20:8200  # New Vault server IP
 # 2. Restart PKI app: ./scripts/restart_server.ps1
@@ -680,7 +680,7 @@ vault write pki-subca-ec/config/ca \
 
 #### 1.4 Create Vault Policies
 ```hcl
-# File: vault-policies/pikachu-ca-app.hcl
+# File: vault-policies/pkisquire-ca-app.hcl
 path "pki-subca-rsa/sign/*" {
   capabilities = ["create", "update"]
 }
@@ -703,7 +703,7 @@ path "transit/verify/pqc-*" {
 ```
 
 ```bash
-vault policy write pikachu-ca-app vault-policies/pikachu-ca-app.hcl
+vault policy write pkisquire-ca-app vault-policies/pkisquire-ca-app.hcl
 ```
 
 #### 1.5 Setup Authentication
@@ -711,14 +711,14 @@ vault policy write pikachu-ca-app vault-policies/pikachu-ca-app.hcl
 # Create AppRole for the application
 vault auth enable approle
 
-vault write auth/approle/role/pikachu-ca \
-    token_policies="pikachu-ca-app" \
+vault write auth/approle/role/pkisquire-ca \
+    token_policies="pkisquire-ca-app" \
     token_ttl=1h \
     token_max_ttl=4h
 
 # Get credentials
-vault read auth/approle/role/pikachu-ca/role-id
-vault write -f auth/approle/role/pikachu-ca/secret-id
+vault read auth/approle/role/pkisquire-ca/role-id
+vault write -f auth/approle/role/pkisquire-ca/secret-id
 ```
 
 ---
@@ -1136,13 +1136,13 @@ export VAULT_ROLE_ID="your-role-id-here"
 export VAULT_SECRET_ID="your-secret-id-here"
 
 # Or add to systemd service file:
-# /etc/systemd/system/pikachu-ca.service
+# /etc/systemd/system/pkisquire-ca.service
 [Service]
 Environment="VAULT_ROLE_ID=xxx"
 Environment="VAULT_SECRET_ID=xxx"
 
 # Or use a separate env file:
-# /opt/pikachu-ca/.env
+# /opt/pkisquire-ca/.env
 VAULT_ROLE_ID=xxx
 VAULT_SECRET_ID=xxx
 ```
@@ -1198,7 +1198,7 @@ def init_vault_client():
         if not vault.health_check():
             raise RuntimeError(f"Vault health check failed for {vault_addr}")
         
-        app.logger.info(f"✓ Vault client connected to {vault_addr}")
+        app.logger.info(f"âœ“ Vault client connected to {vault_addr}")
         return vault
     except Exception as e:
         app.logger.error(f"Failed to initialize Vault: {e}")
@@ -1503,57 +1503,57 @@ curl https://localhost:5000/api/health
 
 ---
 
-## 🔒 Security Considerations
+## ðŸ”’ Security Considerations
 
 ### Deployment Security Comparison
 
 | Security Aspect | Same Server | Separate Server | Separate Vault Cluster |
 |----------------|-------------|-----------------|------------------------|
-| **Process Isolation** | ⚠️ Shared OS | ✅ Full isolation | ✅ Full isolation |
-| **Network Isolation** | ❌ Localhost only | ✅ Firewall rules | ✅ DMZ/separate network |
-| **Compromise Impact** | ❌ Both affected | ✅ Limited blast radius | ✅ HA + limited blast |
-| **Memory Attacks** | ⚠️ Same kernel | ✅ Separate memory | ✅ Separate memory |
-| **DDoS Resilience** | ❌ Affects both | ✅ Vault unaffected | ✅ Cluster redundancy |
-| **Audit Independence** | ⚠️ Same logs | ✅ Separate logs | ✅ Distributed audit |
-| **Physical Security** | ❌ Single server | ✅ Can be in secure location | ✅ Geographic distribution |
+| **Process Isolation** | âš ï¸ Shared OS | âœ… Full isolation | âœ… Full isolation |
+| **Network Isolation** | âŒ Localhost only | âœ… Firewall rules | âœ… DMZ/separate network |
+| **Compromise Impact** | âŒ Both affected | âœ… Limited blast radius | âœ… HA + limited blast |
+| **Memory Attacks** | âš ï¸ Same kernel | âœ… Separate memory | âœ… Separate memory |
+| **DDoS Resilience** | âŒ Affects both | âœ… Vault unaffected | âœ… Cluster redundancy |
+| **Audit Independence** | âš ï¸ Same logs | âœ… Separate logs | âœ… Distributed audit |
+| **Physical Security** | âŒ Single server | âœ… Can be in secure location | âœ… Geographic distribution |
 
 ### Why Separate Server is Recommended
 
 **Defense in Depth Principle:**
 ```
-Application Compromise ≠ Key Compromise
+Application Compromise â‰  Key Compromise
 
-┌─────────────────┐
-│ PKI Application │  ← RCE vulnerability exploited
-│ (Compromised)   │  
-└────────┬────────┘
-         │ API calls only
-         │ (no direct key access)
-         ↓
-┌─────────────────┐
-│ Vault Server    │  ← Keys remain safe
-│ (Isolated)      │     - Different network segment
-│                 │     - Separate authentication
-│                 │     - Audit logs intact
-└─────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ PKI Application â”‚  â† RCE vulnerability exploited
+â”‚ (Compromised)   â”‚  
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+         â”‚ API calls only
+         â”‚ (no direct key access)
+         â†“
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ Vault Server    â”‚  â† Keys remain safe
+â”‚ (Isolated)      â”‚     - Different network segment
+â”‚                 â”‚     - Separate authentication
+â”‚                 â”‚     - Audit logs intact
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 **Same Server Risk:**
 ```
 Application Compromise = Potential Key Compromise
 
-┌─────────────────────────┐
-│ Same Server             │
-│  ┌────────────────┐     │
-│  │ PKI App        │     │  ← Attacker gains root access
-│  │ (Compromised)  │     │
-│  └────────────────┘     │
-│         ↓               │
-│  ┌────────────────┐     │     Can potentially:
-│  │ Vault Process  │     │     - Read memory
-│  │                │     │     - Access unseal keys
-│  └────────────────┘     │     - Modify audit logs
-└─────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ Same Server             â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”‚
+â”‚  â”‚ PKI App        â”‚     â”‚  â† Attacker gains root access
+â”‚  â”‚ (Compromised)  â”‚     â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â”‚
+â”‚         â†“               â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”     â”‚     Can potentially:
+â”‚  â”‚ Vault Process  â”‚     â”‚     - Read memory
+â”‚  â”‚                â”‚     â”‚     - Access unseal keys
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜     â”‚     - Modify audit logs
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ### Key Protection Mechanisms
@@ -1580,7 +1580,7 @@ Application Compromise = Potential Key Compromise
 
 ---
 
-## 📊 Performance Impact Analysis
+## ðŸ“Š Performance Impact Analysis
 
 ### Expected Latency Increases
 
@@ -1599,7 +1599,7 @@ Application Compromise = Potential Key Compromise
 
 ---
 
-## 🔄 Post-Quantum Cryptography (PQC) Support
+## ðŸ”„ Post-Quantum Cryptography (PQC) Support
 
 ### Vault Transit Engine for PQC
 
@@ -1632,7 +1632,7 @@ def hybrid_sign(data: bytes) -> Tuple[bytes, bytes]:
 
 ---
 
-## 📈 Monitoring & Operations
+## ðŸ“ˆ Monitoring & Operations
 
 ### Vault Health Metrics
 - Seal status (sealed/unsealed)
@@ -1648,14 +1648,14 @@ def hybrid_sign(data: bytes) -> Tuple[bytes, bytes]:
 - Cache hit/miss ratio (for CRL/OCSP)
 
 ### Alerts
-- 🚨 **CRITICAL**: Vault sealed or unreachable
-- ⚠️ **WARNING**: Token expiring in < 5 minutes
-- ⚠️ **WARNING**: Signing latency > 100ms
-- ℹ️ **INFO**: Key rotation completed
+- ðŸš¨ **CRITICAL**: Vault sealed or unreachable
+- âš ï¸ **WARNING**: Token expiring in < 5 minutes
+- âš ï¸ **WARNING**: Signing latency > 100ms
+- â„¹ï¸ **INFO**: Key rotation completed
 
 ---
 
-## 💰 Cost-Benefit Analysis
+## ðŸ’° Cost-Benefit Analysis
 
 ### Implementation Costs
 - **Development Time**: 4-5 weeks (1 developer)
@@ -1664,15 +1664,15 @@ def hybrid_sign(data: bytes) -> Tuple[bytes, bytes]:
 - **Testing**: 1 week comprehensive testing
 
 ### Benefits
-- ✅ **Security**: HSM-like protection without hardware costs
-- ✅ **Compliance**: Meets key isolation requirements for many standards
-- ✅ **Auditability**: Complete signing operation audit trail
-- ✅ **Scalability**: Centralized key management for multiple CAs
-- ✅ **Flexibility**: Easy key rotation and policy updates
+- âœ… **Security**: HSM-like protection without hardware costs
+- âœ… **Compliance**: Meets key isolation requirements for many standards
+- âœ… **Auditability**: Complete signing operation audit trail
+- âœ… **Scalability**: Centralized key management for multiple CAs
+- âœ… **Flexibility**: Easy key rotation and policy updates
 
 ---
 
-## 🚀 Future Enhancements
+## ðŸš€ Future Enhancements
 
 1. **Multi-Region Vault Replication** for DR
 2. **Auto-Unseal with Cloud KMS** (AWS, Azure, GCP)
@@ -1684,7 +1684,7 @@ def hybrid_sign(data: bytes) -> Tuple[bytes, bytes]:
 
 ---
 
-## 📚 References
+## ðŸ“š References
 
 - [HashiCorp Vault PKI Secrets Engine](https://developer.hashicorp.com/vault/docs/secrets/pki)
 - [Vault Transit Secrets Engine](https://developer.hashicorp.com/vault/docs/secrets/transit)
@@ -1694,7 +1694,7 @@ def hybrid_sign(data: bytes) -> Tuple[bytes, bytes]:
 
 ---
 
-## ✅ Success Criteria
+## âœ… Success Criteria
 
 - [ ] CA private keys removed from filesystem
 - [ ] All signing operations use Vault APIs
@@ -1711,5 +1711,6 @@ def hybrid_sign(data: bytes) -> Tuple[bytes, bytes]:
 
 **Document Version**: 1.0  
 **Date**: December 5, 2025  
-**Author**: Pikachu CA Team  
+**Author**: pkisquire CA Team  
 **Status**: Planning Phase
+
