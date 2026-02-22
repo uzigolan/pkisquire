@@ -193,11 +193,19 @@ chain_file_path_rsa = pki-subca/aegon_chain_rsa.crt
 root_cert_path = pki-root/westeros_root.crt
 ```
 
-After generation, start the server:
+Initialize or migrate the database:
+
+```bash
+python migrate_db.py
+```
+
+Start the server:
 
 ```bash
 python app.py
 ```
+
+For full installation and run details, see `INSTALL.md`.
 
 To enable post-quantum algorithms, build and install `oqs-provider`:
 ```bash
