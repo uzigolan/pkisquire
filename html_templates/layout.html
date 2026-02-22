@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}{{ product_name }}{% endblock %}</title>
+  <title>{% block title %}{{ product_name|replace('\n', ' ') }}{% endblock %}</title>
 
   <!-- FAVICONS -->
   <link rel="icon"
@@ -69,6 +69,19 @@
     .app-navbar .navbar-brand {
       color: var(--text);
       font-weight: 700;
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .app-navbar .navbar-brand-text {
+      display: inline-block;
+      line-height: 1.05;
+      white-space: pre;
+    }
+
+    .product-name-display {
+      white-space: pre;
     }
 
     .app-navbar .nav-link {
@@ -790,7 +803,7 @@
       class="d-inline-block align-middle mr-2"
       alt="CA logo"
     >
-    {{ product_name }}
+    <span class="navbar-brand-text">{{ product_name }}</span>
     </a>
 
     {% if current_user.is_authenticated %}

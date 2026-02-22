@@ -190,7 +190,9 @@ HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
 app.config["allow_self_registration"] = _cfg.get("DEFAULT", "allow_self_registration", fallback="true")
 app.config["SHOW_LEGACY_PATHS"] = _cfg.getboolean("DEFAULT", "show_legacy_paths", fallback=False)
 product_name = _cfg.get("DEFAULT", "product_name", fallback="PKISquire CA").strip()
-if not product_name:
+product_name = re.sub(r"(?i)<br\s*/?>", "\n", product_name)
+product_name = product_name.replace("\\n", "\n")
+if not product_name.strip():
     product_name = "PKISquire CA"
 app.config["PRODUCT_NAME"] = product_name
 init_users_config(app, _cfg)
