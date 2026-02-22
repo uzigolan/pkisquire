@@ -25,3 +25,5 @@ db_tools/*
 x509_profiles/*
 tests/results/*
 security/history/*
+pki-misc/est_cert_chain.p7
+pki-subca/rad_ca_sub_rsa.srl
