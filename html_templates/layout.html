@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>{% block title %}PKISquire CA{% endblock %}</title>
+  <title>{% block title %}{{ product_name }}{% endblock %}</title>
 
   <!-- FAVICONS -->
   <link rel="icon"
@@ -790,7 +790,7 @@
       class="d-inline-block align-middle mr-2"
       alt="CA logo"
     >
-    PKISquire CA
+    {{ product_name }}
     </a>
 
     {% if current_user.is_authenticated %}

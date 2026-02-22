@@ -189,6 +189,10 @@ app.config["DELETE_SECRET"] = _cfg.get("DEFAULT", "SECRET_KEY", fallback="please
 HTTP_DEFAULT_PORT          = _cfg.getint("DEFAULT", "http_port", fallback=80)
 app.config["allow_self_registration"] = _cfg.get("DEFAULT", "allow_self_registration", fallback="true")
 app.config["SHOW_LEGACY_PATHS"] = _cfg.getboolean("DEFAULT", "show_legacy_paths", fallback=False)
+product_name = _cfg.get("DEFAULT", "product_name", fallback="PKISquire CA").strip()
+if not product_name:
+    product_name = "PKISquire CA"
+app.config["PRODUCT_NAME"] = product_name
 init_users_config(app, _cfg)
 
 ca_mode = _cfg.get("CA", "mode", fallback="EC").upper()
@@ -565,6 +569,10 @@ def inject_legacy_paths_flag():
         "is_enterprise": is_enterprise(),
         "app_edition": app.config.get("APP_EDITION", "enterprise"),
     }
+
+@app.context_processor
+def inject_product_name():
+    return {"product_name": app.config.get("PRODUCT_NAME", "PKISquire CA")}
 
 
 @app.before_request
