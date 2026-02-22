@@ -111,6 +111,91 @@ Enterprise-only features include:
 git clone https://github.com/uzigolan/pkisquire-ca.git
 cd pkisquire-ca
 pip install -r requirements.txt
+```
+
+### Initialize CA Keys and Certificates (first run)
+
+Before starting the server for the first time, generate root/sub-CA keys and certs using
+`ca_pki.ini` + `config.ini`:
+
+```bash
+python gen_ca_pki.py --config config.ini --pki-config ca_pki.ini
+```
+
+Use `--force` to overwrite existing outputs:
+
+```bash
+python gen_ca_pki.py --config config.ini --pki-config ca_pki.ini --force
+```
+
+What this generates:
+- Root key/cert (for example `pki-root/rad_ca_root.key`, `pki-root/rad_ca_root.crt`)
+- EC sub-CA key/cert + chain (paths from `config.ini` `[CA]`)
+- RSA sub-CA key/cert + chain (paths from `config.ini` `[CA]`)
+
+Example `ca_pki.ini`:
+
+```ini
+[ROOT]
+key_type = EC
+ec_curve = prime256v1
+rsa_bits = 4096
+days = 3650
+default_md = sha256
+dn_c = IL
+dn_st = The Reach
+dn_l = Ashford Meadow
+dn_o = Seven Kingdoms Trust
+dn_ou = Royal PKI
+dn_cn = Crown Root of Westeros
+
+[SUBCA_EC]
+enabled = true
+ec_curve = prime256v1
+days = 3650
+default_md = sha256
+dn_c = IL
+dn_st = The Reach
+dn_l = Ashford Meadow
+dn_o = Seven Kingdoms Trust
+dn_ou = Kingsguard EC Unit
+dn_cn = Ser Duncan EC Sub-CA
+
+[SUBCA_RSA]
+enabled = true
+rsa_bits = 4096
+days = 3650
+default_md = sha256
+dn_c = IL
+dn_st = The Crownlands
+dn_l = King's Landing
+dn_o = Seven Kingdoms Trust
+dn_ou = Maester RSA Unit
+dn_cn = Aegon RSA Sub-CA
+
+[EXTENSIONS]
+crl_distribution_points = URI:https://pkisquire-ca.example.com/downloads/crl
+
+[OUTPUT]
+root_key_path = pki-root/rad_ca_root.key
+```
+
+Relevant `config.ini` attributes (`[CA]`) used by `gen_ca_pki.py`:
+
+```ini
+[CA]
+subca_key_path_ec = pki-subca/dunk_sub_ec.key
+subca_cert_path_ec = pki-subca/dunk_sub_ec.crt
+chain_file_path_ec = pki-subca/dunk_chain_ec.crt
+subca_key_path_rsa = pki-subca/aegon_sub_rsa.key
+subca_cert_path_rsa = pki-subca/aegon_sub_rsa.crt
+chain_file_path_rsa = pki-subca/aegon_chain_rsa.crt
+root_cert_path = pki-root/westeros_root.crt
+```
+
+After generation, start the server:
+
+```bash
 python app.py
 ```
 
