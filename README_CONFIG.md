@@ -20,6 +20,7 @@ python app.py
 
 ## [DEFAULT]
 - **SECRET_KEY**: Flask secret key for session security.
+- **product_name**: Product name shown in the UI (default: `PKISquire CA`).
 - **http_port**: HTTP port for unauthenticated OCSP (default: 80).
 - **max_idle_time**: Maximum idle time before automatic logout (e.g., `10h`, `4d`, `20m`).
 - **allow_self_registration**: Enable self-registration at `/users/register` (`true`/`false`).
