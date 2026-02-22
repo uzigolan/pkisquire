@@ -321,8 +321,16 @@ For detailed local test notes, see `tests/README.md` and `tests_repo/README.md`.
 
 ## Additional Documentation
 
-- `README_CONFIG.md` for configuration details
-- `scripts/README.md` and `scripts/VAULT_SCRIPTS_README.md` for Vault setup and server management
+- `README_CONFIG.md` for full `config.ini` reference
+- `scripts/README.md` for server management scripts
+- `scripts/VAULT_SCRIPTS_README.md` for Vault bootstrap/integration scripts
+- `tests/README.md` for protocol test setup and execution notes
+- `tests_repo/README.md` for UI/API pytest flows and reports
+- `tests/estclient/README.md` for EST client test assets
+- `tests/sscep/README.md` for SSCEP test assets
+- `security/README.md` for security report generation and usage
+- `est/README.md` for embedded EST server/client components in this repo
+- `skills/README.md` for local Codex skill usage in this workspace
 
 ---
 
