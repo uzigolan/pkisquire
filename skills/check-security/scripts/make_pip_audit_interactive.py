@@ -1,8 +1,10 @@
 import argparse
 import json
+import re
 import time
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 
 
@@ -53,6 +55,7 @@ HTML_TEMPLATE = """<!doctype html>
       Severity:
       <select id="severitySelect" onchange="applyFilter()">
         <option value="">All</option>
+        <option value="none">None (No vulnerabilities)</option>
         <option value="critical">Critical</option>
         <option value="high">High</option>
         <option value="medium">Medium</option>
@@ -72,8 +75,9 @@ HTML_TEMPLATE = """<!doctype html>
         <th onclick="sortTable(1)">Version</th>
         <th onclick="sortTable(2)">Vulnerability ID</th>
         <th onclick="sortTable(3)">Severity</th>
-        <th onclick="sortTable(4)">Score</th>
-        <th onclick="sortTable(5)">Fix Versions</th>
+        <th onclick="sortTable(4)">Published</th>
+        <th onclick="sortTable(5)">Score</th>
+        <th onclick="sortTable(6)">Fix Versions</th>
       </tr>
     </thead>
     <tbody>
@@ -127,10 +131,20 @@ HTML_TEMPLATE = """<!doctype html>
     rows.sort((a, b) => {{
       const aText = a.cells[columnIndex].textContent.trim().toLowerCase();
       const bText = b.cells[columnIndex].textContent.trim().toLowerCase();
-      if (columnIndex === 4) {{
+      if (columnIndex === 3) {{
+        const aRank = parseInt(a.getAttribute('data-severity-rank') || '0', 10);
+        const bRank = parseInt(b.getAttribute('data-severity-rank') || '0', 10);
+        return isAscending ? aRank - bRank : bRank - aRank;
+      }}
+      if (columnIndex === 5) {{
         const aNum = parseFloat(aText) || 0;
         const bNum = parseFloat(bText) || 0;
         return isAscending ? aNum - bNum : bNum - aNum;
+      }}
+      if (columnIndex === 4) {{
+        const aTs = Date.parse(a.getAttribute('data-published') || aText) || 0;
+        const bTs = Date.parse(b.getAttribute('data-published') || bText) || 0;
+        return isAscending ? aTs - bTs : bTs - aTs;
       }}
       if (aText < bText) return isAscending ? -1 : 1;
       if (aText > bText) return isAscending ? 1 : -1;
@@ -155,7 +169,10 @@ HTML_TEMPLATE = """<!doctype html>
     renderPage();
   }}
 
-  document.addEventListener('DOMContentLoaded', () => applyFilter(true));
+  document.addEventListener('DOMContentLoaded', () => {{
+    sortDirections[3] = 'asc';
+    sortTable(3); // first call toggles to desc: critical/high -> low
+  }});
 </script>
 </body>
 </html>
@@ -176,7 +193,7 @@ def normalize_severity(vuln):
 
 def fetch_nvd_severity(cve_id, cache):
     if not cve_id:
-        return "unreported", ""
+        return "unreported", "", ""
     if cve_id in cache:
         return cache[cve_id]
     url = "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=" + urllib.parse.quote(cve_id)
@@ -185,9 +202,11 @@ def fetch_nvd_severity(cve_id, cache):
             data = json.loads(resp.read().decode("utf-8", errors="replace"))
         items = data.get("vulnerabilities") or []
         if not items:
-            cache[cve_id] = ("unreported", "")
+            cache[cve_id] = ("unreported", "", "")
             return cache[cve_id]
-        metrics = (items[0].get("cve") or {}).get("metrics") or {}
+        cve = items[0].get("cve") or {}
+        published = str(cve.get("published", "") or "")
+        metrics = cve.get("metrics") or {}
         # Prefer CVSS v3.1, then v3.0, then v2.
         for key in ("cvssMetricV40", "cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
             if key in metrics and metrics[key]:
@@ -195,18 +214,29 @@ def fetch_nvd_severity(cve_id, cache):
                 cvss = metric.get("cvssData") or {}
                 severity = str(cvss.get("baseSeverity", "")).lower()
                 score = cvss.get("baseScore", "")
-                cache[cve_id] = (severity or "unreported", str(score) if score != "" else "")
+                cache[cve_id] = (severity or "unreported", str(score) if score != "" else "", published)
                 return cache[cve_id]
-        cache[cve_id] = ("unreported", "")
+        cache[cve_id] = ("unreported", "", published)
         return cache[cve_id]
     except Exception:
-        cache[cve_id] = ("unreported", "")
+        cache[cve_id] = ("unreported", "", "")
         return cache[cve_id]
+
+
+def cvss_from_nvd_metrics(metrics):
+    for key in ("cvssMetricV40", "cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+        if key in metrics and metrics[key]:
+            metric = metrics[key][0]
+            cvss = metric.get("cvssData") or {}
+            severity = str(cvss.get("baseSeverity", "")).lower() or "unreported"
+            score = cvss.get("baseScore", "")
+            return severity, (str(score) if score != "" else "")
+    return "unreported", ""
 
 
 def fetch_ghsa_severity(cve_id, cache):
     if not cve_id:
-        return "unreported", ""
+        return "unreported", "", ""
     if ("ghsa", cve_id) in cache:
         return cache[("ghsa", cve_id)]
     url = "https://api.github.com/advisories?cve_id=" + urllib.parse.quote(cve_id)
@@ -221,18 +251,19 @@ def fetch_ghsa_severity(cve_id, cache):
             cvss = adv.get("cvss") or {}
             if cvss.get("score") is not None:
                 score = str(cvss.get("score"))
-            cache[("ghsa", cve_id)] = (severity, score)
+            published = str(adv.get("published_at", "") or "")
+            cache[("ghsa", cve_id)] = (severity, score, published)
             return cache[("ghsa", cve_id)]
-        cache[("ghsa", cve_id)] = ("unreported", "")
+        cache[("ghsa", cve_id)] = ("unreported", "", "")
         return cache[("ghsa", cve_id)]
     except Exception:
-        cache[("ghsa", cve_id)] = ("unreported", "")
+        cache[("ghsa", cve_id)] = ("unreported", "", "")
         return cache[("ghsa", cve_id)]
 
 
 def fetch_osv_severity(cve_id, cache):
     if not cve_id:
-        return "unreported", ""
+        return "unreported", "", ""
     if ("osv", cve_id) in cache:
         return cache[("osv", cve_id)]
     url = "https://api.osv.dev/v1/vulns/" + urllib.parse.quote(cve_id)
@@ -241,6 +272,7 @@ def fetch_osv_severity(cve_id, cache):
             data = json.loads(resp.read().decode("utf-8", errors="replace"))
         severity = "unreported"
         score = ""
+        published = str(data.get("published", "") or "")
         sev_list = data.get("severity") or []
         if sev_list:
             # Prefer CVSS_V3 if present.
@@ -262,13 +294,87 @@ def fetch_osv_severity(cve_id, cache):
                     severity = "low"
             except Exception:
                 severity = "unreported"
-        cache[("osv", cve_id)] = (severity, score)
+        cache[("osv", cve_id)] = (severity, score, published)
         return cache[("osv", cve_id)]
     except Exception:
-        cache[("osv", cve_id)] = ("unreported", "")
+        cache[("osv", cve_id)] = ("unreported", "", "")
         return cache[("osv", cve_id)]
 
-def iter_rows(data):
+
+def severity_rank(severity):
+    return {"critical": 4, "high": 3, "medium": 2, "low": 1, "unreported": 0, "none": -1}.get(severity, 0)
+
+
+def format_published(value):
+    if not value:
+        return ""
+    s = str(value).strip()
+    try:
+        # Support ISO strings like 2026-02-21T06:17:00.710 or ...Z
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        # Fallback: normalize common shape without parsing
+        return s.replace("T", " ")[:16]
+
+def extract_openssl_version(openssl_info_path):
+    if not openssl_info_path:
+        return ""
+    p = Path(openssl_info_path)
+    if not p.exists():
+        return ""
+    text = p.read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"OpenSSL\s+([0-9]+\.[0-9]+\.[0-9a-zA-Z._-]+)", text)
+    if not m:
+        return ""
+    return m.group(1)
+
+
+def fetch_openssl_vulns(version, cache):
+    if not version:
+        return []
+    key = ("openssl_vulns", version)
+    if key in cache:
+        return cache[key]
+
+    cpe = f"cpe:2.3:a:openssl:openssl:{version}:*:*:*:*:*:*:*"
+    url = (
+        "https://services.nvd.nist.gov/rest/json/cves/2.0?"
+        "cpeName=" + urllib.parse.quote(cpe) +
+        "&resultsPerPage=2000"
+    )
+    rows = []
+    seen = set()
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "pip-audit-interactive"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        items = data.get("vulnerabilities") or []
+        for item in items:
+            cve = item.get("cve") or {}
+            vid = str(cve.get("id", "")).strip()
+            if not vid or vid in seen:
+                continue
+            metrics = cve.get("metrics") or {}
+            severity, score = cvss_from_nvd_metrics(metrics)
+            published_raw = str(cve.get("published", "") or "")
+            rows.append({
+                "id": vid,
+                "severity": severity,
+                "score": score,
+                "published_raw": published_raw,
+                "published": format_published(published_raw),
+                "fix_versions": "",
+            })
+            seen.add(vid)
+    except Exception:
+        rows = []
+
+    cache[key] = rows
+    return rows
+
+
+def iter_rows(data, openssl_info_path=""):
     rows = []
     deps = data.get("dependencies") or []
     nvd_cache = {}
@@ -276,23 +382,39 @@ def iter_rows(data):
         name = dep.get("name", "")
         version = dep.get("version", "")
         vulns = dep.get("vulns") or []
+        if not vulns:
+            rows.append({
+                "name": name,
+                "version": version,
+                "id": "",
+                "severity": "none",
+                "score": "",
+                "published_raw": "",
+                "published": "",
+                "fix_versions": "",
+            })
+            continue
         for vuln in vulns:
             vid = vuln.get("id", "")
             fix_versions = ", ".join(vuln.get("fix_versions") or [])
             # Prefer NVD severity/score; fallback to GHSA, then OSV, then pip-audit.
-            severity, score = fetch_nvd_severity(vid, nvd_cache)
+            severity, score, published = fetch_nvd_severity(vid, nvd_cache)
             if not score:
-                sev_ghsa, score_ghsa = fetch_ghsa_severity(vid, nvd_cache)
+                sev_ghsa, score_ghsa, pub_ghsa = fetch_ghsa_severity(vid, nvd_cache)
                 if not score and score_ghsa:
                     score = score_ghsa
                 if severity == "unreported" and sev_ghsa != "unreported":
                     severity = sev_ghsa
+                if not published and pub_ghsa:
+                    published = pub_ghsa
             if not score:
-                sev_osv, score_osv = fetch_osv_severity(vid, nvd_cache)
+                sev_osv, score_osv, pub_osv = fetch_osv_severity(vid, nvd_cache)
                 if not score and score_osv:
                     score = score_osv
                 if severity == "unreported" and sev_osv != "unreported":
                     severity = sev_osv
+                if not published and pub_osv:
+                    published = pub_osv
             if severity == "unreported":
                 severity = normalize_severity(vuln)
             # Be gentle to public APIs when multiple CVEs are present.
@@ -304,27 +426,71 @@ def iter_rows(data):
                 "id": vid,
                 "severity": severity,
                 "score": score,
+                "published_raw": published,
+                "published": format_published(published),
                 "fix_versions": fix_versions,
             })
+    openssl_version = extract_openssl_version(openssl_info_path)
+    if openssl_version:
+        openssl_vulns = fetch_openssl_vulns(openssl_version, nvd_cache)
+        if openssl_vulns:
+            for ov in openssl_vulns:
+                rows.append({
+                    "name": "openssl",
+                    "version": openssl_version,
+                    "id": ov["id"],
+                    "severity": ov["severity"],
+                    "score": ov["score"],
+                    "published_raw": ov["published_raw"],
+                    "published": ov["published"],
+                    "fix_versions": ov["fix_versions"],
+                })
+        else:
+            rows.append({
+                "name": "openssl",
+                "version": openssl_version,
+                "id": "",
+                "severity": "none",
+                "score": "",
+                "published_raw": "",
+                "published": "",
+                "fix_versions": "",
+            })
+    rows.sort(
+        key=lambda r: (
+            severity_rank(r["severity"]),
+            float(r["score"]) if str(r["score"]).replace(".", "", 1).isdigit() else 0.0,
+            r["published"] or "",
+        ),
+        reverse=True,
+    )
     return rows
 
 
 def render_rows(rows):
     if not rows:
-        return '<tr><td colspan="5" class="muted">No known vulnerabilities found.</td></tr>'
+        return '<tr><td colspan="7" class="muted">No known vulnerabilities found.</td></tr>'
     out = []
     for r in rows:
-        sev_label = r["severity"].capitalize() if r["severity"] != "unreported" else "Unspecified"
+        if r["severity"] == "none":
+            sev_label = "None"
+        elif r["severity"] == "unreported":
+            sev_label = "Unspecified"
+        else:
+            sev_label = r["severity"].capitalize()
         out.append(
-            "<tr data-severity=\"{sev}\">"
+            "<tr data-severity=\"{sev}\" data-severity-rank=\"{sev_rank}\" data-published=\"{published_raw}\">"
             "<td>{name}</td>"
             "<td>{version}</td>"
             "<td>{vid_link}</td>"
             "<td><span class=\"chip\">{sev_label}</span></td>"
+            "<td>{published}</td>"
             "<td>{score}</td>"
             "<td>{fix}</td>"
             "</tr>".format(
                 sev=r["severity"],
+                sev_rank=severity_rank(r["severity"]),
+                published_raw=r["published_raw"],
                 name=r["name"],
                 version=r["version"],
                 vid_link=(
@@ -332,9 +498,10 @@ def render_rows(rows):
                         "https://cve.mitre.org/cgi-bin/cvename.cgi?name=" + r["id"],
                         r["id"]
                     )
-                    if r["id"] else ""
+                    if r["id"] else "-"
                 ),
                 sev_label=sev_label,
+                published=r["published"],
                 score=r["score"],
                 fix=r["fix_versions"],
             )
@@ -348,11 +515,12 @@ def main():
     parser.add_argument("-o", "--output", required=True)
     parser.add_argument("-t", "--generated-at", default="")
     parser.add_argument("-v", "--version", default="")
+    parser.add_argument("--openssl-info", default="")
     args = parser.parse_args()
 
     # pip-audit JSON can include a UTF-8 BOM on Windows; handle it safely.
     data = json.loads(Path(args.input).read_text(encoding="utf-8-sig"))
-    rows = iter_rows(data)
+    rows = iter_rows(data, args.openssl_info)
     html = HTML_TEMPLATE.format(
         source="pip-audit.json",
         generated_at=args.generated_at or "unknown",

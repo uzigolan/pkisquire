@@ -1,0 +1,20 @@
+Generated at: 2026-02-23 11:04:08 +02:00 | Version: 2.1.0
+
+=== openssl version -a ===
+OpenSSL 3.6.0 1 Oct 2025 (Library: OpenSSL 3.6.0 1 Oct 2025)
+built on: Wed Oct  8 20:29:58 2025 UTC
+platform: VC-WIN64A
+options:  bn(64,64)
+compiler: cl  /Z7 /Fdossl_static.pdb /Gs0 /GF /Gy /MD /W3 /wd4090 /nologo /O2 -DL_ENDIAN -DOPENSSL_PIC -D"OPENSSL_BUILDING_OPENSSL" -D"OPENSSL_SYS_WIN32" -D"WIN32_LEAN_AND_MEAN" -D"UNICODE" -D"_UNICODE" -D"_CRT_SECURE_NO_DEPRECATE" -D"_WINSOCK_DEPRECATED_NO_WARNINGS" -D"NDEBUG" -D_WINSOCK_DEPRECATED_NO_WARNINGS -D_WIN32_WINNT=0x0502
+OPENSSLDIR: "C:\Program Files\Common Files\SSL"
+ENGINESDIR: "C:\Program Files\OpenSSL\lib\engines-3"
+MODULESDIR: "C:\Program Files\OpenSSL\lib\ossl-modules"
+Seeding source: os-specific
+CPUINFO: OPENSSL_ia32cap=0xfffaf38fffebffff:0x18405fc6f3bfa7a9:0x00000000bc100510:0x0000000000000000:0x0000000000000000
+
+=== openssl list -providers ===
+Providers:
+  default
+    name: OpenSSL Default Provider
+    version: 3.6.0
+    status: active

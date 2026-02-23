@@ -11,6 +11,7 @@ $historyRoot = Join-Path $security 'history'
 $ts = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
 $historyDir = Join-Path $historyRoot $ts
 $licenseDenyReport = Join-Path $security 'pip-licenses-denied.txt'
+$opensslInfo = Join-Path $security 'openssl-info.txt'
 $generatedAt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss K'
 $versionFile = Join-Path $Root 'version.txt'
 $version = ''
@@ -61,6 +62,28 @@ if (-not (Test-Path $venvPipAudit)) {
 
 if (-not (Test-Path $venvPipLicenses)) {
     & $venvPython -m pip install --quiet pip-licenses
+}
+
+# OpenSSL environment snapshot
+"Generated at: $generatedAt | Version: $version" | Out-File -FilePath $opensslInfo -Encoding ascii
+try {
+    $opensslVersion = (& openssl version -a | Out-String).Trim()
+    "" | Out-File -FilePath $opensslInfo -Encoding ascii -Append
+    "=== openssl version -a ===" | Out-File -FilePath $opensslInfo -Encoding ascii -Append
+    $opensslVersion | Out-File -FilePath $opensslInfo -Encoding ascii -Append
+    try {
+        $providers = (& openssl list -providers 2>$null | Out-String).Trim()
+        if ($providers) {
+            "" | Out-File -FilePath $opensslInfo -Encoding ascii -Append
+            "=== openssl list -providers ===" | Out-File -FilePath $opensslInfo -Encoding ascii -Append
+            $providers | Out-File -FilePath $opensslInfo -Encoding ascii -Append
+        }
+    } catch {
+        # Provider listing is optional across OpenSSL versions; ignore if unsupported.
+    }
+} catch {
+    "" | Out-File -FilePath $opensslInfo -Encoding ascii -Append
+    "OpenSSL command not available in PATH." | Out-File -FilePath $opensslInfo -Encoding ascii -Append
 }
 
 # Bandit scans: only app.py and its local imports
@@ -124,7 +147,7 @@ Get-Content (Join-Path $security 'pip-audit.txt') | Add-Content -Path (Join-Path
 "@ | Add-Content -Path (Join-Path $security 'pip-audit.html') -Encoding Ascii
 
 # Interactive HTML from JSON
-& $venvPython (Join-Path $PSScriptRoot 'make_pip_audit_interactive.py') -i $pipAuditJson -o (Join-Path $security 'pip-audit-interactive.html') -t $generatedAt -v $version
+& $venvPython (Join-Path $PSScriptRoot 'make_pip_audit_interactive.py') -i $pipAuditJson -o (Join-Path $security 'pip-audit-interactive.html') -t $generatedAt -v $version --openssl-info $opensslInfo
 
 # pip-licenses report
 $pipLicensesTxt = Join-Path $security 'pip-licenses.txt'
@@ -225,6 +248,7 @@ Copy-Item -Force (Join-Path $security 'pip-licenses.txt') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-licenses.html') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-licenses.json') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-licenses-interactive.html') $historyDir
+Copy-Item -Force $opensslInfo $historyDir
 Copy-Item -Force $LicenseDenylistPath $historyDir
 Copy-Item -Force $licenseDenyReport $historyDir
 
