@@ -410,6 +410,40 @@ werkzeug_logger.propagate = False
 
 app.logger.info("Logging initialized. Writing to %s (level=%s)", LOG_FILE, logging.getLevelName(log_level))
 
+def collect_openssl_startup_info():
+    """Capture OpenSSL runtime information once at app startup."""
+    captured_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+    info = {
+        "captured_at": captured_at,
+        "version_output": "",
+        "providers_output": "",
+        "error": "",
+    }
+    try:
+        proc = subprocess.run(["openssl", "version", "-a"], capture_output=True, text=True)
+        if proc.returncode == 0:
+            info["version_output"] = (proc.stdout or "").strip()
+        else:
+            info["error"] = (proc.stderr or proc.stdout or "openssl version failed").strip()
+            return info
+        try:
+            p2 = subprocess.run(["openssl", "list", "-providers"], capture_output=True, text=True)
+            if p2.returncode == 0:
+                info["providers_output"] = (p2.stdout or "").strip()
+            else:
+                info["providers_output"] = (p2.stderr or "").strip()
+        except Exception as exc:
+            info["providers_output"] = f"Failed to list providers: {exc}"
+    except Exception as exc:
+        info["error"] = f"OpenSSL not available: {exc}"
+    return info
+
+app.config["OPENSSL_STARTUP_INFO"] = collect_openssl_startup_info()
+if app.config["OPENSSL_STARTUP_INFO"].get("error"):
+    app.logger.warning("OpenSSL startup capture error: %s", app.config["OPENSSL_STARTUP_INFO"]["error"])
+else:
+    app.logger.info("OpenSSL startup information captured at %s", app.config["OPENSSL_STARTUP_INFO"]["captured_at"])
+
 
 # ---------- Database Initialization ----------
 
@@ -1428,6 +1462,10 @@ def api_doc():
 def about():
     return render_template("about.html")
 
+@app.route("/favicon.ico")
+def favicon_ico():
+    return redirect(url_for("static", filename="favicon-32x32.png"), code=302)
+
 
 @app.route("/license")
 @app.route("/license.html")
@@ -1546,6 +1584,74 @@ def pip_licenses_report_interactive():
 def security_readme():
     readme_path = Path(current_app.root_path) / "security" / "README.md"
     return _render_markdown_file(readme_path, "Security README")
+
+@app.route("/security/openssl-info")
+@login_required
+def openssl_info():
+    info = app.config.get("OPENSSL_STARTUP_INFO", {})
+    captured_at = escape(info.get("captured_at", "unknown"))
+    version_output = escape(info.get("version_output", "") or "No OpenSSL version output captured.")
+    providers_output = escape(info.get("providers_output", "") or "No provider information captured.")
+    error = escape(info.get("error", ""))
+    html = f"""<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>OpenSSL Runtime Info</title>
+  <link rel="shortcut icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png" />
+  <style>
+    body {{
+      font-family: Segoe UI, Arial, sans-serif;
+      margin: 24px;
+      color: #1f2933;
+      background: #f8fafc;
+    }}
+    .card {{
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    }}
+    h1 {{ margin-top: 0; margin-bottom: 8px; }}
+    .meta {{ color: #6b7280; margin-bottom: 14px; }}
+    .err {{
+      color: #991b1b;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 14px;
+    }}
+    pre {{
+      margin: 0;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }}
+  </style>
+</head>
+<body>
+  <h1>OpenSSL Runtime Info</h1>
+  <div class="meta">Captured at app startup: {captured_at}</div>
+  {f'<div class="err">{error}</div>' if error else ''}
+  <div class="card">
+    <h3 style="margin-top:0;">openssl version -a</h3>
+    <pre>{version_output}</pre>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0;">openssl list -providers</h3>
+    <pre>{providers_output}</pre>
+  </div>
+</body>
+</html>"""
+    return Response(html, mimetype="text/html")
 
 
 @app.route("/tests/readme")

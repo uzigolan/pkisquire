@@ -14,6 +14,7 @@
 - pip-licenses-interactive.html: HTML report with search, filter, sort, and unknown-license highlighting.
 - license-denylist.txt: Policy file (one deny pattern per line).
 - pip-licenses-denied.txt: Latest denylist policy results.
+- openssl-info.txt: OpenSSL runtime snapshot (`openssl version -a` and providers if available).
 - history/: Dated snapshots of the current reports.
 
 ## Bandit report sources
@@ -44,4 +45,5 @@
 - Open `security/pip-licenses.txt` or `security/pip-licenses.html`.
 - Open `security/pip-licenses-interactive.html` in your browser (search, filter, unknown/known licenses).
 - Open `security/pip-licenses-denied.txt` for denylist policy violations.
+- Open `security/openssl-info.txt` to inspect the OpenSSL version/build used during report generation.
 - History snapshots live under `security/history/YYYY-MM-DD_HH-mm-ss/`.
