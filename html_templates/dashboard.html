@@ -2,49 +2,26 @@
 {% block content %}
   <section class="content-card dashboard-page">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
-      <div>
-        <h2 class="page-title">Certificate Overview</h2>
-        <p class="page-subtitle">Live snapshot of issuance and status across your CA.</p>
+      <div class="dashboard-title-inline">
+        <h2 class="page-title mb-0">Certificate Overview</h2>
+        <span class="dashboard-subtitle">Live snapshot of issuance and status across your CA.</span>
       </div>
       <div class="app-meta">
         <strong>Mode:</strong> {{ ca_mode }}
       </div>
     </div>
 
-    <div class="app-meta mb-2"><strong>Summary</strong></div>
-    <div class="metric-grid mb-4">
-      <div class="metric-card">
-        <div class="metric-label">Total</div>
-        <div class="metric-value">{{ summary.total }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Valid</div>
-        <div class="metric-value">{{ summary.valid }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Expired</div>
-        <div class="metric-value">{{ summary.expired }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">Revoked</div>
-        <div class="metric-value">{{ summary.revoked }}</div>
-      </div>
-    </div>
-
-    <div class="app-meta mb-2"><strong>Enrollment</strong></div>
-    <div class="metric-grid">
-      <div class="metric-card">
-        <div class="metric-label">UI</div>
-        <div class="metric-value">{{ enrollment.ui }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">EST</div>
-        <div class="metric-value">{{ enrollment.est }}</div>
-      </div>
-      <div class="metric-card">
-        <div class="metric-label">SCEP</div>
-        <div class="metric-value">{{ enrollment.scep }}</div>
-      </div>
+    <div class="dashboard-kpi-line mb-2">
+      <span class="kpi-group-title">Summary</span>
+      <span class="kpi-pill">Total <strong>{{ summary.total }}</strong></span>
+      <span class="kpi-pill kpi-good">Valid <strong>{{ summary.valid }}</strong></span>
+      <span class="kpi-pill kpi-warn">Expired <strong>{{ summary.expired }}</strong></span>
+      <span class="kpi-pill kpi-bad">Revoked <strong>{{ summary.revoked }}</strong></span>
+      <span class="kpi-sep">|</span>
+      <span class="kpi-group-title">Enrollment</span>
+      <span class="kpi-pill kpi-ui">UI <strong>{{ enrollment.ui }}</strong></span>
+      <span class="kpi-pill kpi-est">EST <strong>{{ enrollment.est }}</strong></span>
+      <span class="kpi-pill kpi-scep">SCEP <strong>{{ enrollment.scep }}</strong></span>
     </div>
   </section>
 
@@ -73,6 +50,123 @@
 {% endblock %}
 {% block scripts %}
   <style>
+    .dashboard-kpi-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      font-size: 0.9rem;
+      color: var(--text);
+      align-items: center;
+    }
+    .dashboard-kpi-line .kpi-group-title {
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.78rem;
+      margin-right: 0.1rem;
+    }
+    .dashboard-kpi-line .kpi-pill {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.3rem;
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.18rem 0.55rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    .dashboard-kpi-line .kpi-pill strong {
+      font-size: 1rem;
+      line-height: 1;
+      color: var(--text);
+    }
+    .dashboard-kpi-line .kpi-good {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+    }
+    .dashboard-kpi-line .kpi-warn {
+      border-color: #fde68a;
+      background: #fffbeb;
+    }
+    .dashboard-kpi-line .kpi-bad {
+      border-color: #fecaca;
+      background: #fef2f2;
+    }
+    .dashboard-kpi-line .kpi-ui {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+    .dashboard-kpi-line .kpi-est {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    .dashboard-kpi-line .kpi-scep {
+      border-color: #c4b5fd;
+      background: #f5f3ff;
+      color: #6d28d9;
+    }
+    .dashboard-kpi-line .kpi-sep {
+      color: var(--muted);
+      margin: 0 0.2rem;
+      opacity: 0.7;
+    }
+    .dashboard-title-inline {
+      display: flex;
+      align-items: baseline;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .dashboard-title-inline .dashboard-subtitle {
+      display: inline-block;
+      color: #5b6b7f;
+      font-size: 0.98rem;
+      margin: 0;
+    }
+    body.theme-classic .dashboard-title-inline .dashboard-subtitle {
+      color: #6c757d;
+    }
+    body.theme-color-midnight .dashboard-title-inline .dashboard-subtitle {
+      color: #94a3b8;
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-pill {
+      background: #0f172a;
+      border-color: #334155;
+      color: #e2e8f0;
+      box-shadow: 0 1px 2px rgba(2, 6, 23, 0.45);
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-pill strong {
+      color: #ffffff;
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-good {
+      background: rgba(16, 185, 129, 0.18);
+      border-color: rgba(52, 211, 153, 0.4);
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-warn {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: rgba(251, 191, 36, 0.45);
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-bad {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(248, 113, 113, 0.45);
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-ui {
+      background: rgba(29, 78, 216, 0.28);
+      border-color: rgba(96, 165, 250, 0.45);
+      color: #dbeafe;
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-est {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: rgba(74, 222, 128, 0.45);
+      color: #bbf7d0;
+    }
+    body.theme-color-midnight .dashboard-kpi-line .kpi-scep {
+      background: rgba(139, 92, 246, 0.2);
+      border-color: rgba(167, 139, 250, 0.45);
+      color: #ddd6fe;
+    }
     .activity-legend .legend-item {
       display: inline-flex;
       align-items: center;
