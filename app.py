@@ -1469,6 +1469,7 @@ def favicon_ico():
 
 @app.route("/license")
 @app.route("/license.html")
+@login_required
 def license_file():
     license_path = Path(current_app.root_path) / "LICENSE.md"
     return _render_markdown_file(license_path, "License")
@@ -1544,6 +1545,7 @@ def _render_markdown_file(path: Path, title: str):
 
 
 @app.route("/security/bandit-report-interactive")
+@login_required
 def bandit_report_interactive():
     report_path = Path(current_app.root_path) / "security" / "bandit-report-interactive.html"
     if not report_path.exists():
@@ -1552,6 +1554,7 @@ def bandit_report_interactive():
 
 
 @app.route("/security/pip-audit-interactive")
+@login_required
 def pip_audit_report_interactive():
     report_path = Path(current_app.root_path) / "security" / "pip-audit-interactive.html"
     if not report_path.exists():
@@ -1581,6 +1584,7 @@ def pip_licenses_report_interactive():
 
 
 @app.route("/security/readme")
+@login_required
 def security_readme():
     readme_path = Path(current_app.root_path) / "security" / "README.md"
     return _render_markdown_file(readme_path, "Security README")
@@ -1655,12 +1659,14 @@ def openssl_info():
 
 
 @app.route("/tests/readme")
+@login_required
 def tests_readme():
     readme_path = Path(current_app.root_path) / "tests_repo" / "README.md"
     return _render_markdown_file(readme_path, "Tests README")
 
 
 @app.route("/reports/ui/latest")
+@login_required
 def latest_ui_report():
     report_path = _latest_report_path("pikachu_test_ui_full_*.html")
     if not report_path or not report_path.exists():
@@ -1669,6 +1675,7 @@ def latest_ui_report():
 
 
 @app.route("/reports/api/latest")
+@login_required
 def latest_api_report():
     report_path = _latest_report_path("pikachu_test_api_full_*.html")
     if not report_path or not report_path.exists():
