@@ -58,6 +58,7 @@ Enterprise-only features include:
 - HashiCorp Vault integration
 - PQC key generation from UI (`/generate` -> `PQC`) when `oqs-provider` is installed
 - Code vulnerabilities reports (`/security/bandit-report-interactive`, `/security/pip-audit-interactive`, `/security/pip-licenses-interactive`)
+- OpenSSL runtime info page (`/security/openssl-info`) captured at app startup
 
 ### Feature Matrix
 
