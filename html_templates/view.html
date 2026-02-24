@@ -68,10 +68,14 @@
       </ul>
       <div class="tab-content border border-top-0 p-3" id="certPublicKeyTabsContent">
         <div class="tab-pane fade show active" id="cert-public-pkcs8" role="tabpanel" aria-labelledby="cert-public-pkcs8-tab">
-          <div class="d-flex justify-content-start">
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-pkcs8-pre">Copy</button>
-          </div>
-          <pre id="cert-public-pkcs8-pre">{{ public_key_pem }}</pre>
+          {% if public_key_pem %}
+            <div class="d-flex justify-content-start">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-copy-target="cert-public-pkcs8-pre">Copy</button>
+            </div>
+            <pre id="cert-public-pkcs8-pre">{{ public_key_pem }}</pre>
+          {% else %}
+            <p><em>PKCS8 unavailable{% if (public_key_errors|default({})).public_pem %}: {{ (public_key_errors|default({})).public_pem }}{% endif %}</em></p>
+          {% endif %}
         </div>
         {% if not is_pqc_key and is_ssh2_key %}
           <div class="tab-pane fade" id="cert-public-rfc4716" role="tabpanel" aria-labelledby="cert-public-rfc4716-tab">
