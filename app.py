@@ -1212,18 +1212,53 @@ def convert_public_key_formats(pem_path):
     return formats
 
 def build_cert_public_key_formats(cert):
-    public_pem = cert.public_key().public_bytes(
-        Encoding.PEM,
-        PublicFormat.SubjectPublicKeyInfo
-    ).decode("utf-8")
     formats = {
-        "public_pem": public_pem,
+        "public_pem": None,
         "openssh": None,
         "rfc4716": None,
         "errors": {}
     }
+    key_obj = None
     try:
-        openssh_bytes = cert.public_key().public_bytes(
+        key_obj = cert.public_key()
+    except Exception as e:
+        formats["errors"]["public_pem"] = f"Public key extraction failed: {e}"
+        return formats
+
+    try:
+        formats["public_pem"] = key_obj.public_bytes(
+            Encoding.PEM,
+            PublicFormat.SubjectPublicKeyInfo
+        ).decode("utf-8")
+    except Exception as e:
+        # Some PQC algorithms are not yet serializable by cryptography.
+        # Fallback to OpenSSL, which may support them via oqsprovider.
+        formats["errors"]["public_pem"] = f"PKCS8 conversion failed: {e}"
+        try:
+            cert_pem = cert.public_bytes(Encoding.PEM).decode("utf-8")
+            with tempfile.NamedTemporaryFile("w+", suffix=".pem", delete=False) as tmp:
+                tmp.write(cert_pem)
+                tmp.flush()
+                cmd = ["openssl", "x509"]
+                cmd.extend(get_provider_args())
+                cmd.extend(["-in", tmp.name, "-pubkey", "-noout"])
+                proc = subprocess.run(cmd, capture_output=True, text=True)
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+            if proc.returncode == 0 and "BEGIN PUBLIC KEY" in (proc.stdout or ""):
+                formats["public_pem"] = proc.stdout.strip()
+                formats["errors"].pop("public_pem", None)
+            else:
+                err = (proc.stderr or proc.stdout or "").strip()
+                if err:
+                    formats["errors"]["public_pem"] += f" | OpenSSL fallback failed: {err}"
+        except Exception as openssl_err:
+            formats["errors"]["public_pem"] += f" | OpenSSL fallback exception: {openssl_err}"
+
+    try:
+        openssh_bytes = key_obj.public_bytes(
             Encoding.OpenSSH,
             PublicFormat.OpenSSH
         )
