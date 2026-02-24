@@ -1,4 +1,17 @@
-﻿{% extends "layout.html" %}
+{% extends "layout.html" %}
+{% block title %}About | {{ product_name|replace('\n', ' ') }}{% endblock %}
+{% block head %}
+  <meta name="description" content="PKISquire CA is a Flask-based Public Key Infrastructure platform for certificate lifecycle management with SCEP, EST, OCSP, MQTT/TLS, and optional post-quantum cryptography support.">
+  <meta name="keywords" content="PKI, certificate authority, CA server, SCEP, EST, OCSP, TLS, MQTT, X.509, certificate management, post-quantum cryptography, Dilithium, Flask">
+  <link rel="canonical" href="{{ request.url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="About {{ product_name|replace('\n', ' ') }}">
+  <meta property="og:description" content="PKISquire CA helps manage certificate issuance, revocation, and validation with SCEP, EST, and OCSP support.">
+  <meta property="og:url" content="{{ request.url }}">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="About {{ product_name|replace('\n', ' ') }}">
+  <meta name="twitter:description" content="Flask-based PKI platform with SCEP, EST, OCSP, and certificate lifecycle automation.">
+{% endblock %}
 {% block content %}
   <div class="row">
     <div class="col-12">

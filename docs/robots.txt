@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://uzigolan.github.io/pikachu-ca/sitemap.xml

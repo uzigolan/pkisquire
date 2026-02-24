@@ -6,6 +6,28 @@ Flask-based PKI service for issuing, managing, and validating certificates with 
 
 ---
 
+## Website (GitHub Pages)
+
+This repository includes a GitHub Pages site under `docs/` with SEO metadata, `robots.txt`, and `sitemap.xml`.
+
+- Expected site URL: `https://uzigolan.github.io/pikachu-ca/`
+- Workflow file: `.github/workflows/github-pages.yml`
+
+One-time setup in GitHub:
+- Open repository `Settings` -> `Pages`.
+- Under `Build and deployment`, set `Source` to `GitHub Actions`.
+- Push to `main`/`master` (or run the workflow manually from `Actions`).
+
+After first deploy, submit the sitemap to Google Search Console:
+- `https://uzigolan.github.io/pikachu-ca/sitemap.xml`
+
+If the repo name changes, update these URLs in:
+- `docs/index.html`
+- `docs/robots.txt`
+- `docs/sitemap.xml`
+
+---
+
 ## Overview
 
 PKISquire CA provides certificate lifecycle management for devices and services:
