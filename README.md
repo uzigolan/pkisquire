@@ -108,6 +108,25 @@ Enterprise-only features include:
 
 ---
 
+## Standards and RFC Alignment
+
+PKISquire CA is designed for practical interoperability with common PKI clients and tooling.
+Protocol and format behavior is aligned with the following key standards:
+
+- **EST**: RFC 7030 (Enrollment over Secure Transport)
+- **SCEP**: RFC 8894 (Simple Certificate Enrollment Protocol)
+- **OCSP**: RFC 6960 (Online Certificate Status Protocol)
+- **X.509 / CRL profile**: RFC 5280 (Internet X.509 PKI Certificate and CRL Profile)
+- **PKCS#10 CSR**: RFC 2986 (Certification Request Syntax Specification)
+- **PEM text encoding**: RFC 7468 (Textual Encodings of PKIX, PKCS, and CMS Structures)
+- **CMS syntax**: RFC 5652 (Cryptographic Message Syntax)
+
+Compliance note:
+- The project targets RFC-aligned behavior for interoperability and operational use.
+- Exact conformance can vary by endpoint, OpenSSL/provider capabilities, and enabled edition/features.
+
+---
+
 ## Quick Start
 
 > Requirements: Rocky Linux 9.x, Python 3, Flask, OpenSSL, optional oqs-provider
