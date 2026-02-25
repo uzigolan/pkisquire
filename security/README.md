@@ -8,6 +8,10 @@
 - pip-audit.html: HTML wrapper for pip-audit output.
 - pip-audit.json: pip-audit JSON output (source for HTML view).
 - pip-audit-interactive.html: HTML report with search, filter, sort, severity, published date, score, and package rows with/without vulnerabilities.
+- safety-vulns.json: Dependency vulnerability report from Safety (JSON).
+- safety-vulns.html: HTML wrapper for Safety vulnerability JSON.
+- safety-licenses.json: Dependency license report from Safety (JSON).
+- safety-licenses.html: HTML wrapper for Safety license JSON.
 - pip-licenses.txt: Dependency license report from pip-licenses.
 - pip-licenses.html: HTML wrapper for pip-licenses output.
 - pip-licenses.json: pip-licenses JSON output (source for HTML view).
@@ -43,6 +47,12 @@
 - Denylist policy is read from `security/license-denylist.txt` and matched against each package license.
 - If violations are found, they are written to `security/pip-licenses-denied.txt` and the security script exits non-zero by default.
 
+## Safety sources
+- `safety` provides an additional dependency security lens using Safety's advisory data.
+- Vulnerability JSON is written to `security/safety-vulns.json` and wrapped in `security/safety-vulns.html`.
+- License JSON is written to `security/safety-licenses.json` and wrapped in `security/safety-licenses.html`.
+- The script attempts `safety scan` first, with a compatibility fallback to `safety check` when needed.
+
 ## How to view
 - Open `security/bandit-report-interactive.html` in your browser (search, filter, sort).
 - Open `security/bandit-report.html` for the default Bandit HTML.
@@ -50,6 +60,8 @@
   `Get-Content security\bandit-report.json | ConvertFrom-Json | ConvertTo-Json -Depth 6`
 - Open `security/pip-audit.txt` or `security/pip-audit.html`.
 - Open `security/pip-audit-interactive.html` in your browser (search, filter, severity, published date, score).
+- Open `security/safety-vulns.json` or `security/safety-vulns.html`.
+- Open `security/safety-licenses.json` or `security/safety-licenses.html`.
 - Open `security/pip-licenses.txt` or `security/pip-licenses.html`.
 - Open `security/pip-licenses-interactive.html` in your browser (search, filter, unknown/known licenses).
 - Open `security/pip-licenses-denied.txt` for denylist policy violations.

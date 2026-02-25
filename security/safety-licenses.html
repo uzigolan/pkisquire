@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Safety License Report</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --chip: #f3f4f6;
+      --card: #f8fafc;
+    }
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; color: var(--text); background: var(--bg); }
+    h1 { margin: 0 0 6px; }
+    .meta { color: var(--muted); margin-bottom: 16px; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0 16px; }
+    .card { border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 10px 12px; }
+    .card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .value { font-size: 20px; font-weight: 700; }
+    .spacer { flex: 1 1 auto; }
+    input[type="text"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 260px; }
+    select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+    th { text-align: left; white-space: nowrap; cursor: pointer; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; }
+    .type-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); }
+    .type-permissive { background: #e7f6ed; color: #166534; border-color: #bbf7d0; }
+    .type-weak-copyleft { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+    .type-strong-copyleft { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .type-review { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+    .legend { margin: 12px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--border); }
+    .pill-good { background: #e7f6ed; color: #166534; border-color: #bbf7d0; }
+    .pill-warn { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+    .pill-bad { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .pill-neutral { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
+    .count { margin-left: auto; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <h1>Safety License Report</h1>
+  <div class="meta">Additional dependency license results from Safety.</div>
+  <div class="meta">Source: safety-licenses.json | Generated at: 2026-02-24 19:50:47 +02:00 | Version: 2.1.0</div>
+  <div class="meta">Scanner: 3.7.0</div>
+  <div class="meta">Scan Timestamp: 2026-02-24 19:53:59 | Git: modulation-1@23c8a66b5020</div>
+  <div class="cards">
+    <div class="card"><div class="label">Packages Found</div><div class="value">27</div></div>
+    <div class="card"><div class="label">Licenses Found</div><div class="value">6</div></div>
+  </div>
+  <div class="controls">
+    <label>
+      Show:
+      <select id="pageSizeSelect" onchange="changePageSize()">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </label>
+    <span class="count" id="pageInfo"></span>
+    <input id="filterInput" type="text" placeholder="Filter by package or license" onkeyup="applyFilter()" />
+    <span class="spacer"></span>
+    <button type="button" onclick="previousPage()">Previous</button>
+    <button type="button" onclick="nextPage()">Next</button>
+    <span class="count" id="resultCount"></span>
+  </div>
+  <table id="licenseTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">Package</th>
+        <th onclick="sortTable(1)">Version</th>
+        <th onclick="sortTable(2)">License</th>
+        <th onclick="sortTable(3)">Type</th>
+        <th onclick="sortTable(4)">Overall Fit</th>
+        <th onclick="sortTable(5)">SPDX</th>
+        <th onclick="sortTable(6)">Risk</th>
+        <th onclick="sortTable(7)">Commercial</th>
+        <th onclick="sortTable(8)">Copyleft Scope</th>
+        <th onclick="sortTable(9)">Patent</th>
+        <th onclick="sortTable(10)">Notice</th>
+        <th onclick="sortTable(11)">Attribution</th>
+        <th onclick="sortTable(12)">Mod Disclosure</th>
+        <th>Flags</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>flask</td><td>3.1.2</td><td><span class='chip'>BSD-3-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-3-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>flask-sqlalchemy</td><td>3.1.1</td><td><span class='chip'>BSD-3-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-3-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>flask-login</td><td>0.6.3</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>cryptography</td><td>46.0.3</td><td><span class='chip'>Apache-2.0</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (95)</span></td><td>Apache-2.0</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice, Patent</td></tr>
+<tr><td>asn1crypto</td><td>1.5.1</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>werkzeug</td><td>3.1.5</td><td><span class='chip'>BSD-3-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-3-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>sqlalchemy</td><td>2.0.44</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>jinja2</td><td>3.1.6</td><td><span class='chip'>BSD-3-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-3-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>markupsafe</td><td>3.0.3</td><td><span class='chip'>BSD-3-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-3-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>markdown</td><td>3.7</td><td><span class='chip'>BSD-2-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-2-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>itsdangerous</td><td>2.2.0</td><td><span class='chip'>BSD-2-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-2-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>click</td><td>8.3.1</td><td><span class='chip'>BSD-3-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-3-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>blinker</td><td>1.9.0</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>cffi</td><td>2.0.0</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>pycparser</td><td>2.23</td><td><span class='chip'>BSD-2-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-2-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>greenlet</td><td>3.2.4</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>typing-extensions</td><td>4.15.0</td><td><span class='chip'>Python-2.0</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>Python-2.0</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>colorama</td><td>0.4.6</td><td><span class='chip'>BSD-2-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-2-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>oscrypto</td><td>1.3.0</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>tzdata</td><td>2025.2</td><td><span class='chip'>Apache-2.0</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (95)</span></td><td>Apache-2.0</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice, Patent</td></tr>
+<tr><td>hvac</td><td>2.1.0</td><td><span class='chip'>Apache-2.0</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (95)</span></td><td>Apache-2.0</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice, Patent</td></tr>
+<tr><td>certifi</td><td>2025.11.12</td><td><span class='chip'>MPL-2.0</span></td><td><span class='type-pill type-weak-copyleft'>Weak copyleft</span></td><td><span class='pill pill-warn'>Conditional (55)</span></td><td>MPL-2.0</td><td><span class='pill pill-warn'>Medium</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-warn'>File-level</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td>Notice, Patent</td></tr>
+<tr><td>charset-normalizer</td><td>3.4.4</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>idna</td><td>3.11</td><td><span class='chip'>BSD-2-Clause</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>BSD-2-Clause</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+<tr><td>requests</td><td>2.32.5</td><td><span class='chip'>Apache-2.0</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (95)</span></td><td>Apache-2.0</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice, Patent</td></tr>
+<tr><td>urllib3</td><td>2.6.3</td><td><span class='chip'>MIT</span></td><td><span class='type-pill type-permissive'>Permissive</span></td><td><span class='pill pill-good'>Strong (90)</span></td><td>MIT</td><td><span class='pill pill-good'>Low</span></td><td><span class='pill pill-good'>Yes</span></td><td><span class='pill pill-good'>None</span></td><td><span class='pill pill-good'>No</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-warn'>Yes</span></td><td><span class='pill pill-good'>No</span></td><td>Notice</td></tr>
+    </tbody>
+  </table>
+  <div class="legend">
+    <strong>Column legends:</strong><br>
+    <strong>Type</strong>: high-level license class (permissive vs copyleft).<br>
+    <strong>SPDX</strong>: normalized identifier used for automation/policy matching.<br>
+    <strong>Overall Fit</strong>: aggregate suitability for your project, derived from all shown policy attributes.<br>
+    <strong>Risk</strong>: quick compliance risk signal (`Low`, `Medium`, `High`, `Review`).<br>
+    <strong>Commercial</strong>: whether commercial use is generally allowed (`Yes`, `Conditional`, `Review`).<br>
+    <strong>Copyleft Scope</strong>: where copyleft obligations apply (`None`, `File-level`, `Library/linking`, `Distribution-wide`, `Network-service`).<br>
+    <strong>Patent</strong>: indicates explicit patent clause/grant in common interpretation.<br>
+    <strong>Notice</strong>: keep license/notice text in distribution.<br>
+    <strong>Attribution</strong>: credit/authorship notice expected.<br>
+    <strong>Mod Disclosure</strong>: disclose modified source/files in certain conditions.<br>
+    <strong>Flags</strong>: compact legal/compliance hints for quick triage.
+    <br><br>
+    <strong>Color key:</strong>
+    <span class="pill pill-good">Good / Low Risk</span>
+    <span class="pill pill-warn">Needs Attention</span>
+    <span class="pill pill-bad">High Risk</span>
+    <span class="pill pill-neutral">Review</span>
+  </div>
+<script>
+  let sortDirections = {};
+  let currentPage = 1;
+  let pageSize = 10;
+  let filteredRows = [];
+  function applyFilter(resetPage = true) {
+    const input = document.getElementById('filterInput').value.toLowerCase();
+    const rows = Array.from(document.querySelectorAll('#licenseTable tbody tr'));
+    filteredRows = rows.filter(row => row.textContent.toLowerCase().indexOf(input) > -1);
+    document.getElementById('resultCount').textContent = 'Matched ' + filteredRows.length + ' rows';
+    if (resetPage) currentPage = 1;
+    renderPage();
+  }
+  function renderPage() {
+    const rows = Array.from(document.querySelectorAll('#licenseTable tbody tr'));
+    const total = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    rows.forEach(r => r.style.display = 'none');
+    filteredRows.slice(start, end).forEach(r => r.style.display = '');
+    const shownStart = total === 0 ? 0 : start + 1;
+    const shownEnd = Math.min(end, total);
+    document.getElementById('pageInfo').textContent = 'Page ' + currentPage + '/' + totalPages + ' | Showing ' + shownStart + '-' + shownEnd;
+  }
+  function sortTable(i) {
+    const tbody = document.querySelector('#licenseTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const asc = sortDirections[i] !== 'asc';
+    sortDirections[i] = asc ? 'asc' : 'desc';
+    rows.sort((a, b) => {
+      const aText = a.cells[i].textContent.trim().toLowerCase();
+      const bText = b.cells[i].textContent.trim().toLowerCase();
+      if (aText < bText) return asc ? -1 : 1;
+      if (aText > bText) return asc ? 1 : -1;
+      return 0;
+    });
+    rows.forEach(r => tbody.appendChild(r));
+    applyFilter(false);
+  }
+  function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value, 10) || 10;
+    applyFilter(true);
+  }
+  function nextPage() { currentPage += 1; renderPage(); }
+  function previousPage() { currentPage -= 1; renderPage(); }
+  document.addEventListener('DOMContentLoaded', () => applyFilter(true));
+</script>
+</body>
+</html>

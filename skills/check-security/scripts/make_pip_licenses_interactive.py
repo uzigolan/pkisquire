@@ -37,6 +37,7 @@ HTML_TEMPLATE = """<!doctype html>
   <h1>Dependency License Compliance Report</h1>
   <div class="meta">Declared licenses for Python dependencies, including denylist policy matching.</div>
   <div class="meta">Source: __SOURCE__ | Generated at: __GENERATED_AT__ | Version: __VERSION__</div>
+  <div class="meta">__SCANNER_INFO__</div>
   <div class="controls">
     <label>
       Show:
@@ -310,6 +311,7 @@ def main():
     parser.add_argument("-o", "--output", required=True)
     parser.add_argument("-t", "--generated-at", default="")
     parser.add_argument("-v", "--version", default="")
+    parser.add_argument("--scanner-version", default="")
     parser.add_argument("-d", "--denylist", default="")
     args = parser.parse_args()
 
@@ -324,6 +326,7 @@ def main():
     html = html.replace("__SOURCE__", "pip-licenses.json")
     html = html.replace("__GENERATED_AT__", args.generated_at or "unknown")
     html = html.replace("__VERSION__", args.version or "unknown")
+    html = html.replace("__SCANNER_INFO__", ("Scanner: " + args.scanner_version.strip()) if args.scanner_version else "Scanner: pip-licenses (version unavailable)")
     html = html.replace("__ROWS__", render_rows(rows))
     Path(args.output).write_text(html, encoding="utf-8")
 

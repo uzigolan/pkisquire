@@ -234,6 +234,11 @@ app.config["SCEPY_DUMP_DIR"]   = _cfg.get("SCEP", "dump_dir", fallback=None)
 app.config["SCEP_CHALLENGE_PASSWORD_ENABLED"] = _cfg.getboolean("SCEP", "challenge_password_enabled", fallback=False)
 app.config["SCEP_CHALLENGE_PASSWORD_VALIDITY"] = _cfg.get("SCEP", "challenge_password_validity", fallback="60m")
 HTTP_SCEP_PORT                = _cfg.getint("SCEP", "http_port", fallback=9090)
+app.config["SAFETY_REPORTS_ENABLED"] = _cfg.getboolean(
+    "SECURITY",
+    "enable_safety_reports",
+    fallback=_cfg.getboolean("SECURITY", "enable_safety", fallback=False),
+)
 
 # —— OCSP section ——
 ocsp_hash_alg = _cfg.get("OCSP", "hash_algorithm", fallback="sha1").lower()
@@ -1495,7 +1500,10 @@ def api_doc():
 @app.route("/about")
 @login_required
 def about():
-    return render_template("about.html")
+    return render_template(
+        "about.html",
+        safety_reports_enabled=bool(app.config.get("SAFETY_REPORTS_ENABLED", False)),
+    )
 
 @app.route("/favicon.ico")
 def favicon_ico():
@@ -1592,6 +1600,40 @@ def bandit_report_interactive():
 @login_required
 def pip_audit_report_interactive():
     report_path = Path(current_app.root_path) / "security" / "pip-audit-interactive.html"
+    if not report_path.exists():
+        abort(404)
+    return send_file(report_path, mimetype="text/html")
+
+
+@app.route("/security/safety-vulns")
+@login_required
+def safety_vulns_report():
+    if not app.config.get("SAFETY_REPORTS_ENABLED", False):
+        abort(404)
+    report_path = Path(current_app.root_path) / "security" / "safety-vulns.html"
+    if not report_path.exists():
+        abort(404)
+    return send_file(report_path, mimetype="text/html")
+
+
+@app.route("/security/safety-licenses", methods=["GET", "POST"])
+@login_required
+def safety_licenses_report():
+    if not app.config.get("SAFETY_REPORTS_ENABLED", False):
+        abort(404)
+    if session.get("safety_licenses_report_access_granted") is True:
+        pass
+    elif request.method == "POST":
+        secret = request.form.get("config_secret", "").strip()
+        if secret == app.config.get("DELETE_SECRET"):
+            session["safety_licenses_report_access_granted"] = True
+        else:
+            flash("Incorrect secret.", "error")
+            return redirect(url_for("about"))
+    else:
+        return redirect(url_for("about"))
+
+    report_path = Path(current_app.root_path) / "security" / "safety-licenses.html"
     if not report_path.exists():
         abort(404)
     return send_file(report_path, mimetype="text/html")

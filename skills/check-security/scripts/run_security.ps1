@@ -46,6 +46,7 @@ UNKNOWN
 $venvBandit = Join-Path $Root '.venv\Scripts\bandit.exe'
 $venvPipAudit = Join-Path $Root '.venv\Scripts\pip-audit.exe'
 $venvPipLicenses = Join-Path $Root '.venv\Scripts\pip-licenses.exe'
+$venvSafety = Join-Path $Root '.venv\Scripts\safety.exe'
 $venvPython = Join-Path $Root '.venv\Scripts\python.exe'
 
 if (-not (Test-Path $venvPython)) {
@@ -63,6 +64,61 @@ if (-not (Test-Path $venvPipAudit)) {
 if (-not (Test-Path $venvPipLicenses)) {
     & $venvPython -m pip install --quiet pip-licenses
 }
+if (-not (Test-Path $venvSafety)) {
+    & $venvPython -m pip install --quiet safety
+}
+
+function Invoke-NativeCommandCapture {
+    param(
+        [scriptblock]$Command
+    )
+
+    $hasNativePref = $null -ne (Get-Variable -Name PSNativeCommandUseErrorActionPreference -Scope Global -ErrorAction SilentlyContinue)
+    if ($hasNativePref) {
+        $prevNativePref = $Global:PSNativeCommandUseErrorActionPreference
+        $Global:PSNativeCommandUseErrorActionPreference = $false
+    }
+
+    try {
+        $raw = ""
+        $exitCode = 0
+        try {
+            $raw = (& $Command 2>&1 | Out-String)
+            $exitCode = $LASTEXITCODE
+        } catch {
+            $errText = ($_ | Out-String).Trim()
+            if ($errText) {
+                $raw = $errText
+            }
+            if ($LASTEXITCODE -is [int]) {
+                $exitCode = $LASTEXITCODE
+            } else {
+                $exitCode = 1
+            }
+        }
+        return [PSCustomObject]@{
+            ExitCode = $exitCode
+            Output = ($raw.Trim())
+        }
+    } finally {
+        if ($hasNativePref) {
+            $Global:PSNativeCommandUseErrorActionPreference = $prevNativePref
+        }
+    }
+}
+
+function Get-ToolVersionLine {
+    param([scriptblock]$Command)
+    $r = Invoke-NativeCommandCapture $Command
+    if (-not $r.Output) { return "" }
+    $line = ($r.Output -split "(`r`n|`n|`r)" | Select-Object -First 1).Trim()
+    return $line
+}
+
+$banditToolVersion = Get-ToolVersionLine { & $venvBandit --version }
+$pipAuditToolVersion = Get-ToolVersionLine { & $venvPipAudit --version }
+$pipLicensesToolVersion = Get-ToolVersionLine { & $venvPipLicenses --version }
+$safetyToolVersion = Get-ToolVersionLine { & $venvSafety --version }
 
 # OpenSSL environment snapshot
 "Generated at: $generatedAt | Version: $version" | Out-File -FilePath $opensslInfo -Encoding ascii
@@ -110,7 +166,7 @@ if ($banditHtml -match '<body[^>]*>') {
 Set-Content -Path (Join-Path $security 'bandit-report.html') -Value $banditHtml -Encoding UTF8
 
 # Interactive HTML from JSON
-& $venvPython (Join-Path $PSScriptRoot 'make_bandit_interactive.py') -i (Join-Path $security 'bandit-report.json') -o (Join-Path $security 'bandit-report-interactive.html') -t $generatedAt -v $version
+& $venvPython (Join-Path $PSScriptRoot 'make_bandit_interactive.py') -i (Join-Path $security 'bandit-report.json') -o (Join-Path $security 'bandit-report-interactive.html') -t $generatedAt -v $version --scanner-version $banditToolVersion
 
 # pip-audit report
 $pipAuditPath = Join-Path $security 'pip-audit.txt'
@@ -147,7 +203,48 @@ Get-Content (Join-Path $security 'pip-audit.txt') | Add-Content -Path (Join-Path
 "@ | Add-Content -Path (Join-Path $security 'pip-audit.html') -Encoding Ascii
 
 # Interactive HTML from JSON
-& $venvPython (Join-Path $PSScriptRoot 'make_pip_audit_interactive.py') -i $pipAuditJson -o (Join-Path $security 'pip-audit-interactive.html') -t $generatedAt -v $version --openssl-info $opensslInfo
+& $venvPython (Join-Path $PSScriptRoot 'make_pip_audit_interactive.py') -i $pipAuditJson -o (Join-Path $security 'pip-audit-interactive.html') -t $generatedAt -v $version --scanner-version $pipAuditToolVersion --openssl-info $opensslInfo
+
+# Safety vulnerability report
+$safetyVulnsJson = Join-Path $security 'safety-vulns.json'
+$safetyVulnsHtml = Join-Path $security 'safety-vulns.html'
+$safetyScanResult = Invoke-NativeCommandCapture { & $venvSafety scan --output json }
+$safetyRaw = $safetyScanResult.Output
+if (-not ($safetyRaw -match '^\s*[\{\[]')) {
+    # Backward-compatible fallback for older Safety CLI variants.
+    $safetyCheckResult = Invoke-NativeCommandCapture { & $venvSafety check -r (Join-Path $Root 'requirements.txt') --json }
+    $safetyRaw = $safetyCheckResult.Output
+}
+if ($safetyRaw -match '^\s*[\{\[]') {
+    $safetyRaw | Set-Content -Path $safetyVulnsJson -Encoding UTF8
+} else {
+    [PSCustomObject]@{
+        generated_at = $generatedAt
+        version = $version
+        error = "Safety scan JSON output unavailable."
+        detail = ($safetyRaw | Out-String).Trim()
+    } | ConvertTo-Json -Depth 6 | Set-Content -Path $safetyVulnsJson -Encoding UTF8
+}
+
+& $venvPython (Join-Path $PSScriptRoot 'make_safety_vulns_interactive.py') -i $safetyVulnsJson -o $safetyVulnsHtml -t $generatedAt -v $version --scanner-version $safetyToolVersion
+
+# Safety license report
+$safetyLicensesJson = Join-Path $security 'safety-licenses.json'
+$safetyLicensesHtml = Join-Path $security 'safety-licenses.html'
+$safetyLicenseResult = Invoke-NativeCommandCapture { & $venvSafety license -r (Join-Path $Root 'requirements.txt') --output json }
+$safetyLicRaw = $safetyLicenseResult.Output
+if ($safetyLicRaw -match '^\s*[\{\[]') {
+    $safetyLicRaw | Set-Content -Path $safetyLicensesJson -Encoding UTF8
+} else {
+    [PSCustomObject]@{
+        generated_at = $generatedAt
+        version = $version
+        error = "Safety license JSON output unavailable."
+        detail = ($safetyLicRaw | Out-String).Trim()
+    } | ConvertTo-Json -Depth 6 | Set-Content -Path $safetyLicensesJson -Encoding UTF8
+}
+
+& $venvPython (Join-Path $PSScriptRoot 'make_safety_licenses_interactive.py') -i $safetyLicensesJson -o $safetyLicensesHtml -t $generatedAt -v $version --scanner-version $safetyToolVersion
 
 # pip-licenses report
 $pipLicensesTxt = Join-Path $security 'pip-licenses.txt'
@@ -182,7 +279,7 @@ Get-Content $pipLicensesTxt | Add-Content -Path (Join-Path $security 'pip-licens
 "@ | Add-Content -Path (Join-Path $security 'pip-licenses.html') -Encoding Ascii
 
 # Interactive HTML from JSON
-& $venvPython (Join-Path $PSScriptRoot 'make_pip_licenses_interactive.py') -i $pipLicensesJson -o (Join-Path $security 'pip-licenses-interactive.html') -t $generatedAt -v $version -d $LicenseDenylistPath
+& $venvPython (Join-Path $PSScriptRoot 'make_pip_licenses_interactive.py') -i $pipLicensesJson -o (Join-Path $security 'pip-licenses-interactive.html') -t $generatedAt -v $version --scanner-version $pipLicensesToolVersion -d $LicenseDenylistPath
 
 # License denylist policy check
 $denyPatterns = @()
@@ -244,6 +341,10 @@ Copy-Item -Force (Join-Path $security 'pip-audit.txt') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit.html') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit.json') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-audit-interactive.html') $historyDir
+Copy-Item -Force $safetyVulnsJson $historyDir
+Copy-Item -Force $safetyVulnsHtml $historyDir
+Copy-Item -Force $safetyLicensesJson $historyDir
+Copy-Item -Force $safetyLicensesHtml $historyDir
 Copy-Item -Force (Join-Path $security 'pip-licenses.txt') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-licenses.html') $historyDir
 Copy-Item -Force (Join-Path $security 'pip-licenses.json') $historyDir

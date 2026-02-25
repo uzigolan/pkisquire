@@ -40,6 +40,7 @@ HTML_TEMPLATE = """<!doctype html>
   <h1>Dependency Vulnerability Report</h1>
   <div class="meta">Known vulnerabilities in Python dependencies from requirements, with severity and fix-version guidance.</div>
   <div class="meta">Source: {source} | Generated at: {generated_at} | Version: {version}</div>
+  <div class="meta">{scanner_info}</div>
   <div class="controls">
     <label>
       Show:
@@ -515,6 +516,7 @@ def main():
     parser.add_argument("-o", "--output", required=True)
     parser.add_argument("-t", "--generated-at", default="")
     parser.add_argument("-v", "--version", default="")
+    parser.add_argument("--scanner-version", default="")
     parser.add_argument("--openssl-info", default="")
     args = parser.parse_args()
 
@@ -525,6 +527,7 @@ def main():
         source="pip-audit.json",
         generated_at=args.generated_at or "unknown",
         version=args.version or "unknown",
+        scanner_info=("Scanner: " + args.scanner_version.strip()) if args.scanner_version else "Scanner: pip-audit (version unavailable)",
         rows=render_rows(rows),
     )
     Path(args.output).write_text(html, encoding="utf-8")

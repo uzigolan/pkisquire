@@ -97,7 +97,8 @@
           <h5 class="card-title">Security</h5>
           <p class="card-text">
             Security reports include Bandit static analysis outputs (JSON/HTML/interactive),
-            pip-audit dependency findings, and dated history snapshots under <code>security/history</code>.
+            pip-audit dependency findings{% if safety_reports_enabled %}, Safety vulnerability/license reports{% endif %},
+            and dated history snapshots under <code>security/history</code>.
           </p>
           <div class="list-group list-group-flush">
             <a href="{{ url_for('bandit_report_interactive') }}" target="_blank" class="list-group-item list-group-item-action">
@@ -108,6 +109,16 @@
               <strong>Vulnerabilities Report (Latest)</strong><br>
               <small class="text-muted">Dependency findings with severity, filter, and sort</small>
             </a>
+            {% if safety_reports_enabled %}
+            <a href="{{ url_for('safety_vulns_report') }}" target="_blank" class="list-group-item list-group-item-action">
+              <strong>Safety Vulnerabilities Report (Latest)</strong><br>
+              <small class="text-muted">Additional dependency vulnerability results (Safety JSON/HTML)</small>
+            </a>
+            <a href="javascript:void(0);" onclick="openSafetyLicensesReport();" class="list-group-item list-group-item-action">
+              <strong>Safety Licenses Report (Latest)</strong><br>
+              <small class="text-muted">Additional dependency license results from Safety</small>
+            </a>
+            {% endif %}
             <a href="javascript:void(0);" onclick="openLicensesReport();" class="list-group-item list-group-item-action">
               <strong>Licenses Report (Latest)</strong><br>
               <small class="text-muted">Dependency licenses with unknown-license highlighting</small>
@@ -182,6 +193,27 @@
     var form = document.createElement("form");
     form.method = "POST";
     form.action = "{{ url_for('pip_licenses_report_interactive') }}";
+    form.target = "_blank";
+
+    var input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "config_secret";
+    input.value = secret;
+
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  function openSafetyLicensesReport() {
+    var secret = prompt("Enter secret to access safety licenses report:");
+    if (secret === null || secret.trim() === "") {
+      return;
+    }
+
+    var form = document.createElement("form");
+    form.method = "POST";
+    form.action = "{{ url_for('safety_licenses_report') }}";
     form.target = "_blank";
 
     var input = document.createElement("input");

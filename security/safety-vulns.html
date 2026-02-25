@@ -1,0 +1,272 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Safety Vulnerabilities Report</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #1f2933;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --chip: #f3f4f6;
+      --card: #f8fafc;
+    }
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 24px; color: var(--text); background: var(--bg); }
+    h1 { margin: 0 0 6px; }
+    h2 { margin: 18px 0 8px; }
+    .meta { color: var(--muted); margin-bottom: 10px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0 16px; }
+    .card { border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 10px 12px; }
+    .card .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .card .value { font-size: 20px; font-weight: 700; }
+    .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+    .spacer { flex: 1 1 auto; }
+    input[type="text"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 260px; }
+    select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }
+    button { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; background: #fff; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 10px; vertical-align: top; }
+    th { text-align: left; white-space: nowrap; cursor: pointer; }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip); font-size: 12px; }
+    .count { margin-left: auto; color: var(--muted); }
+    .small { max-width: 380px; }
+    .links a { margin-right: 6px; text-decoration: none; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 2px 8px; border: 1px solid var(--border); display: inline-block; }
+    .links a:hover { filter: brightness(0.96); text-decoration: none; }
+    .col-links { min-width: 230px; }
+    .col-summary { max-width: 300px; min-width: 220px; }
+    .link-cve { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+    .link-ref { background: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+    .link-safe { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+    .link-commit { background: #f3e8ff; color: #6b21a8; border-color: #ddd6fe; }
+    .link-ghsa { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .link-pyup { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+    .link-pypi { background: #ecfeff; color: #155e75; border-color: #a5f3fc; }
+    .link-mitre { background: #fef9c3; color: #854d0e; border-color: #fde68a; }
+    .summary-cell { font-size: 12px; color: var(--muted); }
+    .detail-row td { background: #fcfcfd; }
+    .detail-block { font-size: 13px; line-height: 1.45; }
+    .detail-line { margin: 4px 0; }
+    .legend { margin: 10px 0 14px; color: var(--muted); font-size: 12px; }
+    .legend .chip { margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Safety Vulnerabilities Report</h1>
+  <div class="meta">Additional dependency vulnerability results from Safety.</div>
+  <div class="meta">Source: safety-vulns.json | Generated at: 2026-02-24 19:50:47 +02:00 | Version: 2.1.0</div>
+  <div class="meta">Scanner: safety, version 3.7.0</div>
+  <div class="meta">Scan Timestamp: 2026-02-24 19:53:37 | Git: modulation-1@23c8a66b5020</div>
+
+  <div class="cards">
+    <div class="card"><div class="label">Packages Found</div><div class="value">27</div></div>
+    <div class="card"><div class="label">Active Vulnerabilities</div><div class="value">5</div></div>
+    <div class="card"><div class="label">Ignored Vulnerabilities</div><div class="value">1</div></div>
+    <div class="card"><div class="label">Remediations Recommended</div><div class="value">4</div></div>
+  </div>
+
+  <div class="controls">
+    <label>
+      Show:
+      <select id="pageSizeSelect" onchange="changePageSize()">
+        <option value="10" selected>10</option>
+        <option value="25">25</option>
+        <option value="50">50</option>
+      </select>
+    </label>
+    <span class="count" id="pageInfo"></span>
+    <input id="filterInput" type="text" placeholder="Filter by package, ID, CVE, severity" onkeyup="applyFilter()" />
+    <label>
+      Severity:
+      <select id="severitySelect" onchange="applyFilter()">
+        <option value="">All</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+        <option value="unreported">Unspecified</option>
+      </select>
+    </label>
+    <label>
+      State:
+      <select id="ignoredSelect" onchange="applyFilter()">
+        <option value="">All</option>
+        <option value="no">Active</option>
+        <option value="yes">Ignored</option>
+      </select>
+    </label>
+    <span class="spacer"></span>
+    <button type="button" onclick="previousPage()">Previous</button>
+    <button type="button" onclick="nextPage()">Next</button>
+    <span class="count" id="resultCount"></span>
+  </div>
+
+  <table id="vulnTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">Package</th>
+        <th onclick="sortTable(1)">Version</th>
+        <th onclick="sortTable(2)">Vuln ID</th>
+        <th onclick="sortTable(3)">CVE</th>
+        <th onclick="sortTable(4)">Severity</th>
+        <th onclick="sortTable(5)">Published</th>
+        <th onclick="sortTable(6)">Fix Versions</th>
+        <th onclick="sortTable(7)">State</th>
+        <th>Links</th>
+        <th>Summary</th>
+        <th>Advanced</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class='main-row' data-row-id='row-1' data-expanded='no' data-severity='high' data-severity-rank='3' data-ignored='no'><td>hvac</td><td>2.1.0</td><td>71619</td><td><a href='https://www.cve.org/CVERecord?id=CVE-2024-34069' target='_blank' rel='noopener'>2024-34069</a></td><td><span class='chip'>High</span></td><td>2024-May-06</td><td>2.3.0</td><td>Active</td><td class='links col-links'><a class='link-cve' href='https://www.cve.org/CVERecord?id=CVE-2024-34069' target='_blank' rel='noopener' title='Official CVE Record'>CVE</a> <a class='link-pyup' href='https://pyup.io/v/71619/eda' target='_blank' rel='noopener' title='PyUp Reference'>PyUp</a> <a class='link-commit' href='https://github.com/hvac/hvac/commit/6f800a87a9351a7b24d97dc0651b69fdf6cc17b6' target='_blank' rel='noopener' title='Upstream Commit'>Commit</a> <a class='link-mitre' href='https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-34069' target='_blank' rel='noopener' title='MITRE CVE'>MITRE</a> <a class='link-safe' href='https://data.safetycli.com/v/71619/eda' target='_blank' rel='noopener' title='Safety Advisory'>Safe</a></td><td class='small summary-cell col-summary' title='Due to security concerns, hvac 2.3.0 updates its Werkzeug dependency from ^2.3.7 to ^3.0.3 to address CVE-2024-34069.'>Due to security concerns, hvac 2.3.0 updates its Werkzeug dependency from ^2.3.7 to ^3.0.3 to address CVE-2024-34069.</td><td><button type='button' onclick="toggleAdvanced('row-1')">Advanced</button></td></tr>
+<tr class='detail-row' data-parent-id='row-1' style='display:none;'><td colspan='11'><div class='detail-block'><div class='detail-line'><strong>Transitive:</strong> True</div><div class='detail-line'><strong>Ignored Reason:</strong> -</div><div class='detail-line'><strong>Ignored Expires:</strong> -</div><div class='detail-line'><strong>Analyzed Requirement:</strong> hvac==2.1.0</div><div class='detail-line'><strong>Requirement Source:</strong> C:\Users\uzi\Downloads\projects\PKI\requirements.txt</div><div class='detail-line'><strong>Vulnerable Spec:</strong> &lt;2.3.0</div><div class='detail-line'><strong>All Vulnerable Specs:</strong> &lt;2.3.0</div><div class='detail-line'><strong>CVSS Base Score:</strong> 7.5</div><div class='detail-line'><strong>CVSS Vector:</strong> CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:H/A:H</div><div class='detail-line'><strong>Affected Versions:</strong> 71 total | 2.2.0, 2.1.0, 2.0.0, 1.2.1, 1.2.0, 1.1.1, 1.1.0, 1.0.2, 1.0.1, 1.0.0, 0.11.2, 0.11.1, ...</div></div></td></tr>
+<tr class='main-row' data-row-id='row-2' data-expanded='no' data-severity='high' data-severity-rank='3' data-ignored='no'><td>hvac</td><td>2.1.0</td><td>71665</td><td><a href='https://www.cve.org/CVERecord?id=CVE-2024-37568' target='_blank' rel='noopener'>2024-37568</a></td><td><span class='chip'>High</span></td><td>2024-Jun-09</td><td>2.3.0</td><td>Active</td><td class='links col-links'><a class='link-cve' href='https://www.cve.org/CVERecord?id=CVE-2024-37568' target='_blank' rel='noopener' title='Official CVE Record'>CVE</a> <a class='link-pyup' href='https://pyup.io/v/71665/eda' target='_blank' rel='noopener' title='PyUp Reference'>PyUp</a> <a class='link-commit' href='https://github.com/hvac/hvac/commit/6f800a87a9351a7b24d97dc0651b69fdf6cc17b6' target='_blank' rel='noopener' title='Upstream Commit'>Commit</a> <a class='link-mitre' href='https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2024-37568' target='_blank' rel='noopener' title='MITRE CVE'>MITRE</a> <a class='link-safe' href='https://data.safetycli.com/v/71665/eda' target='_blank' rel='noopener' title='Safety Advisory'>Safe</a></td><td class='small summary-cell col-summary' title='Due to security concerns, hvac 2.3.0 updates its Authlib dependency from ^1.0.1 to ^1.3.1 to address CVE-2024-37568.'>Due to security concerns, hvac 2.3.0 updates its Authlib dependency from ^1.0.1 to ^1.3.1 to address CVE-2024-37568.</td><td><button type='button' onclick="toggleAdvanced('row-2')">Advanced</button></td></tr>
+<tr class='detail-row' data-parent-id='row-2' style='display:none;'><td colspan='11'><div class='detail-block'><div class='detail-line'><strong>Transitive:</strong> True</div><div class='detail-line'><strong>Ignored Reason:</strong> -</div><div class='detail-line'><strong>Ignored Expires:</strong> -</div><div class='detail-line'><strong>Analyzed Requirement:</strong> hvac==2.1.0</div><div class='detail-line'><strong>Requirement Source:</strong> C:\Users\uzi\Downloads\projects\PKI\requirements.txt</div><div class='detail-line'><strong>Vulnerable Spec:</strong> &lt;2.3.0</div><div class='detail-line'><strong>All Vulnerable Specs:</strong> &lt;2.3.0</div><div class='detail-line'><strong>CVSS Base Score:</strong> 7.5</div><div class='detail-line'><strong>CVSS Vector:</strong> CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N</div><div class='detail-line'><strong>Affected Versions:</strong> 71 total | 2.2.0, 2.1.0, 2.0.0, 1.2.1, 1.2.0, 1.1.1, 1.1.0, 1.0.2, 1.0.1, 1.0.0, 0.11.2, 0.11.1, ...</div></div></td></tr>
+<tr class='main-row' data-row-id='row-3' data-expanded='no' data-severity='high' data-severity-rank='3' data-ignored='no'><td>werkzeug</td><td>3.1.5</td><td>86908</td><td><a href='https://www.cve.org/CVERecord?id=CVE-2026-27199' target='_blank' rel='noopener'>2026-27199</a></td><td><span class='chip'>High</span></td><td>2026-Feb-20</td><td>3.1.6</td><td>Active</td><td class='links col-links'><a class='link-cve' href='https://www.cve.org/CVERecord?id=CVE-2026-27199' target='_blank' rel='noopener' title='Official CVE Record'>CVE</a> <a class='link-pyup' href='https://pyup.io/v/86908/eda' target='_blank' rel='noopener' title='PyUp Reference'>PyUp</a> <a class='link-commit' href='https://github.com/pallets/werkzeug/commit/f407712fdc60a09c2b3f4fe7db557703e5d9338d' target='_blank' rel='noopener' title='Upstream Commit'>Commit</a> <a class='link-ghsa' href='https://github.com/advisories/GHSA-29vq-49wr-vm6x' target='_blank' rel='noopener' title='GitHub Advisory'>GHSA</a> <a class='link-safe' href='https://data.safetycli.com/v/86908/eda' target='_blank' rel='noopener' title='Safety Advisory'>Safe</a></td><td class='small summary-cell col-summary' title='Affected versions of the Werkzeug package are vulnerable to Denial of Service (DoS) due to improper handling of Windows special device names in path joining logic. The safe_join() function fails to reject device-name path segments when they are preceded by other segments (for example, example/NUL), and send_from_directory() relies on safe_join() when resolving user-supplied file paths.'>Affected versions of the Werkzeug package are vulnerable to Denial of Service (DoS) due to improper handling of Windows special device names in path joining logic. The safe_join() function fails to reject device-name pat...</td><td><button type='button' onclick="toggleAdvanced('row-3')">Advanced</button></td></tr>
+<tr class='detail-row' data-parent-id='row-3' style='display:none;'><td colspan='11'><div class='detail-block'><div class='detail-line'><strong>Transitive:</strong> False</div><div class='detail-line'><strong>Ignored Reason:</strong> -</div><div class='detail-line'><strong>Ignored Expires:</strong> -</div><div class='detail-line'><strong>Analyzed Requirement:</strong> Werkzeug==3.1.5</div><div class='detail-line'><strong>Requirement Source:</strong> C:\Users\uzi\Downloads\projects\PKI\requirements.txt</div><div class='detail-line'><strong>Vulnerable Spec:</strong> &lt;3.1.6</div><div class='detail-line'><strong>All Vulnerable Specs:</strong> &lt;3.1.6</div><div class='detail-line'><strong>CVSS Base Score:</strong> 7.8</div><div class='detail-line'><strong>CVSS Vector:</strong> AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H</div><div class='detail-line'><strong>Affected Versions:</strong> 103 total | 3.1.5, 3.1.4, 3.1.3, 3.1.2, 3.1.1, 3.1.0, 3.0.6, 3.0.5, 3.0.4, 3.0.3, 3.0.2, 3.0.1, ...</div></div></td></tr>
+<tr class='main-row' data-row-id='row-4' data-expanded='no' data-severity='medium' data-severity-rank='2' data-ignored='no'><td>cryptography</td><td>46.0.3</td><td>86217</td><td><a href='https://www.cve.org/CVERecord?id=CVE-2026-26007' target='_blank' rel='noopener'>2026-26007</a></td><td><span class='chip'>Medium</span></td><td>2026-Feb-11</td><td>46.0.5</td><td>Active</td><td class='links col-links'><a class='link-cve' href='https://www.cve.org/CVERecord?id=CVE-2026-26007' target='_blank' rel='noopener' title='Official CVE Record'>CVE</a> <a class='link-pyup' href='https://pyup.io/v/86217/eda' target='_blank' rel='noopener' title='PyUp Reference'>PyUp</a> <a class='link-ghsa' href='https://github.com/advisories/GHSA-r6ph-v2qm-q3c2' target='_blank' rel='noopener' title='GitHub Advisory'>GHSA</a> <a class='link-mitre' href='https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2026-26007' target='_blank' rel='noopener' title='MITRE CVE'>MITRE</a> <a class='link-safe' href='https://data.safetycli.com/v/86217/eda' target='_blank' rel='noopener' title='Safety Advisory'>Safe</a></td><td class='small summary-cell col-summary' title='Affected versions of the cryptography package are vulnerable to Improper Input Validation due to missing prime-order subgroup validation for SECT elliptic-curve points. The public_key_from_numbers, EllipticCurvePublicNumbers.public_key(), load_der_public_key(), and load_pem_public_key() entry points accept attacker-supplied public keys without verifying that the provided point lies in the expected prime-order subgroup, enabling small-subgroup points to pass as valid.'>Affected versions of the cryptography package are vulnerable to Improper Input Validation due to missing prime-order subgroup validation for SECT elliptic-curve points. The public_key_from_numbers, EllipticCurvePublicNum...</td><td><button type='button' onclick="toggleAdvanced('row-4')">Advanced</button></td></tr>
+<tr class='detail-row' data-parent-id='row-4' style='display:none;'><td colspan='11'><div class='detail-block'><div class='detail-line'><strong>Transitive:</strong> False</div><div class='detail-line'><strong>Ignored Reason:</strong> -</div><div class='detail-line'><strong>Ignored Expires:</strong> -</div><div class='detail-line'><strong>Analyzed Requirement:</strong> cryptography==46.0.3</div><div class='detail-line'><strong>Requirement Source:</strong> C:\Users\uzi\Downloads\projects\PKI\requirements.txt</div><div class='detail-line'><strong>Vulnerable Spec:</strong> &lt;46.0.5</div><div class='detail-line'><strong>All Vulnerable Specs:</strong> &lt;46.0.5</div><div class='detail-line'><strong>CVSS Base Score:</strong> 5.9</div><div class='detail-line'><strong>CVSS Vector:</strong> CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N</div><div class='detail-line'><strong>Affected Versions:</strong> 150 total | 46.0.4, 46.0.3, 46.0.2, 46.0.1, 46.0.0, 45.0.7, 45.0.6, 45.0.5, 45.0.4, 45.0.3, 45.0.2, 45.0.1, ...</div></div></td></tr>
+<tr class='main-row' data-row-id='row-5' data-expanded='no' data-severity='medium' data-severity-rank='2' data-ignored='no'><td>flask</td><td>3.1.2</td><td>86909</td><td><a href='https://www.cve.org/CVERecord?id=CVE-2026-27205' target='_blank' rel='noopener'>2026-27205</a></td><td><span class='chip'>Medium</span></td><td>2026-Feb-20</td><td>3.1.3</td><td>Active</td><td class='links col-links'><a class='link-cve' href='https://www.cve.org/CVERecord?id=CVE-2026-27205' target='_blank' rel='noopener' title='Official CVE Record'>CVE</a> <a class='link-pyup' href='https://pyup.io/v/86909/eda' target='_blank' rel='noopener' title='PyUp Reference'>PyUp</a> <a class='link-commit' href='https://github.com/pallets/flask/commit/089cb86dd22bff589a4eafb7ab8e42dc357623b4' target='_blank' rel='noopener' title='Upstream Commit'>Commit</a> <a class='link-ghsa' href='https://github.com/advisories/GHSA-68rp-wp8r-4726' target='_blank' rel='noopener' title='GitHub Advisory'>GHSA</a> <a class='link-safe' href='https://data.safetycli.com/v/86909/eda' target='_blank' rel='noopener' title='Safety Advisory'>Safe</a></td><td class='small summary-cell col-summary' title='Affected versions of the Flask package are vulnerable to Information Disclosure due to missing cache-variation headers when the session object is accessed via certain code paths. In Flask’s session handling, accessing flask.session is intended to set a Vary: Cookie response header, but session key-only access patterns (such as using the Python in operator to test for a key without reading or mutating session values) can bypass the logic that adds the header.'>Affected versions of the Flask package are vulnerable to Information Disclosure due to missing cache-variation headers when the session object is accessed via certain code paths. In Flask’s session handling, accessing fl...</td><td><button type='button' onclick="toggleAdvanced('row-5')">Advanced</button></td></tr>
+<tr class='detail-row' data-parent-id='row-5' style='display:none;'><td colspan='11'><div class='detail-block'><div class='detail-line'><strong>Transitive:</strong> False</div><div class='detail-line'><strong>Ignored Reason:</strong> -</div><div class='detail-line'><strong>Ignored Expires:</strong> -</div><div class='detail-line'><strong>Analyzed Requirement:</strong> Flask==3.1.2</div><div class='detail-line'><strong>Requirement Source:</strong> C:\Users\uzi\Downloads\projects\PKI\requirements.txt</div><div class='detail-line'><strong>Vulnerable Spec:</strong> &lt;3.1.3</div><div class='detail-line'><strong>All Vulnerable Specs:</strong> &lt;3.1.3</div><div class='detail-line'><strong>CVSS Base Score:</strong> 5.4</div><div class='detail-line'><strong>CVSS Vector:</strong> AV:N/AC:L/PR:L/UI:R/S:C/C:L/I:L/A:N</div><div class='detail-line'><strong>Affected Versions:</strong> 63 total | 3.1.2, 3.1.1, 3.1.0, 3.0.3, 3.0.2, 3.0.1, 3.0.0, 2.3.3, 2.3.2, 2.3.1, 2.3.0, 2.2.5, ...</div></div></td></tr>
+<tr class='main-row' data-row-id='row-6' data-expanded='no' data-severity='high' data-severity-rank='3' data-ignored='yes'><td>ldap3</td><td></td><td>35053</td><td>-</td><td><span class='chip'>High</span></td><td>2021-Apr-14</td><td>2.4</td><td>Ignored</td><td class='links col-links'><a class='link-pyup' href='https://pyup.io/v/35053/eda' target='_blank' rel='noopener' title='PyUp Reference'>PyUp</a> <a class='link-pypi' href='https://pypi.org/project/ldap3' target='_blank' rel='noopener' title='PyPI Package Page'>PyPI</a> <a class='link-pyup' href='https://pyup.io/changelogs/ldap3/' target='_blank' rel='noopener' title='PyUp Reference'>PyUp</a> <a class='link-safe' href='https://data.safetycli.com/v/35053/eda' target='_blank' rel='noopener' title='Safety Advisory'>Safe</a></td><td class='small summary-cell col-summary' title='Ldap3 2.4 includes a security fix in the rebind() method of the Connection object. A correct bind followed by a rebind with empty password completed the binding correctly.
+https://github.com/cannatag/ldap3/issues/393'>Ldap3 2.4 includes a security fix in the rebind() method of the Connection object. A correct bind followed by a rebind with empty password completed the binding correctly. https://github.com/cannatag/ldap3/issues/393</td><td><button type='button' onclick="toggleAdvanced('row-6')">Advanced</button></td></tr>
+<tr class='detail-row' data-parent-id='row-6' style='display:none;'><td colspan='11'><div class='detail-block'><div class='detail-line'><strong>Transitive:</strong> False</div><div class='detail-line'><strong>Ignored Reason:</strong> This vulnerability is being ignored due to the &#x27;ignore-unpinned-requirements&#x27; flag (default True). To change this, set &#x27;ignore-unpinned-requirements&#x27; to False under &#x27;security&#x27; in your policy file. See https://docs.pyup.io/docs/safety-20-policy-file for more information.</div><div class='detail-line'><strong>Ignored Expires:</strong> -</div><div class='detail-line'><strong>Analyzed Requirement:</strong> ldap3</div><div class='detail-line'><strong>Requirement Source:</strong> C:\Users\uzi\Downloads\projects\PKI\requirements.txt</div><div class='detail-line'><strong>Vulnerable Spec:</strong> &lt;2.4</div><div class='detail-line'><strong>All Vulnerable Specs:</strong> &lt;2.4</div><div class='detail-line'><strong>CVSS Base Score:</strong> 7.5</div><div class='detail-line'><strong>CVSS Vector:</strong> CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N</div><div class='detail-line'><strong>Affected Versions:</strong> 19 total | 2.3, 2.2.4, 2.2.3, 2.2.2, 2.2.1, 2.2.0, 2.1.1, 2.1.0, 2.0.9, 1.4.0, 1.3.3, 1.3.1, ...</div></div></td></tr>
+    </tbody>
+  </table>
+  <div class="legend">
+    <strong>Links Legend:</strong>
+    <span class="chip link-cve">CVE</span> Official CVE Record
+    <span class="chip link-ghsa">GHSA</span> GitHub Advisory
+    <span class="chip link-commit">Commit</span> Upstream commit
+    <span class="chip link-pyup">PyUp</span> PyUp reference
+    <span class="chip link-pypi">PyPI</span> Package page/changelog
+    <span class="chip link-mitre">MITRE</span> MITRE CVE page
+    <span class="chip link-ref">Ref</span> Other reference
+    <span class="chip link-safe">Safe</span> Safety Advisory
+  </div>
+
+  <h2>Remediations</h2>
+  <table id="remTable">
+    <thead>
+      <tr>
+        <th>Package</th>
+        <th>Current Spec</th>
+        <th>Recommended</th>
+        <th>Other Options</th>
+        <th>More Info</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>hvac</td><td>==2.1.0</td><td>2.3.0</td><td>2.4.0</td><td><a href='https://data.safetycli.com/p/pypi/hvac/eda/?from=2.1.0&amp;to=2.3.0' target='_blank' rel='noopener'>Link</a></td></tr>
+<tr><td>werkzeug</td><td>==3.1.5</td><td>3.1.6</td><td>-</td><td><a href='https://data.safetycli.com/p/pypi/werkzeug/eda/?from=3.1.5&amp;to=3.1.6' target='_blank' rel='noopener'>Link</a></td></tr>
+<tr><td>cryptography</td><td>==46.0.3</td><td>46.0.5</td><td>-</td><td><a href='https://data.safetycli.com/p/pypi/cryptography/eda/?from=46.0.3&amp;to=46.0.5' target='_blank' rel='noopener'>Link</a></td></tr>
+<tr><td>flask</td><td>==3.1.2</td><td>3.1.3</td><td>-</td><td><a href='https://data.safetycli.com/p/pypi/flask/eda/?from=3.1.2&amp;to=3.1.3' target='_blank' rel='noopener'>Link</a></td></tr>
+    </tbody>
+  </table>
+
+<script>
+  let sortDirections = {};
+  let currentPage = 1;
+  let pageSize = 10;
+  let filteredMainRows = [];
+
+  function allMainRows() {
+    return Array.from(document.querySelectorAll('#vulnTable tbody tr.main-row'));
+  }
+
+  function allDetailRows() {
+    return Array.from(document.querySelectorAll('#vulnTable tbody tr.detail-row'));
+  }
+
+  function applyFilter(resetPage = true) {
+    const input = document.getElementById('filterInput').value.toLowerCase();
+    const sev = document.getElementById('severitySelect').value.toLowerCase();
+    const ignored = document.getElementById('ignoredSelect').value.toLowerCase();
+    const rows = allMainRows();
+    filteredMainRows = rows.filter(row => {
+      const text = row.textContent.toLowerCase();
+      const rowSev = (row.getAttribute('data-severity') || 'unreported').toLowerCase();
+      const rowIgnored = (row.getAttribute('data-ignored') || 'no').toLowerCase();
+      const okText = text.indexOf(input) > -1;
+      const okSev = !sev || rowSev === sev;
+      const okIgnored = !ignored || rowIgnored === ignored;
+      return okText && okSev && okIgnored;
+    });
+    document.getElementById('resultCount').textContent = 'Matched ' + filteredMainRows.length + ' rows';
+    if (resetPage) currentPage = 1;
+    renderPage();
+  }
+
+  function renderPage() {
+    const total = filteredMainRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    currentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+
+    allMainRows().forEach(r => r.style.display = 'none');
+    allDetailRows().forEach(r => r.style.display = 'none');
+
+    filteredMainRows.slice(start, end).forEach(main => {
+      main.style.display = '';
+      const rowId = main.getAttribute('data-row-id');
+      if (main.getAttribute('data-expanded') === 'yes') {
+        const detail = document.querySelector('#vulnTable tbody tr.detail-row[data-parent-id="' + rowId + '"]');
+        if (detail) detail.style.display = '';
+      }
+    });
+
+    const shownStart = total === 0 ? 0 : start + 1;
+    const shownEnd = Math.min(end, total);
+    document.getElementById('pageInfo').textContent = 'Page ' + currentPage + '/' + totalPages + ' | Showing ' + shownStart + '-' + shownEnd;
+  }
+
+  function sortTable(i) {
+    const tbody = document.querySelector('#vulnTable tbody');
+    const mains = allMainRows();
+    const asc = sortDirections[i] !== 'asc';
+    sortDirections[i] = asc ? 'asc' : 'desc';
+
+    mains.sort((a, b) => {
+      const aText = a.cells[i].textContent.trim().toLowerCase();
+      const bText = b.cells[i].textContent.trim().toLowerCase();
+      if (i === 4) {
+        const aRank = parseInt(a.getAttribute('data-severity-rank') || '0', 10);
+        const bRank = parseInt(b.getAttribute('data-severity-rank') || '0', 10);
+        return asc ? aRank - bRank : bRank - aRank;
+      }
+      if (aText < bText) return asc ? -1 : 1;
+      if (aText > bText) return asc ? 1 : -1;
+      return 0;
+    });
+
+    mains.forEach(main => {
+      const rid = main.getAttribute('data-row-id');
+      const detail = document.querySelector('#vulnTable tbody tr.detail-row[data-parent-id="' + rid + '"]');
+      tbody.appendChild(main);
+      if (detail) tbody.appendChild(detail);
+    });
+    applyFilter(false);
+  }
+
+  function toggleAdvanced(rowId) {
+    const main = document.querySelector('#vulnTable tbody tr.main-row[data-row-id="' + rowId + '"]');
+    const detail = document.querySelector('#vulnTable tbody tr.detail-row[data-parent-id="' + rowId + '"]');
+    if (!main || !detail) return;
+    const isExpanded = main.getAttribute('data-expanded') === 'yes';
+    main.setAttribute('data-expanded', isExpanded ? 'no' : 'yes');
+    if (main.style.display !== 'none') {
+      detail.style.display = isExpanded ? 'none' : '';
+    }
+  }
+
+  function changePageSize() {
+    pageSize = parseInt(document.getElementById('pageSizeSelect').value, 10) || 10;
+    applyFilter(true);
+  }
+  function nextPage() { currentPage += 1; renderPage(); }
+  function previousPage() { currentPage -= 1; renderPage(); }
+  document.addEventListener('DOMContentLoaded', () => applyFilter(true));
+</script>
+</body>
+</html>

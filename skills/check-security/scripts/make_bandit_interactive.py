@@ -188,6 +188,7 @@ def main():
     parser.add_argument('-o', '--output', required=True)
     parser.add_argument('-t', '--generated-at', default='')
     parser.add_argument('-v', '--version', default='')
+    parser.add_argument('--scanner-version', default='')
     args = parser.parse_args()
 
     src = Path(args.input)
@@ -211,7 +212,9 @@ def main():
 
     generated_at = args.generated_at or 'unknown'
     version = args.version or 'unknown'
-    meta = f"Source: bandit-report.json | Generated at: {generated_at} | Version: {version}"
+    scanner_version = args.scanner_version.strip() if args.scanner_version else ""
+    scanner_meta = f" | Scanner: {scanner_version}" if scanner_version else ""
+    meta = f"Source: bandit-report.json | Generated at: {generated_at} | Version: {version}{scanner_meta}"
     html = build_html(rows).replace('__ROWS__', json.dumps(rows)).replace('__META__', meta)
     Path(args.output).write_text(html, encoding='utf-8')
 

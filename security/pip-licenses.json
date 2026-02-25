@@ -1,5 +1,10 @@
 ﻿[
   {
+    "License": "BSD License",
+    "Name": "Authlib",
+    "Version": "1.6.8"
+  },
+  {
     "License": "Apache-2.0",
     "Name": "CacheControl",
     "Version": "0.14.4"
@@ -53,6 +58,21 @@
     "License": "BSD-3-Clause",
     "Name": "Werkzeug",
     "Version": "3.1.5"
+  },
+  {
+    "License": "MIT",
+    "Name": "annotated-doc",
+    "Version": "0.0.4"
+  },
+  {
+    "License": "MIT License",
+    "Name": "annotated-types",
+    "Version": "0.7.0"
+  },
+  {
+    "License": "MIT",
+    "Name": "anyio",
+    "Version": "4.12.1"
   },
   {
     "License": "MIT License",
@@ -115,6 +135,11 @@
     "Version": "0.7.1"
   },
   {
+    "License": "MIT License",
+    "Name": "dparse",
+    "Version": "0.6.4"
+  },
+  {
     "License": "Unlicense",
     "Name": "filelock",
     "Version": "3.20.3"
@@ -123,6 +148,21 @@
     "License": "MIT AND Python-2.0",
     "Name": "greenlet",
     "Version": "3.2.4"
+  },
+  {
+    "License": "MIT License",
+    "Name": "h11",
+    "Version": "0.16.0"
+  },
+  {
+    "License": "BSD-3-Clause",
+    "Name": "httpcore",
+    "Version": "1.0.9"
+  },
+  {
+    "License": "BSD License",
+    "Name": "httpx",
+    "Version": "0.28.1"
   },
   {
     "License": "Apache Software License",
@@ -145,6 +185,11 @@
     "Version": "2.2.0"
   },
   {
+    "License": "BSD-3-Clause",
+    "Name": "joblib",
+    "Version": "1.5.3"
+  },
+  {
     "License": "GNU Lesser General Public License v3 (LGPLv3)",
     "Name": "ldap3",
     "Version": "2.9.1"
@@ -161,6 +206,11 @@
   },
   {
     "License": "MIT License",
+    "Name": "marshmallow",
+    "Version": "4.2.2"
+  },
+  {
+    "License": "MIT License",
     "Name": "mdurl",
     "Version": "0.1.2"
   },
@@ -168,6 +218,11 @@
     "License": "Apache-2.0",
     "Name": "msgpack",
     "Version": "1.1.2"
+  },
+  {
+    "License": "Apache Software License",
+    "Name": "nltk",
+    "Version": "3.9.3"
   },
   {
     "License": "MIT License",
@@ -226,6 +281,16 @@
   },
   {
     "License": "MIT",
+    "Name": "pydantic",
+    "Version": "2.12.5"
+  },
+  {
+    "License": "MIT",
+    "Name": "pydantic_core",
+    "Version": "2.41.5"
+  },
+  {
+    "License": "MIT",
     "Name": "pyparsing",
     "Version": "3.3.2"
   },
@@ -250,6 +315,11 @@
     "Version": "2025.2"
   },
   {
+    "License": "Apache-2.0 AND CNRI-Python",
+    "Name": "regex",
+    "Version": "2026.2.19"
+  },
+  {
     "License": "Apache Software License",
     "Name": "requests",
     "Version": "2.32.5"
@@ -258,6 +328,26 @@
     "License": "MIT License",
     "Name": "rich",
     "Version": "14.3.2"
+  },
+  {
+    "License": "MIT License",
+    "Name": "ruamel.yaml",
+    "Version": "0.19.1"
+  },
+  {
+    "License": "MIT",
+    "Name": "safety",
+    "Version": "3.7.0"
+  },
+  {
+    "License": "MIT License",
+    "Name": "safety-schemas",
+    "Version": "0.0.16"
+  },
+  {
+    "License": "ISC License (ISCL)",
+    "Name": "shellingham",
+    "Version": "1.5.4"
   },
   {
     "License": "Apache Software License",
@@ -270,6 +360,11 @@
     "Version": "5.6.0"
   },
   {
+    "License": "Apache Software License",
+    "Name": "tenacity",
+    "Version": "9.1.4"
+  },
+  {
     "License": "MIT",
     "Name": "tomli",
     "Version": "2.4.0"
@@ -278,6 +373,26 @@
     "License": "MIT License",
     "Name": "tomli_w",
     "Version": "1.2.0"
+  },
+  {
+    "License": "MIT License",
+    "Name": "tomlkit",
+    "Version": "0.14.0"
+  },
+  {
+    "License": "MPL-2.0 AND MIT",
+    "Name": "tqdm",
+    "Version": "4.67.3"
+  },
+  {
+    "License": "MIT",
+    "Name": "typer",
+    "Version": "0.24.1"
+  },
+  {
+    "License": "MIT",
+    "Name": "typing-inspection",
+    "Version": "0.4.2"
   },
   {
     "License": "PSF-2.0",
